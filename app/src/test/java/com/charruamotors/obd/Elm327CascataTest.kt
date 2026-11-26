@@ -374,6 +374,18 @@ class Elm327CascataTest {
     }
 
     @Test
+    fun `limpeza OBD2 com 7F 04 22 orienta desligar o motor e 44 confirma`() = runTest {
+        val recusa = cliente(EcuSimulada(ecuPadrao().apply { put("04", "7F 04 22\r7F0422\r\r") }))
+        recusa.conectar(dispositivo)
+        val msg = recusa.limparCodigosFalha().exceptionOrNull()!!.message!!
+        assertTrue(msg, "NRC 22" in msg && "meia-chave" in msg)
+
+        val aceita = cliente(EcuSimulada(ecuPadrao().apply { put("04", "44\r\r") }))
+        aceita.conectar(dispositivo)
+        assertTrue(aceita.limparCodigosFalha().isSuccess)
+    }
+
+    @Test
     fun `NO DATA no 0100 passa pela camada 2 e entra no modo 21 em CAN 11 bits`() = runTest {
         val t = EcuSimulada(sw4().apply { put("0100", "SEARCHING...\rNO DATA\r\r") })
         val obd = cliente(t)

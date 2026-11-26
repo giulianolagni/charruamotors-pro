@@ -120,6 +120,7 @@ Toque em “Novo veículo” para começar.</string>
     <string name="obd_limpar_titulo">Limpar códigos de falha?</string>
     <string name="obd_limpar_mensagem">Os códigos serão apagados da memória da ECU e a luz de injeção pode voltar a acender se o problema persistir. Anote-os antes de continuar.</string>
     <string name="obd_limpar_confirmar">Limpar</string>
+    <string name="obd_limpar_motor_ligado">⚠ Motor ligado: desligue o motor e deixe só a ignição ligada (meia-chave) antes de continuar.</string>
 
     <!-- Painel de telemetria -->
     <string name="obd_sensor_extremos">Mín %1$s · Máx %2$s</string>

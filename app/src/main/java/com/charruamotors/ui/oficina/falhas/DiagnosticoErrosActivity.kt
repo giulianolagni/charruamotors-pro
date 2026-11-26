@@ -82,9 +82,13 @@ class DiagnosticoErrosActivity : AppCompatActivity(), FerramentaManualObd {
     }
 
     private fun confirmarLimpeza() {
+        val mensagem = listOfNotNull(
+            getString(R.string.obd_limpar_mensagem),
+            getString(R.string.obd_limpar_motor_ligado).takeIf { viewModel.motorLigado },
+        ).joinToString("\n\n")
         MaterialAlertDialogBuilder(this)
             .setTitle(R.string.obd_limpar_titulo)
-            .setMessage(R.string.obd_limpar_mensagem)
+            .setMessage(mensagem)
             .setNegativeButton(R.string.botao_cancelar, null)
             .setPositiveButton(R.string.obd_limpar_confirmar) { _, _ -> viewModel.limparCodigos() }
             .show()

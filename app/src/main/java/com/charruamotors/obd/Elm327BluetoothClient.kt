@@ -846,12 +846,27 @@ class Elm327BluetoothClient(
         }
         val (r, bruto) = ultimo!!
         ObdParser.respostaNegativa(bruto, servico)?.let { nrc ->
+            // Só no OBD2 padrão; os modos 21/22 mantêm a mensagem do catálogo.
+            if (modo == null) {
+                val motivo = motivoRecusaLimpezaObd2(nrc)
+                registro.evento("Limpeza 04 recusada pela ECU (7F 04 $nrc, ${ObdParser.descricaoNrc(nrc)}): $motivo")
+                throw ObdException(motivo)
+            }
             throw ObdException(
                 "A ECU recusou a limpeza dos códigos (7F $servico $nrc, ${ObdParser.descricaoNrc(nrc)}). " +
                     "Com o motor desligado e a ignição ligada, tente novamente",
             )
         }
         throw respostaInesperada(r, "limpar os códigos de falha", bruto)
+    }
+
+    /** Orientação ao usuário para o NRC de `7F 04 xx` (recusa do Modo 04). */
+    private fun motivoRecusaLimpezaObd2(nrc: String): String = when (nrc.uppercase()) {
+        "22" -> "A ECU recusou apagar as falhas com o motor ligado (NRC 22). Desligue o motor, deixe apenas " +
+            "a ignição ligada (meia-chave) e tente novamente."
+        "11", "12" -> "A ECU não suporta apagar falhas via OBD2 padrão (NRC 11/12)."
+        "33" -> "A ECU exige acesso de segurança para apagar falhas (NRC 33)."
+        else -> "A ECU recusou apagar as falhas (NRC ${nrc.uppercase()})."
     }
 
     // ---------------------------------------------------------------- sessão manual (Ferramentas de Oficina)
