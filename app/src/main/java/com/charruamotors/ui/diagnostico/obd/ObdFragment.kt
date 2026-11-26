@@ -60,7 +60,6 @@ import com.charruamotors.ui.painel.MontadorMostradores
 import com.charruamotors.domain.perfis.DecodificadorVin
 import com.charruamotors.domain.perfis.PerfilCambio
 import com.charruamotors.domain.perfis.PerfilIdentificado
-import com.charruamotors.domain.calculo.AlertaProtecao
 import com.charruamotors.domain.calculo.EstadoCronometro
 import com.charruamotors.domain.calculo.EstequiometriaFlex
 import com.charruamotors.domain.calculo.MetodoConsumo
@@ -492,6 +491,7 @@ class ObdFragment : Fragment() {
     }
 
     private fun observarViewModel() {
+        binding.bannerAlerta.aoSilenciar = { app.sessaoObd.silenciarAlertas() }
         // viewLifecycleOwner: a coleta acompanha a view do Fragment (para ao destruir a view).
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -508,7 +508,12 @@ class ObdFragment : Fragment() {
                         if (configPainel.mostradores.any { m -> m.sensor == SensorPainel.CONSUMO_KML }) mostrarDados(viewModel.dados.value)
                     }
                 }
-                launch { viewModel.limites.collect { app.centralAlertas.limites = it } }
+                launch {
+                    app.sessaoObd.alertas.collect {
+                        binding.bannerAlerta.mostrar(it)
+                        atualizarMostradores(viewModel.dados.value)
+                    }
+                }
                 launch { viewModel.faixas.collect { app.centralAlertas.faixas = it } }
                 launch { viewModel.cronometro.collect { mostrarCronometro(it) } }
                 launch { viewModel.grafico.collect { mostrarGrafico(it) } }
@@ -639,15 +644,20 @@ class ObdFragment : Fragment() {
     /** Os mostradores escolhidos, com o valor já convertido para a unidade global. */
     private fun mostrarDados(dados: DadosObd?) {
         com.charruamotors.direcao.painel.HistoricoSensores.registrar(dados)
-        val alertas = app.centralAlertas.processar(dados)
-        mostrarAlertas(alertas)
+        atualizarMostradores(dados)
+        atualizarBotoes()
+    }
+
+    /** Valor e destaque (faixa esperada e alerta piscante) de cada mostrador. */
+    private fun atualizarMostradores(dados: DadosObd?) {
+        val alertas = app.sessaoObd.alertas.value
         val consumoKmL = viewModel.computador.value.consumo?.kmPorLitro
         configPainel.mostradores.forEachIndexed { i, m ->
             val gauge = gauges.getOrNull(i) ?: return@forEachIndexed
-            gauge.emAlerta = m.sensor.emAlerta(alertas) || app.centralAlertas.foraDaFaixa(m.sensor.comandos, dados)
+            gauge.piscando = m.sensor.emAlerta(alertas)
+            gauge.emAlerta = gauge.piscando || app.centralAlertas.foraDaFaixa(m.sensor.comandos, dados)
             gauge.definirValor(m.sensor.ler(dados, consumoKmL)?.let { m.sensor.exibir(it, conversor).valor }?.takeIf { it.isFinite() })
         }
-        atualizarBotoes()
     }
 
     /** Modo Simulado: indicador discreto de onde vêm os dados (logs reais deste veículo ou simulação sintética). */
@@ -665,14 +675,6 @@ class ObdFragment : Fragment() {
         cardPerfilAutomatico.isVisible = perfil != null
         if (perfil != null) {
             textoPerfilAutomatico.text = getString(R.string.obd_perfil_automatico, perfil.preset.titulo, perfil.origem.rotulo)
-        }
-    }
-
-    /** Faixa vermelha no topo dos blocos enquanto algum limite do veículo (água, ATF, alternador) está ultrapassado. */
-    private fun mostrarAlertas(alertas: List<AlertaProtecao>) = with(binding) {
-        textoAlertasProtecao.isVisible = alertas.isNotEmpty()
-        if (alertas.isNotEmpty()) {
-            textoAlertasProtecao.text = getString(R.string.alerta_painel_titulo, alertas.joinToString(" · ") { it.tipo.texto })
         }
     }
 

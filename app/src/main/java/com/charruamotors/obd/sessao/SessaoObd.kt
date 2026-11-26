@@ -3,6 +3,11 @@ package com.charruamotors.obd.sessao
 import com.charruamotors.domain.calculo.AlavancaGmTcm
 import com.charruamotors.carros.PerfilCarro
 import com.charruamotors.direcao.hud.TelemetriaCompartilhada
+import com.charruamotors.domain.alertas.AvaliacaoAlertas
+import com.charruamotors.domain.alertas.ConfigAlertas
+import com.charruamotors.domain.alertas.EstadoAlertas
+import com.charruamotors.domain.alertas.MonitorAlertasCriticos
+import com.charruamotors.domain.alertas.NivelAlerta
 import com.charruamotors.domain.calculo.CambioA750f
 import com.charruamotors.domain.calculo.EstequiometriaFlex
 import com.charruamotors.domain.calculo.EstimadorCambioA750f
@@ -233,6 +238,12 @@ class SessaoObd(
     private val modeloAprendidoDe: suspend (Long) -> ModeloAprendido? = { null },
     /** v2.2.4: CSV de uma sessão **real** (nunca simulada) fechado para o `veiculoId`; alimenta o aprendizado. */
     private val aoSalvarLogReal: suspend (veiculoId: Long, csv: ArquivoLogSalvo) -> Unit = { _, _ -> },
+    /** v2.4.0: alertas do perfil isolado de `veiculoId` (0 = sessão sem veículo: os padrões). */
+    private val configAlertas: (veiculoId: Long) -> ConfigAlertas = { ConfigAlertas() },
+    /** v2.4.0: toca o alarme (canal e volume vêm da configuração do veículo). */
+    private val tocarAlarme: (NivelAlerta, ConfigAlertas) -> Unit = { _, _ -> },
+    /** v2.4.0: cala o alarme que estiver tocando (botão Silenciar e fim da sessão). */
+    private val pararAlarme: () -> Unit = {},
 ) {
     private val _modo = MutableStateFlow(modoInicial)
     val modo: StateFlow<ModoObd> = _modo.asStateFlow()
@@ -280,6 +291,57 @@ class SessaoObd(
 
     private val _eventos = MutableSharedFlow<EventoSessao>(extraBufferCapacity = 16, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     val eventos: SharedFlow<EventoSessao> = _eventos.asSharedFlow()
+
+    private val monitorAlertas = MonitorAlertasCriticos()
+
+    private val _alertas = MutableStateFlow(EstadoAlertas())
+
+    /** v2.4.0: alertas críticos em vigor (Painel, Cluster, HUD e a notificação da sessão). */
+    val alertas: StateFlow<EstadoAlertas> = _alertas.asStateFlow()
+
+    /** Botão "Silenciar 5 min": cala o bipe dos alertas em vigor, mantendo o destaque visual. */
+    fun silenciarAlertas() {
+        if (!_alertas.value.podeSilenciar) return
+        pararAlarme()
+        _alertas.value = monitorAlertas.silenciar(relogio())
+        registrarEvento("Alertas silenciados por 5 minutos pelo usuário")
+    }
+
+    /** O perfil do carro mudou (tela de alertas): vale na hora, sem reconectar. */
+    fun recarregarConfigAlertas() {
+        if (!_sessao.value.ativa) return
+        monitorAlertas.config = configAlertas(if (veiculoAtual != null) veiculoIdSessao else 0)
+        publicarAlertas(monitorAlertas.avaliar(relogio()))
+    }
+
+    private fun publicarAlertas(avaliacao: AvaliacaoAlertas) {
+        _alertas.value = avaliacao.estado
+        // O prefixo `ALERTA ` leva a entrada ao resumo do relatório da sessão.
+        avaliacao.entradas.forEach { registrarEvento("ALERTA ${it.texto}") }
+        avaliacao.som?.let { nivel -> runCatching { tocarAlarme(nivel, monitorAlertas.config) } }
+    }
+
+    /** Repetição do bipe, silêncio, comunicação perdida e o `0101` periódico do alerta de falha nova. */
+    private fun CoroutineScope.vigiarAlertas(cli: ObdClient) {
+        launch {
+            while (true) {
+                delay(INTERVALO_ALERTAS_MS)
+                if (cli.sessaoManualAtiva.value) monitorAlertas.pausarComunicacao(relogio())
+                publicarAlertas(monitorAlertas.avaliar(relogio()))
+            }
+        }
+        launch(io) {
+            delay(PRIMEIRA_LEITURA_MIL_MS)
+            while (true) {
+                if (monitorAlertas.config.dtcAtivo) {
+                    runCatching { cli.lerStatusMil() }.getOrNull()?.let {
+                        publicarAlertas(monitorAlertas.observarMil(it.milAcesa, it.quantidadeDtcs, relogio()))
+                    }
+                }
+                delay(if (monitorAlertas.dtcEmConfirmacao) CONFIRMACAO_MIL_MS else INTERVALO_MIL_MS)
+            }
+        }
+    }
 
     /** v2.3.1: amostras recentes e mínimo/máximo da sessão (Todos os Sensores e Gráficos). Zera a cada sessão. */
     val historico = HistoricoSessao()
@@ -484,6 +546,8 @@ class SessaoObd(
         val inicioMs = relogio()
         veiculoIdSessao = veiculoId
         historico.limpar()
+        monitorAlertas.reiniciar()
+        _alertas.value = EstadoAlertas()
         sessaoSimulada = _modo.value == ModoObd.SIMULADO
         var conectou = false
         var motivoFim = "Sessão encerrada"
@@ -493,6 +557,7 @@ class SessaoObd(
             marcaAtual = veiculo?.marca
             marcaMontadoraAtual = veiculo?.marcaMontadora
             veiculoAtual = veiculo
+            monitorAlertas.config = configAlertas(if (veiculo != null) veiculoId else 0)
             _cambioAtivo.value = veiculo?.cambio
             estimadorCambio.reiniciar()
             combustivelAtual = veiculo?.combustivel
@@ -557,11 +622,16 @@ class SessaoObd(
 
     /** Conectado: telemetria, VIN, perfil → CSV → DTCs, até o cliente sair de `Conectado`. Devolve o motivo do fim. */
     private suspend fun acompanharConexao(cli: ObdClient, veiculo: VeiculoSessao?, g: GravadorLogsSessao?): String = coroutineScope {
+        vigiarAlertas(cli)
         launch(io) {
             // MAF em todos os combustíveis: o diesel também estima o consumo por ele (v1.7).
             cli.lerTelemetria(consumoPorMaf = true)
                 .catch { e -> g?.evento("Telemetria interrompida: ${e.message}", relogio()) }
-                .collect { dados -> receberAmostra(dados, g) }
+                .collect { dados ->
+                    receberAmostra(dados, g)
+                    publicarAlertas(monitorAlertas.processar(dados.valores, dados.frescos, relogio()))
+                    cli.definirPidsEmConfirmacao(monitorAlertas.chavesEmConfirmacao)
+                }
         }
         if (g != null && config().logCompletoTrafego) {
             // Log bruto: cada mudança de estado do Bluetooth/ELM327 fica registrada com o instante.
@@ -774,6 +844,16 @@ class SessaoObd(
         perfilIgnorado = false
         mapPicoKpa = null
         telemetria.publicar(null, conectado = false)
+        pararAlarme()
+        cli.definirPidsEmConfirmacao(emptySet())
+        // Regra opcional: a conexão caiu sozinha (nem o usuário nem o Bluetooth do carro pediram).
+        val config = monitorAlertas.config
+        if (conectou && motivoPedido == null && config.comunicacaoAtiva) {
+            g?.evento("ALERTA ATENÇÃO · SEM COMUNICAÇÃO: $motivo", relogio())
+            runCatching { tocarAlarme(NivelAlerta.ATENCAO, config) }
+        }
+        monitorAlertas.reiniciar()
+        _alertas.value = EstadoAlertas()
         if (g != null) {
             g.evento("Encerrada: $motivo", relogio())
             cli.observarRegistro(null)
@@ -831,6 +911,10 @@ class SessaoObd(
 
     companion object {
         const val MOTIVO_USUARIO = "Desconectado pelo usuário"
+        private const val INTERVALO_ALERTAS_MS = 1_000L
+        private const val PRIMEIRA_LEITURA_MIL_MS = 8_000L
+        private const val INTERVALO_MIL_MS = 30_000L
+        private const val CONFIRMACAO_MIL_MS = 3_000L
 
         /**
          * Mescla os valores calculados pelo app ao instantâneo: a relação A/F real

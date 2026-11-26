@@ -329,7 +329,7 @@ Toque em “Novo abastecimento” para começar.</string>
     <string name="hud_voltar_app">Fechar o HUD e voltar ao Charrua OBD Pro</string>
     <string name="hud_status_ao_vivo">● OBD AO VIVO</string>
     <string name="hud_status_desconectado">○ SEM CONEXÃO OBD</string>
-    <string name="hud_status_alerta">▲ MOTOR QUENTE</string>
+    <string name="hud_status_alerta">▲ ALERTA</string>
 
     <!-- v2.2.4: indicador do Modo Simulado -->
     <plurals name="simulado_fonte_logs_reais">

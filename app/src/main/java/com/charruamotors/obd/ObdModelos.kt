@@ -29,7 +29,14 @@ interface ValoresSensores {
 }
 
 /** Instantâneo dos sensores lidos em um ciclo de polling (qualquer PID do catálogo). */
-data class DadosObd(override val valores: Map<String, Double> = emptyMap()) : ValoresSensores {
+data class DadosObd(
+    override val valores: Map<String, Double> = emptyMap(),
+    /**
+     * v2.4.0: chaves lidas **neste** ciclo (as demais são o último valor conhecido, retido da fila
+     * lenta); null = o cliente não distingue e todas contam como novas.
+     */
+    val frescos: Set<String>? = null,
+) : ValoresSensores {
     /** Converte para a entidade persistida no histórico do veículo. */
     fun paraLeitura(veiculoId: Long, dataHora: LocalDateTime = LocalDateTime.now()) = LeituraObd(
         veiculoId = veiculoId,

@@ -21,6 +21,7 @@ import com.charruamotors.direcao.desempenho.FonteVelocidade
 import com.charruamotors.direcao.painel.ClusterPainel
 import com.charruamotors.direcao.painel.EstiloMostrador
 import com.charruamotors.direcao.painel.SensorPainel
+import com.charruamotors.domain.calculo.LimitesProtecao
 import com.charruamotors.obd.DadosObd
 import com.charruamotors.sistema.unidades.ConversorUnidades
 import com.charruamotors.ui.componentes.GaugeView
@@ -78,8 +79,16 @@ class ClusterPainelActivity : AppCompatActivity() {
             }
         })
 
+        binding.bannerAlerta.aoSilenciar = { app.sessaoObd.silenciarAlertas() }
+
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    app.sessaoObd.alertas.collect {
+                        binding.bannerAlerta.mostrar(it)
+                        desenhar(conversor)
+                    }
+                }
                 launch {
                     combine(
                         app.telemetriaCompartilhada.cronometro.estado,
@@ -161,11 +170,12 @@ class ClusterPainelActivity : AppCompatActivity() {
         binding.gaugeRpm.definirValor(valorExibido(SensorPainel.RPM))
         binding.gaugeVelocidade.definirValor(valorExibido(SensorPainel.VELOCIDADE))
 
-        // Limites do veículo: o som toca uma vez ao entrar em alerta; as bolinhas e o aviso ficam vermelhos.
-        val alertas = app.centralAlertas.processar(dados)
+        // v2.4.0: o monitor da sessão decide os alertas; as bolinhas correspondentes piscam.
+        val alertas = app.sessaoObd.alertas.value
         bolinhas.forEachIndexed { i, gauge ->
             val sensor = ClusterPainel.sensorDaBolinha(i, escolhidos[i], dados)
-            gauge.emAlerta = sensor.emAlerta(alertas) || app.centralAlertas.foraDaFaixa(sensor.comandos, dados)
+            gauge.piscando = sensor.emAlerta(alertas)
+            gauge.emAlerta = gauge.piscando || app.centralAlertas.foraDaFaixa(sensor.comandos, dados)
             if (sensor != exibidos[i] || mudouConversor) {
                 exibidos[i] = sensor
                 MontadorMostradores.configurarGauge(gauge, sensor, EstiloMostrador.DIGITAL, conversor, app.sessaoObd.cambioAtivo.value)
@@ -177,7 +187,8 @@ class ClusterPainelActivity : AppCompatActivity() {
         binding.textoMarcha.text = marcha.principal
         binding.textoLegendaMarcha.text = marcha.legenda.orEmpty()
         binding.textoVelocidade.text = SensorPainel.VELOCIDADE.texto(SensorPainel.VELOCIDADE.ler(dados), conversor)
-        binding.textoAlertas.text = ClusterPainel.alertas(dados, app.centralAlertas.limites).joinToString("  ·  ") { it.texto }
+        // Água, ATF e alternador saem no banner; aqui ficam só os avisos fixos (óleo e bateria).
+        binding.textoAlertas.text = ClusterPainel.alertas(dados, SEM_LIMITES_DE_PROTECAO).joinToString("  ·  ") { it.texto }
     }
 
     private fun valorExibido(sensor: SensorPainel): Double? =
@@ -213,6 +224,8 @@ class ClusterPainelActivity : AppCompatActivity() {
             val prefs = contexto.getSharedPreferences(PREFS_LEGADO, Context.MODE_PRIVATE)
             return List(com.charruamotors.direcao.painel.ClusterPainel.BOLINHAS) { i -> SensorPainel.deCodigo(prefs.getString("bolinha$i", null)) }
         }
+        private val SEM_LIMITES_DE_PROTECAO =
+            LimitesProtecao(aguaMaxC = Double.MAX_VALUE, atfMaxC = Double.MAX_VALUE, tensaoMinV = 0.0)
         private const val TAG_PADDING_BASE = 0x7F0C0001
 
         /** O cluster está na tela (evita abri-lo duas vezes). */

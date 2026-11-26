@@ -109,6 +109,18 @@ interface ObdClient {
      */
     suspend fun sondarEcu(sondarTcm: Boolean): ImpressaoEcu = ImpressaoEcu.VAZIA
 
+    /**
+     * v2.4.0: luz de injeção e quantidade de DTCs (`0101`) para o alerta de falha nova. Null = não
+     * disponível nesta conexão (modos 21/22), sem resposta ou cliente sem suporte. Nunca lança.
+     */
+    suspend fun lerStatusMil(): StatusProntidao? = null
+
+    /**
+     * v2.4.0: PIDs padrão com um alerta em confirmação; a telemetria os lê em todo ciclo até a
+     * lista esvaziar. Clientes sem fila (ou nos modos 21/22) ignoram.
+     */
+    fun definirPidsEmConfirmacao(comandos: Set<String>) = Unit
+
     /** Limpa os códigos de falha (modo 04). A UI deve sempre pedir confirmação antes. */
     suspend fun limparCodigosFalha(): Result<Unit>
 

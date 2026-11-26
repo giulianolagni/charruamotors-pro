@@ -21,6 +21,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 /**
@@ -43,6 +44,11 @@ class ObdSessaoService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACAO_SILENCIAR) {
+            sessao.silenciarAlertas()
+            if (!emPrimeiroPlano) stopSelf()
+            return START_NOT_STICKY
+        }
         if (intent?.action == ACAO_DESCONECTAR) {
             sessao.desconectar()
             if (!emPrimeiroPlano) stopSelf()
@@ -85,7 +91,8 @@ class ObdSessaoService : Service() {
         observando = true
         escopo.launch {
             var viuAtiva = false
-            sessao.estadoSessao.collect { estado ->
+            // Os alertas entram na mesma coleta: a notificação mostra o aviso com a tela bloqueada.
+            sessao.estadoSessao.combine(sessao.alertas) { estado, _ -> estado }.collect { estado ->
                 if (estado.ativa) {
                     viuAtiva = true
                     atualizarNotificacao(estado)
@@ -120,9 +127,10 @@ class ObdSessaoService : Service() {
     }
 
     private fun atualizarNotificacao(estado: EstadoSessao) {
-        val texto = textoStatus(estado)
-        if (texto == ultimoTexto) return
-        ultimoTexto = texto
+        val alertas = sessao.alertas.value
+        val chave = "${textoStatus(estado)}|${alertas.texto}|${alertas.podeSilenciar}"
+        if (chave == ultimoTexto) return
+        ultimoTexto = chave
         runCatching { getSystemService(NotificationManager::class.java)?.notify(ID_NOTIFICACAO, criarNotificacao(estado)) }
     }
 
@@ -140,10 +148,25 @@ class ObdSessaoService : Service() {
         val abrirApp = HudFlutuanteService.intentVoltarAoApp(this)?.let {
             PendingIntent.getActivity(this, REQ_ABRIR, it, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         }
+        val alertas = sessao.alertas.value
+        val alerta = alertas.principal
+        val silenciar = PendingIntent.getService(
+            this,
+            REQ_SILENCIAR,
+            Intent(this, ObdSessaoService::class.java).setAction(ACAO_SILENCIAR),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
         return NotificationCompat.Builder(this, CANAL)
             .setSmallIcon(R.drawable.ic_caixa_preta)
-            .setContentTitle(getString(R.string.sessao_notificacao_titulo))
+            .setContentTitle(alerta?.texto ?: getString(R.string.sessao_notificacao_titulo))
             .setContentText(textoStatus(estado))
+            .apply {
+                if (alerta != null) {
+                    setColor(ContextCompat.getColor(this@ObdSessaoService, R.color.status_pendente))
+                    setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                    if (alertas.podeSilenciar) addAction(R.drawable.ic_fechar, getString(R.string.alerta_silenciar), silenciar)
+                }
+            }
             .setOngoing(true)
             .setSilent(true)
             .setOnlyAlertOnce(true)
@@ -165,6 +188,8 @@ class ObdSessaoService : Service() {
         private const val REQ_DESCONECTAR = 1
         private const val REQ_ABRIR = 2
         private const val REQ_INICIAR = 3
+        private const val REQ_SILENCIAR = 4
+        const val ACAO_SILENCIAR = "com.charruamotors.sessao.SILENCIAR"
         const val ACAO_AUTOMATICA = "com.charruamotors.sessao.AUTOMATICA"
         const val ACAO_DESCONECTAR = "com.charruamotors.sessao.DESCONECTAR"
         const val EXTRA_GATILHO = "gatilho"

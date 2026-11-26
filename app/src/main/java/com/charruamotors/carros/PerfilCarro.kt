@@ -4,6 +4,7 @@ import com.charruamotors.direcao.desempenho.RecordeDesempenho
 import com.charruamotors.direcao.painel.ClusterPainel
 import com.charruamotors.direcao.painel.ConfigPainel
 import com.charruamotors.direcao.painel.SensorPainel
+import com.charruamotors.domain.alertas.ConfigAlertas
 import com.charruamotors.domain.calculo.LimitesProtecao
 import com.charruamotors.domain.faixas.FaixasVeiculo
 import com.charruamotors.domain.faixas.NivelPerfil
@@ -59,6 +60,8 @@ data class PerfilCarro(
     val favoritosGraficos: List<String> = emptyList(),
     /** Melhores 0–60 / 0–100 deste veículo. */
     val recorde: RecordeDesempenho = RecordeDesempenho(),
+    /** v2.4.0: alertas sonoros e visuais (regras, limites, canal e volume) só deste veículo. */
+    val alertas: ConfigAlertas = ConfigAlertas(),
 ) {
     /** Carro sem perfil específico, no OBD2 genérico (sem PIDs da SW4, do Cruze ou de outra montadora). */
     val obd2Generico: Boolean get() = perfilFaixasId == OBD2_GENERICO

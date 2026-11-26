@@ -389,20 +389,13 @@ TCM        7E1"
 
         <!-- Blocos do Painel: o ObdFragment mostra, esconde e reposiciona os filhos conforme
              "Personalizar Painel" -->
-        <!-- Alertas de proteção (água, ATF, alternador): vermelho enquanto algum limite estiver ultrapassado -->
-        <TextView
-            android:id="@+id/texto_alertas_protecao"
+        <!-- v2.4.0: alertas críticos (vermelho piscante) com "Silenciar 5 min" -->
+        <com.charruamotors.ui.componentes.BannerAlertaView
+            android:id="@+id/banner_alerta"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/espaco_pequeno"
-            android:background="@drawable/fundo_alerta_protecao"
-            android:gravity="center"
-            android:padding="@dimen/espaco_pequeno"
-            android:textAppearance="?attr/textAppearanceTitleSmall"
-            android:textColor="@android:color/white"
-            android:visibility="gone"
-            tools:text="Atenção: ÁGUA QUENTE"
-            tools:visibility="visible" />
+            android:visibility="gone" />
 
         <LinearLayout
             android:id="@+id/container_secoes"

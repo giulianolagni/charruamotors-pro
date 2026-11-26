@@ -1,5 +1,6 @@
 package com.charruamotors.ui.componentes
 
+import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
@@ -68,6 +69,26 @@ class GaugeView @JvmOverloads constructor(
             field = v
             invalidate()
         }
+
+    /** v2.4.0: alerta crítico/atenção do monitor: o mostrador fica vermelho e pisca. */
+    var piscando: Boolean = false
+        set(v) {
+            if (v == field) return
+            field = v
+            piscar?.cancel()
+            piscar = null
+            alpha = 1f
+            if (v) {
+                piscar = ObjectAnimator.ofFloat(this, View.ALPHA, 1f, 0.35f).apply {
+                    duration = DURACAO_PISCA_MS
+                    repeatMode = ValueAnimator.REVERSE
+                    repeatCount = ValueAnimator.INFINITE
+                    start()
+                }
+            }
+        }
+
+    private var piscar: ObjectAnimator? = null
 
     /** Valor exibido; null = sem leitura (ponteiro no mínimo e "—" no centro). */
     var valor: Float? = null
@@ -176,6 +197,7 @@ class GaugeView @JvmOverloads constructor(
     }
 
     override fun onDetachedFromWindow() {
+        piscando = false
         animador?.cancel()
         super.onDetachedFromWindow()
     }
@@ -434,6 +456,7 @@ class GaugeView @JvmOverloads constructor(
          * Curta e linear: a agulha chega ao valor lido bem antes da próxima leitura da fila rápida
          * (~100–200 ms no ELM327), sem o "arrasto" de uma desaceleração longa.
          */
+        private const val DURACAO_PISCA_MS = 450L
         private const val DURACAO_ANIMACAO_MS = 90L
         private val INTERPOLADOR = LinearInterpolator()
         private const val TAMANHO_PADRAO_DP = 160

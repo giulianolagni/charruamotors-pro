@@ -14,7 +14,6 @@ import com.charruamotors.data.repository.DiagnosticoRepository
 import com.charruamotors.direcao.desempenho.FonteVelocidade
 import com.charruamotors.direcao.desempenho.SeletorVelocidade
 import com.charruamotors.domain.calculo.ComputadorBordo
-import com.charruamotors.domain.calculo.LimitesProtecao
 import com.charruamotors.domain.calculo.Cronometro0a100
 import com.charruamotors.domain.calculo.EstadoCronometro
 import com.charruamotors.domain.calculo.ParametrosMotor
@@ -210,10 +209,6 @@ class ObdViewModel(
     /** Veículo do diagnóstico, carregado uma vez (marca, modelo e combustível). */
     private val dadosVeiculo = viewModelScope.async { runCatching { veiculo() }.getOrNull() }
 
-    private val _limites = MutableStateFlow(LimitesProtecao())
-
-    /** Limites de alerta do veículo (água, ATF, alternador); padrão até o veículo carregar. */
-    val limites: StateFlow<LimitesProtecao> = _limites.asStateFlow()
 
     private val _faixas = MutableStateFlow(FaixasVeiculo.genericas(null))
     /** Faixas mínimas/máximas esperadas do veículo (preset SW4/Cruze ou as genéricas do cadastro). */
@@ -244,7 +239,6 @@ class ObdViewModel(
         viewModelScope.launch {
             val v = dadosVeiculo.await()
             parametrosMotor = ParametrosMotor.deVeiculo(v?.modelo, v?.tipoCombustivel, v?.calibracaoConsumo ?: 1.0)
-            _limites.value = LimitesProtecao.deVeiculo(v)
             _faixas.value = FaixasVeiculo.paraVeiculo(v)
             _computador.value = _computador.value.copy(motor = parametrosMotor)
             // O favorito (veículo da caixa-preta) só muda pela estrela em Meus Veículos; aqui ele é

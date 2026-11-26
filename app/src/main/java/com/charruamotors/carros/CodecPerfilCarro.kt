@@ -4,6 +4,7 @@ import com.charruamotors.direcao.desempenho.RecordeDesempenho
 import com.charruamotors.direcao.painel.ClusterPainel
 import com.charruamotors.direcao.painel.CodecPainel
 import com.charruamotors.direcao.painel.SensorPainel
+import com.charruamotors.domain.alertas.ConfigAlertas
 
 /**
  * Chaves de um [PerfilCarro] dentro do escopo `carro.<id>.` (v2.3.0). O Painel/HUD usa as mesmas
@@ -26,6 +27,7 @@ object CodecPerfilCarro {
     const val FAVORITOS_GRAFICOS = "favoritos_graficos"
     const val RECORDE_060 = "recorde_060"
     const val RECORDE_0100 = "recorde_0100"
+    const val ALERTAS = "alertas"
 
     /** Bolinha do Cluster sem escolha (padrão/automático). */
     private const val BOLINHA_PADRAO = "-"
@@ -34,7 +36,7 @@ object CodecPerfilCarro {
     /** Chaves próprias do perfil (sem as do Painel). */
     val CHAVES_PERFIL = listOf(
         SCHEMA, CLUSTER, PERFIL_FAIXAS, PERFIL_CAMBIO, CAMADA, GATILHO_NOME, GATILHO_ENDERECO,
-        FAVORITOS_GRAFICOS, RECORDE_060, RECORDE_0100,
+        FAVORITOS_GRAFICOS, RECORDE_060, RECORDE_0100, ALERTAS,
     )
 
     /** Campos do perfil (sem o Painel); null = chave removida. */
@@ -49,6 +51,7 @@ object CodecPerfilCarro {
         FAVORITOS_GRAFICOS to p.favoritosGraficos.takeIf { it.isNotEmpty() }?.joinToString(SEPARADOR),
         RECORDE_060 to p.recorde.melhor060?.toString(),
         RECORDE_0100 to p.recorde.melhor0100?.toString(),
+        ALERTAS to p.alertas.codificar(),
     )
 
     /** Perfil completo (Painel + campos), pronto para o [com.charruamotors.sistema.preferencias.ArmazenamentoChaveValor.gravar]. */
@@ -69,6 +72,7 @@ object CodecPerfilCarro {
         gatilhoEndereco = ler(GATILHO_ENDERECO)?.trim()?.takeIf { it.isNotEmpty() },
         favoritosGraficos = ler(FAVORITOS_GRAFICOS).orEmpty().split(SEPARADOR).map { it.trim() }.filter { it.isNotEmpty() }.distinct(),
         recorde = RecordeDesempenho(tempo(ler(RECORDE_060)), tempo(ler(RECORDE_0100))),
+        alertas = ConfigAlertas.decodificar(ler(ALERTAS)),
     )
 
     /** Sempre [ClusterPainel.BOLINHAS] posições; nomes desconhecidos viram o padrão. */
