@@ -70,6 +70,9 @@ class DiagnosticoErrosViewModel(
         viewModelScope.launch { estado.drop(1).collect { if (it !is EstadoConexaoObd.Conectado) _diagnostico.value = null } }
     }
 
+    /** A última telemetria indica o motor girando (muitas ECUs recusam a limpeza assim). */
+    val motorLigado: Boolean get() = (sessao.dados.value?.rpm ?: 0) > 0
+
     fun lerCodigos() = executar { lerDiagnostico(anunciar = true) }
 
     /**
