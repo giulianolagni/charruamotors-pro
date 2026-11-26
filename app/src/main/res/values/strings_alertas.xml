@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v2.4.0: alertas sonoros e visuais das leituras críticas. -->
+<resources>
+    <string name="alerta_silenciar">Silenciar 5 min</string>
+    <string name="alertas_titulo">Alertas críticos</string>
+    <string name="alertas_veiculo">%1$s · estes limites valem só para este carro</string>
+    <string name="alertas_sem_veiculo">Selecione um carro em Meus Carros para configurar os alertas</string>
+    <string name="alertas_agua">Temperatura da água</string>
+    <string name="alertas_atf">Temperatura do câmbio (ATF)</string>
+    <string name="alertas_atf_dica">Só nos veículos em que o app lê o ATF</string>
+    <string name="alertas_atencao">Atenção a partir de (°C)</string>
+    <string name="alertas_critico">Crítico a partir de (°C)</string>
+    <string name="alertas_tensao">Bateria / alternador (motor ligado)</string>
+    <string name="alertas_tensao_min">Mínimo (V)</string>
+    <string name="alertas_tensao_max">Máximo (V)</string>
+    <string name="alertas_dtc">Falha nova / luz de injeção (MIL)</string>
+    <string name="alertas_dtc_dica">Pela leitura 0101 do OBD2 padrão; indisponível nos modos 21/22 (ex.: SW4 em Modo 21)</string>
+    <string name="alertas_comunicacao">Perda prolongada de comunicação (aviso suave)</string>
+    <string name="alertas_audio">Áudio</string>
+    <string name="alertas_volume">Volume do bipe: %1$d%% (relativo ao volume do canal no celular)</string>
+    <string name="alertas_testar_atencao">Testar Atenção</string>
+    <string name="alertas_testar_critico">Testar Alarme</string>
+    <string name="alertas_salvar">Salvar</string>
+    <string name="alertas_padroes">Restaurar padrões</string>
+    <string name="alertas_salvo">Alertas salvos</string>
+    <string name="alertas_campo_invalido">Preencha todos os limites com números</string>
+    <string name="alertas_abrir">Alertas críticos do carro ativo</string>
+    <string name="carros_acao_alertas">Alertas críticos</string>
+</resources>

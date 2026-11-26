@@ -73,9 +73,8 @@ Vale a partir da próxima conexão (há uma sessão em andamento).</string>
     <string name="personalizar_atalhos_ordem">Ordem dos atalhos: arraste pela alça (≡). O X esconde o atalho.</string>
     <string name="maps_erro">Não foi possível abrir o Google Maps</string>
     <string name="spotify_erro">Não foi possível abrir o Spotify</string>
-    <string name="alerta_painel_titulo">Atenção: %1$s</string>
     <string name="veiculo_alertas_titulo">Alertas de proteção</string>
-    <string name="veiculo_alertas_dica">O Painel fica vermelho e toca um aviso discreto quando um limite é ultrapassado. Vazio = padrão.</string>
+    <string name="veiculo_alertas_dica">Usados nas faixas esperadas e no relatório da sessão. O alarme sonoro tem limites próprios em Meus Carros → Alertas críticos. Vazio = padrão.</string>
     <string name="campo_limite_agua">Temp. máx. da água (padrão 98)</string>
     <string name="campo_limite_atf">Temp. máx. do câmbio ATF (padrão 105)</string>
     <string name="campo_limite_tensao">Tensão mín. do alternador, motor acima de 600 rpm (padrão 13,2)</string>

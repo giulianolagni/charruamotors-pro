@@ -509,6 +509,13 @@
                         android:text="@string/config_refazer_assistente" />
 
                     <com.google.android.material.button.MaterialButton
+                        android:id="@+id/botao_alertas"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/alertas_abrir" />
+
+                    <com.google.android.material.button.MaterialButton
                         android:id="@+id/botao_checklist"
                         style="@style/Widget.Material3.Button.OutlinedButton"
                         android:layout_width="match_parent"

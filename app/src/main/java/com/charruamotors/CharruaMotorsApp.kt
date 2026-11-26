@@ -29,10 +29,10 @@ import com.charruamotors.direcao.desempenho.CronometroDesempenho
 import com.charruamotors.direcao.desempenho.RecordesDesempenho
 import com.charruamotors.direcao.hud.TelemetriaCompartilhada
 import com.charruamotors.domain.calculo.CentralAlertas
-import com.charruamotors.domain.calculo.TipoAlertaProtecao
+import com.charruamotors.domain.alertas.ConfigAlertas
 import com.charruamotors.domain.perfis.CarregadorPerfis
 import com.charruamotors.domain.perfis.FontePerfis
-import com.charruamotors.ui.util.SomAlerta
+import com.charruamotors.sistema.audio.AlarmeSonoro
 import com.charruamotors.direcao.painel.PreferenciasPainel
 import com.charruamotors.obd.Elm327BluetoothClient
 import com.charruamotors.obd.ModoObd
@@ -273,18 +273,11 @@ class CharruaMotorsApp : Application() {
     /** Veículo da sessão em curso ou, sem ela, o carro ativo: o dono dos recordes. */
     fun chaveRecorde(): Long = sessaoObd.estadoSessao.value.veiculoId.takeIf { it > 0 } ?: perfisCarro.veiculoAtivo.value
 
-    /** Alertas de proteção (água, ATF, alternador) com o aviso sonoro; os limites vêm do veículo ativo. */
-    val centralAlertas: CentralAlertas by lazy { 
-        CentralAlertas(som = SomAlerta::tocar).also { central ->
-            central.aoEntrarEmAlerta = { a ->
-                val unidade = if (a.tipo == TipoAlertaProtecao.TENSAO) "V" else "°C"
-                val sinal = if (a.tipo == TipoAlertaProtecao.TENSAO) "<" else "≥"
-                sessaoObd.registrarEvento("ALERTA ${a.tipo.texto}: ${a.valor} $unidade ($sinal limite ${a.limite} $unidade) às ${horaAlerta()}")
-            }
-        }
-    }
+    /** Faixas esperadas do veículo ativo (destaque dos mostradores). Os alertas sonoros são da [sessaoObd]. */
+    val centralAlertas: CentralAlertas by lazy { CentralAlertas() }
 
-    private fun horaAlerta(): String = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.ROOT).format(java.util.Date())
+    /** v2.4.0: bipes dos alertas críticos, abaixando a música do carro enquanto tocam. */
+    val alarmeSonoro: AlarmeSonoro by lazy { AlarmeSonoro(this) }
 
     /** Salva os logs CSV do Data Logger em Downloads. */
     val exportadorCsv: ExportadorCsv by lazy { ExportadorCsv(this) }
@@ -415,8 +408,13 @@ class CharruaMotorsApp : Application() {
             velocidadeGps = { velocidadeGps.velocidadeKmh() },
             modeloAprendidoDe = { id -> aprendizLogs.atualizar(id) },
             aoSalvarLogReal = { id, csv -> if (indiceLogsReais.registrar(id, csv.nome, csv.uri, simulado = false)) aprendizLogs.atualizar(id) },
+            configAlertas = { id -> if (id > 0) perfisCarro.ler(id).alertas else ConfigAlertas() },
+            tocarAlarme = { nivel, config -> alarmeSonoro.tocar(nivel, config) },
+            pararAlarme = { alarmeSonoro.parar() },
         ).also { sessao ->
             val escopo = escopoDoApp()
+            // v2.4.0: limites editados valem na sessão em curso.
+            escopo.launch { perfisCarro.alteracoes.drop(1).collect { sessao.recarregarConfigAlertas() } }
             escopo.launch {
                 sessao.estadoSessao.map { it.fase == FaseSessao.Conectada }
                     .combine(preferenciasApp.config.map { it.velocidadeGps }) { conectada, gps -> conectada && gps }

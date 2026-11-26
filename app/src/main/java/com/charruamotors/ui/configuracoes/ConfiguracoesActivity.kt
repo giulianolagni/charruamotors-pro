@@ -29,6 +29,7 @@ import com.charruamotors.sistema.unidades.SistemaUnidades
 import com.charruamotors.sistema.unidades.UnidadeConsumo
 import com.charruamotors.sistema.unidades.UnidadePressao
 import com.charruamotors.BuildConfig
+import com.charruamotors.ui.alertas.ConfigAlertasActivity
 import com.charruamotors.ui.assistente.AssistenteActivity
 import com.charruamotors.ui.atualizacao.AtualizadorApp
 import com.charruamotors.ui.permissoes.ChecklistPermissoesActivity
@@ -86,6 +87,7 @@ class ConfiguracoesActivity : AppCompatActivity() {
             prefsApp.reiniciarAssistente()
             startActivity(AssistenteActivity.intent(this))
         }
+        binding.botaoAlertas.setOnClickListener { startActivity(ConfigAlertasActivity.intent(this)) }
         binding.botaoChecklist.setOnClickListener { startActivity(ChecklistPermissoesActivity.intent(this)) }
         binding.textoVersaoInstalada.text = getString(R.string.config_atualizacoes_descricao, BuildConfig.VERSION_NAME)
         binding.botaoVerificarAtualizacoes.setOnClickListener { atualizador.verificarManualmente() }

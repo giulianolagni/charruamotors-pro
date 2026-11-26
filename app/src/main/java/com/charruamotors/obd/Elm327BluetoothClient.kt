@@ -168,6 +168,13 @@ class Elm327BluetoothClient(
         servicoPreferido = servico?.trim()?.uppercase()?.takeIf { it.isNotEmpty() }
     }
 
+    /** v2.4.0: PIDs padrão com um alerta em confirmação (lidos na fila rápida enquanto durar). */
+    @Volatile private var pidsEmConfirmacao: Set<String> = emptySet()
+
+    override fun definirPidsEmConfirmacao(comandos: Set<String>) {
+        pidsEmConfirmacao = comandos
+    }
+
     /** Cabeçalho do adaptador quando a sessão manual começou (restaurado no fim). */
     @Volatile private var cabecalhoEntradaManual: String? = null
 
@@ -428,7 +435,10 @@ class Elm327BluetoothClient(
             // Relido a cada ciclo: um perfil de montadora pode ser ativado com o polling já rodando.
             escalonador.atualizarSuportados(_pidsSuportados.value, ::grupoDe)
             // Com o lote ativo, o pedal vai junto no mesmo comando (arco PED do HUD fluido); sem ele, volta à fila lenta.
-            escalonador.trocarCandidatosRapidos(if (usaLoteMultiPid) rapidos + Pids.PEDAL_ACELERADOR else rapidos)
+            val base = if (usaLoteMultiPid) rapidos + Pids.PEDAL_ACELERADOR else rapidos
+            // v2.4.0: só no OBD2 padrão; os modos 21/22 e os PIDs de montadora seguem na cadência de sempre.
+            val confirmar = if (modoServico == null) pidsEmConfirmacao.filter { it !in definicoesEstendidas } else emptyList()
+            escalonador.trocarCandidatosRapidos((base + confirmar).distinct())
             val ciclo = try {
                 cicloForaDaSessaoManual { lerChaves(escalonador.proximoCiclo()) } ?: continue
             } catch (e: CancellationException) {
@@ -444,7 +454,7 @@ class Elm327BluetoothClient(
                 perderConexao(sessao, mensagemEcuMuda(ciclo.ultimoErro))
                 break
             }
-            emit(DadosObd(escalonador.consolidar(ciclo.consultados, ciclo.lidos)))
+            emit(DadosObd(escalonador.consolidar(ciclo.consultados, ciclo.lidos), frescos = ciclo.lidos.keys.toSet()))
             val decorridoMs = (System.nanoTime() - inicioNs) / 1_000_000
             delay((intervaloMinimoMs - decorridoMs).coerceAtLeast(INTERVALO_MINIMO_ENTRE_CICLOS_MS))
         }
@@ -784,6 +794,25 @@ class Elm327BluetoothClient(
                 perderConexao(canal, "Conexão Bluetooth com o scanner perdida")
                 throw ObdException("Conexão com o scanner perdida", e)
             }
+        }
+    }
+
+    /**
+     * v2.4.0: `0101` entre dois ciclos do polling, só no OBD2 padrão (nada é enviado nos modos 21/22).
+     * Com mais de um módulo respondendo (CAN), vale o de luz acesa / mais códigos.
+     */
+    override suspend fun lerStatusMil(): StatusProntidao? = withContext(dispatcher) {
+        if (_estado.value != EstadoConexaoObd.Conectado || modoServico != null) return@withContext null
+        try {
+            mutexCiclo.withLock {
+                if (_sessaoManual.value || modoServico != null) return@withLock null
+                val bruto = sondar("0101", cabecalhoDiagnostico) ?: return@withLock null
+                bruto.split('\r', '\n')
+                    .mapNotNull { (ObdParser.parseProntidao(it, null) as? RespostaObd.Ok)?.valor }
+                    .maxWithOrNull(compareBy<StatusProntidao>({ it.milAcesa }, { it.quantidadeDtcs }))
+            }
+        } catch (e: ObdException) {
+            null
         }
     }
 

@@ -283,7 +283,8 @@ class ObdClientFake(
             escalonador.atualizarSuportados(_pidsSuportados.value)
             val chaves = escalonador.proximoCiclo()
             val leitura = proximaLeitura(passoMs / 1000.0)
-            emit(DadosObd(escalonador.consolidar(chaves, leitura.filterKeys { it in chaves })))
+            val lidos = leitura.filterKeys { it in chaves }
+            emit(DadosObd(escalonador.consolidar(chaves, lidos), frescos = lidos.keys.toSet()))
             delay(passoMs)
         }
     }
@@ -313,6 +314,13 @@ class ObdClientFake(
     }
 
     override suspend fun lerCodigosFalha(): Result<List<DtcLido>> = lerDtcs { codigos }
+
+    /** Luz acesa enquanto o simulador tiver códigos armazenados. */
+    override suspend fun lerStatusMil(): StatusProntidao? {
+        if (_estado.value != EstadoConexaoObd.Conectado) return null
+        val quantidade = lerCodigosFalha().getOrNull()?.size ?: return null
+        return StatusProntidao(milAcesa = quantidade > 0, quantidadeDtcs = quantidade, diesel = false, monitores = emptyList())
+    }
 
     override suspend fun lerCodigosPendentes(): Result<List<DtcLido>> = lerDtcs { codigosPendentes }
 

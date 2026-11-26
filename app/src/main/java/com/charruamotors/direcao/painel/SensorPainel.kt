@@ -1,5 +1,7 @@
 package com.charruamotors.direcao.painel
 
+import com.charruamotors.domain.alertas.EstadoAlertas
+import com.charruamotors.domain.alertas.RegraAlerta
 import com.charruamotors.domain.calculo.AlavancaGmTcm
 import com.charruamotors.domain.calculo.AlertaProtecao
 import com.charruamotors.domain.calculo.CambioA750f
@@ -261,6 +263,17 @@ enum class SensorPainel(
             TENSAO -> TipoAlertaProtecao.TENSAO
             else -> null
         }
+
+    /** v2.4.0: regra do monitor de alertas que este sensor evidencia (piscando em vermelho). */
+    val regraDeAlerta: RegraAlerta?
+        get() = when (alertaDeProtecao) {
+            TipoAlertaProtecao.AGUA -> RegraAlerta.TEMP_AGUA
+            TipoAlertaProtecao.ATF -> RegraAlerta.TEMP_ATF
+            TipoAlertaProtecao.TENSAO -> RegraAlerta.TENSAO
+            null -> null
+        }
+
+    fun emAlerta(estado: EstadoAlertas): Boolean = regraDeAlerta?.let { estado.de(it) != null } ?: false
 
     /** O mostrador deste sensor fica vermelho com estes [alertas] ativos? */
     fun emAlerta(alertas: Collection<AlertaProtecao>): Boolean = alertaDeProtecao?.let { t -> alertas.any { it.tipo == t } } ?: false

@@ -37,7 +37,9 @@ import com.charruamotors.direcao.painel.TamanhoHud
 import com.charruamotors.direcao.painel.TamanhoHudEsportivo
 import com.charruamotors.direcao.waze.AbridorWaze
 import com.charruamotors.direcao.waze.AcaoWaze
+import com.charruamotors.domain.alertas.EstadoAlertas
 import com.charruamotors.obd.DadosObd
+import com.charruamotors.ui.componentes.BannerAlertaView
 import com.charruamotors.ui.componentes.HudEsportivoView
 import com.charruamotors.ui.util.definirTexto
 import kotlinx.coroutines.CoroutineScope
@@ -78,6 +80,11 @@ class HudFlutuanteService : Service() {
     /** Visual na tela agora (null antes da primeira janela). */
     private var presetAtual: PresetHud? = null
 
+    /** v2.4.0: a janela é este container (banner de alerta em cima, visual escolhido embaixo). */
+    private var janela: LinearLayout? = null
+    private var banner: BannerAlertaView? = null
+    private var alertas = EstadoAlertas()
+
     /** Último painel padrão recebido, para redesenhar ao voltar do esportivo. */
     private var ultimoPainel: PainelHud? = null
 
@@ -96,6 +103,7 @@ class HudFlutuanteService : Service() {
         }
         telemetria.definirHudAtivo(true)
         escopo.launch { telemetria.painel.collect(::desenhar) }
+        escopo.launch { app.sessaoObd.alertas.collect(::mostrarAlertas) }
         escopo.launch {
             app.preferenciasPainel.config.map { it.hud.preset }.distinctUntilChanged().collect(::aplicarPreset)
         }
@@ -117,7 +125,9 @@ class HudFlutuanteService : Service() {
     override fun onDestroy() {
         telemetria.definirHudAtivo(false)
         escopo.cancel()
-        viewAtual()?.let { v -> runCatching { gerenciadorJanelas?.removeView(v) } }
+        janela?.let { v -> runCatching { gerenciadorJanelas?.removeView(v) } }
+        janela = null
+        banner = null
         binding = null
         esportiva = null
         presetAtual = null
@@ -214,14 +224,22 @@ class HudFlutuanteService : Service() {
         habilitarArraste(esportivo)
         val preset = app.preferenciasPainel.config.value.hud.preset
         esportivo.larguraDp = app.preferenciasPainel.config.value.hud.tamanhoEsportivo.larguraDp
-        if (preset == PresetHud.ESPORTIVO) p.width = WindowManager.LayoutParams.WRAP_CONTENT
+        val aviso = BannerAlertaView(this).apply { aoSilenciar = { app.sessaoObd.silenciarAlertas() } }
+        habilitarArraste(aviso)
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(aviso, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+            addView(if (preset == PresetHud.ESPORTIVO) esportivo else b.root, parametrosDoVisual(preset))
+        }
         try {
-            wm.addView(if (preset == PresetHud.ESPORTIVO) esportivo else b.root, p)
+            wm.addView(container, p)
         } catch (e: RuntimeException) {
             Log.w(TAG, "Sem permissão para desenhar sobre outros apps", e)
             return false
         }
         gerenciadorJanelas = wm
+        janela = container
+        banner = aviso
         binding = b
         esportiva = esportivo
         parametros = p
@@ -231,28 +249,37 @@ class HudFlutuanteService : Service() {
 
     private fun viewAtual(): View? = if (presetAtual == PresetHud.ESPORTIVO) esportiva else binding?.root
 
+    /** Largura própria de cada visual dentro do container (o painel padrão a ajusta em [montarCelulas]). */
+    private fun parametrosDoVisual(preset: PresetHud) = LinearLayout.LayoutParams(
+        if (preset == PresetHud.ESPORTIVO) {
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        } else {
+            resources.getDimensionPixelSize(R.dimen.largura_hud)
+        },
+        LinearLayout.LayoutParams.WRAP_CONTENT,
+    )
+
     /** Troca o visual na mesma janela (mesma posição), sem reiniciar o serviço nem a conexão. */
     private fun aplicarPreset(preset: PresetHud) {
-        val wm = gerenciadorJanelas ?: return
-        val p = parametros ?: return
+        val container = janela ?: return
         if (preset == presetAtual) return
-        viewAtual()?.let { runCatching { wm.removeView(it) } }
+        viewAtual()?.let(container::removeView)
         presetAtual = preset
         val nova = viewAtual() ?: return
+        container.addView(nova, parametrosDoVisual(preset))
         if (preset == PresetHud.ESPORTIVO) {
-            p.width = WindowManager.LayoutParams.WRAP_CONTENT
             desenharEsportivo(telemetria.dados.value, telemetria.conectado.value)
         } else {
             assinatura = null // refaz as células e a largura do painel padrão
+            ultimoPainel?.let(::desenhar)
         }
-        try {
-            wm.addView(nova, p)
-        } catch (e: RuntimeException) {
-            Log.w(TAG, "Não foi possível trocar o visual do HUD", e)
-            stopSelf()
-            return
-        }
-        if (preset == PresetHud.PADRAO) ultimoPainel?.let(::desenhar)
+    }
+
+    /** v2.4.0: banner piscante com o sensor e o valor; o painel padrão também fica vermelho. */
+    private fun mostrarAlertas(estado: EstadoAlertas) {
+        alertas = estado
+        banner?.mostrar(estado)
+        ultimoPainel?.let(::desenhar)
     }
 
     /** Aplica na hora o tamanho P/M/G do Esportivo (a janela é WRAP_CONTENT: remede ao mudar a View). */
@@ -297,7 +324,7 @@ class HudFlutuanteService : Service() {
                         p.y = (inicioY + dy).toInt().coerceAtLeast(0)
                         posicaoX = p.x
                         posicaoY = p.y
-                        runCatching { gerenciadorJanelas?.updateViewLayout(alvo, p) }
+                        janela?.let { runCatching { gerenciadorJanelas?.updateViewLayout(it, p) } }
                     }
                     true
                 }
@@ -335,17 +362,17 @@ class HudFlutuanteService : Service() {
             if (painel.estilo == EstiloHud.BARRAS) {
                 c.barraCelula.setProgressCompat(((celula.fracao ?: 0f) * 1000).toInt(), false)
             }
-            val quente = painel.alertaTemperatura && celula.sensor == SensorPainel.TEMP_MOTOR
+            val quente = celula.sensor.emAlerta(alertas)
             c.valorCelula.setTextColor(ContextCompat.getColor(this, if (quente) R.color.branco else R.color.hud_valor))
         }
         b.textoHudStatus.setText(
             when {
                 !painel.conectado -> R.string.hud_status_desconectado
-                painel.alertaTemperatura -> R.string.hud_status_alerta
+                alertas.ativos.isNotEmpty() -> R.string.hud_status_alerta
                 else -> R.string.hud_status_ao_vivo
             },
         )
-        b.root.setBackgroundResource(if (painel.alertaTemperatura) R.drawable.fundo_hud_alerta else R.drawable.fundo_hud)
+        b.root.setBackgroundResource(if (alertas.ativos.isNotEmpty()) R.drawable.fundo_hud_alerta else R.drawable.fundo_hud)
     }
 
     /**
@@ -378,10 +405,7 @@ class HudFlutuanteService : Service() {
             painel.estilo == EstiloHud.NUMEROS_GRANDES -> LARGURA_GRANDE_DP
             else -> LARGURA_EXPANDIDO_DP
         }
-        parametros?.let { p ->
-            p.width = (larguraDp * resources.displayMetrics.density).toInt()
-            runCatching { gerenciadorJanelas?.updateViewLayout(b.root, p) }
-        }
+        b.root.layoutParams = b.root.layoutParams.apply { width = (larguraDp * resources.displayMetrics.density).toInt() }
     }
 
     companion object {
