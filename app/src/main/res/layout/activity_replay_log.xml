@@ -216,6 +216,13 @@
                 android:text="@string/replay_dica_gestos"
                 android:textAppearance="?attr/textAppearanceBodySmall"
                 android:textColor="@color/texto_secundario" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/botao_gerar_laudo"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/laudo_gerar" />
         </LinearLayout>
     </FrameLayout>
 </LinearLayout>

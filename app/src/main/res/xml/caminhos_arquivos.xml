@@ -11,4 +11,8 @@
     <cache-path
         name="atualizacoes"
         path="updates/" />
+    <!-- Laudos técnicos em PDF (fora do backup do sistema: levam VIN e placa). -->
+    <cache-path
+        name="laudos"
+        path="laudos/" />
 </paths>

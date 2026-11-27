@@ -9,6 +9,8 @@ import android.provider.MediaStore
 import android.provider.OpenableColumns
 import androidx.annotation.RequiresApi
 import androidx.core.content.FileProvider
+import com.charruamotors.laudo.DadosLaudo
+import com.charruamotors.laudo.LaudoDeLog
 import com.charruamotors.obd.log.ItemLog
 import com.charruamotors.obd.log.OrganizadorLogs
 import com.charruamotors.oficina.replay.LeitorCsvLog
@@ -114,6 +116,24 @@ class RepositorioLogsCsv(context: Context) {
             }
             TextoLog(String(buffer, 0, lidos), truncado = lidos == limiteCaracteres && leitor.read() >= 0)
         }
+    }
+
+    /**
+     * v2.7.0: instantâneo para o laudo de um log salvo. O relatório `.txt` da sessão (o próprio
+     * arquivo ou o par do CSV, de mesmo nome) é a fonte completa; sem ele, só as colunas do CSV.
+     * Null = `.txt` que não é um relatório do app.
+     */
+    suspend fun dadosDoLaudo(uri: Uri, nome: String, emitidoEmMs: Long): DadosLaudo? = withContext(Dispatchers.IO) {
+        if (nome.endsWith(".txt", ignoreCase = true)) return@withContext lerRelatorio(uri, nome, emitidoEmMs)
+        val par = nome.substringBeforeLast('.') + ".txt"
+        val relatorio = listar().firstOrNull { it.nome.equals(par, ignoreCase = true) }
+        relatorio?.let { runCatching { lerRelatorio(it.uri, it.nome, emitidoEmMs) }.getOrNull() }
+            ?: LaudoDeLog.doCsv(nome, abrir(uri), emitidoEmMs)
+    }
+
+    private fun lerRelatorio(uri: Uri, nome: String, emitidoEmMs: Long): DadosLaudo? {
+        val entrada = contexto.contentResolver.openInputStream(uri) ?: throw IOException("Arquivo indisponível")
+        return entrada.bufferedReader(Charsets.UTF_8).useLines { LaudoDeLog.doRelatorio(nome, it, emitidoEmMs) }
     }
 
     /** Apaga o arquivo (MediaStore ou pasta do app). false = não foi possível (sem permissão, já removido). */

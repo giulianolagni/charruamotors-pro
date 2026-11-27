@@ -87,7 +87,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
+import java.time.Instant
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 /** Quem abriu a sessão: o botão Conectar ou o Bluetooth do carro. */
 enum class OrigemSessao { MANUAL, AUTOMATICA }
@@ -337,6 +339,16 @@ class SessaoObd(
     /** v2.4.0: alertas críticos em vigor (Painel, Cluster, HUD e a notificação da sessão). */
     val alertas: StateFlow<EstadoAlertas> = _alertas.asStateFlow()
 
+    private val disparados = mutableListOf<String>()
+
+    /** v2.7.0: alertas disparados na sessão em curso (ou na última), `HH:mm:ss · texto`, para o laudo. */
+    fun alertasDisparados(): List<String> = synchronized(disparados) { disparados.toList() }
+
+    private fun anotarDisparo(texto: String) {
+        val hora = FORMATO_HORA_ALERTA.format(Instant.ofEpochMilli(relogio()).atZone(zona))
+        synchronized(disparados) { disparados += "$hora · $texto" }
+    }
+
     /** Botão "Silenciar 5 min": cala o bipe dos alertas em vigor, mantendo o destaque visual. */
     fun silenciarAlertas() {
         if (!_alertas.value.podeSilenciar) return
@@ -355,7 +367,10 @@ class SessaoObd(
     private fun publicarAlertas(avaliacao: AvaliacaoAlertas) {
         _alertas.value = avaliacao.estado
         // O prefixo `ALERTA ` leva a entrada ao resumo do relatório da sessão.
-        avaliacao.entradas.forEach { registrarEvento("ALERTA ${it.texto}") }
+        avaliacao.entradas.forEach {
+            anotarDisparo(it.texto)
+            registrarEvento("ALERTA ${it.texto}")
+        }
         avaliacao.som?.let { nivel -> runCatching { tocarAlarme(nivel, monitorAlertas.config) } }
     }
 
@@ -712,6 +727,7 @@ class SessaoObd(
         val inicioMs = relogio()
         veiculoIdSessao = veiculoId
         historico.limpar()
+        synchronized(disparados) { disparados.clear() }
         monitorAlertas.reiniciar()
         _alertas.value = EstadoAlertas()
         sessaoSimulada = _modo.value == ModoObd.SIMULADO
@@ -1093,6 +1109,7 @@ class SessaoObd(
         private const val INTERVALO_MIL_MS = 30_000L
         private const val CONFIRMACAO_MIL_MS = 3_000L
         private const val INTERVALO_GRAVACAO_LITROS_MS = 60_000L
+        private val FORMATO_HORA_ALERTA = DateTimeFormatter.ofPattern("HH:mm:ss")
 
         /**
          * Mescla os valores calculados pelo app ao instantâneo: a relação A/F real
