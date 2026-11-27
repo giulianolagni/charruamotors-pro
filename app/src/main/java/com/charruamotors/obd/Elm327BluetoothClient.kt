@@ -175,6 +175,19 @@ class Elm327BluetoothClient(
         pidsEmConfirmacao = comandos
     }
 
+    /** v2.5.0: sensores priorizados pelas telas de inspeção; null = polling normal. */
+    @Volatile private var focoPolling: FocoPolling? = null
+
+    override fun definirFocoPolling(foco: FocoPolling?) {
+        focoPolling = foco
+    }
+
+    /** Comandos que uma lista de PIDs rápidos custa por ciclo: cada lote do Multi-PID conta como 1. */
+    private fun comandosDaFilaRapida(chaves: List<String>): Int {
+        val lotes = lotesDoCiclo(chaves, definicoesEstendidas)
+        return chaves.count { it !in lotes } + lotes.values.distinct().size
+    }
+
     /** Cabeçalho do adaptador quando a sessão manual começou (restaurado no fim). */
     @Volatile private var cabecalhoEntradaManual: String? = null
 
@@ -415,7 +428,14 @@ class Elm327BluetoothClient(
     ): Flow<DadosObd> = flow {
         val sessao = transporte ?: return@flow
         val rapidos = Pids.candidatosFilaRapida(consumoPorMaf)
-        val escalonador = EscalonadorPolling(lentosPorVez, ciclosPorLento, rapidos, CHAVES_CAMBIO)
+        val escalonador = EscalonadorPolling(
+            lentosPorVez,
+            ciclosPorLento,
+            rapidos,
+            CHAVES_CAMBIO,
+            custoDe = ::comandosDaFilaRapida,
+            exigeCabecalho = { it in definicoesEstendidas },
+        )
         var geracaoManualVista = sessoesManuaisEncerradas.get()
         var ciclosSemEcu = 0
         while (_estado.value == EstadoConexaoObd.Conectado && transporte === sessao) {
@@ -439,6 +459,10 @@ class Elm327BluetoothClient(
             // v2.4.0: só no OBD2 padrão; os modos 21/22 e os PIDs de montadora seguem na cadência de sempre.
             val confirmar = if (modoServico == null) pidsEmConfirmacao.filter { it !in definicoesEstendidas } else emptyList()
             escalonador.trocarCandidatosRapidos((base + confirmar).distinct())
+            // v2.5.0: o foco nunca vale nos modos 21/22 (a sequência de comandos da SW4 fica como está).
+            escalonador.definirFoco(
+                focoPolling?.takeIf { modoServico == null }?.let { it.copy(essenciais = it.essenciais + confirmar) },
+            )
             val ciclo = try {
                 cicloForaDaSessaoManual { lerChaves(escalonador.proximoCiclo()) } ?: continue
             } catch (e: CancellationException) {

@@ -97,12 +97,12 @@ class AnaliseReplayTest {
     // ---------------------------------------------------------------- seleção de sensores
 
     @Test
-    fun `selecao por chips aceita ate 3 sensores e recusa o quarto`() {
+    fun `selecao por chips aceita ate 4 colunas e recusa a quinta`() {
         var sel = emptyList<Int>()
-        for (i in 0..2) sel = AnaliseReplay.alternarSelecao(sel, i)!!
-        assertEquals(listOf(0, 1, 2), sel)
-        assertNull(AnaliseReplay.alternarSelecao(sel, 3))
-        assertEquals(listOf(0, 2), AnaliseReplay.alternarSelecao(sel, 1))
+        for (i in 0..3) sel = AnaliseReplay.alternarSelecao(sel, i)!!
+        assertEquals(listOf(0, 1, 2, 3), sel)
+        assertNull(AnaliseReplay.alternarSelecao(sel, 4))
+        assertEquals(listOf(0, 2, 3), AnaliseReplay.alternarSelecao(sel, 1))
         assertEquals(listOf(0, 2, 3), AnaliseReplay.alternarSelecao(listOf(0, 2), 3))
     }
 

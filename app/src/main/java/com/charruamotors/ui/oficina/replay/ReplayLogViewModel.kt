@@ -33,7 +33,7 @@ data class LogAberto(val nome: String, val log: LogCsv, val total: JanelaReplay,
 /** Resumo de um sensor selecionado: estatísticas da janela e o valor no cursor. */
 data class ResumoSerie(
     val coluna: Int,
-    /** Posição na seleção (0–2): define a cor. */
+    /** Posição na seleção (0–3): define a cor. */
     val posicao: Int,
     val definicao: ColunaLog,
     val estatistica: EstatisticaSerie?,
@@ -52,7 +52,7 @@ sealed interface EventoReplay {
 
 /**
  * Visualizador de Logs CSV: lista os logs de `Downloads/CharruaOBD`, abre um (ou outro arquivo
- * pelo seletor do sistema), guarda a seleção de até 3 sensores, a janela de tempo e o cursor
+ * pelo seletor do sistema), guarda a seleção de até 4 colunas, a janela de tempo e o cursor
  * (sobrevivem à rotação) e calcula o resumo Mínimo/Máximo/Média da janela visível.
  */
 class ReplayLogViewModel(private val repositorio: RepositorioLogsCsv) : ViewModel() {

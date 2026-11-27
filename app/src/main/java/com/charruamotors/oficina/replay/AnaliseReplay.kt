@@ -140,12 +140,15 @@ object AnaliseReplay {
      * Seleção inicial: RPM, MAP/turbo e pressão do rail (os comandos `010C`, `010B` e `0123`, ou
      * os espelhos da mesma chave), na falta deles as primeiras colunas com leitura.
      */
-    fun selecaoInicial(log: LogCsv, maximo: Int = MAX_SENSORES): List<Int> {
+    fun selecaoInicial(log: LogCsv, maximo: Int = SELECAO_INICIAL): List<Int> {
         val comDados = log.colunasComDados
         val preferidos = COMANDOS_PREFERIDOS.mapNotNull { cmd -> comDados.firstOrNull { log.colunas[it].comando == cmd } }
         return (preferidos + comDados).distinct().take(maximo)
     }
 
-    const val MAX_SENSORES = 3
+    const val MAX_SENSORES = 4
+
+    /** Colunas marcadas ao abrir um log (sobra uma vaga para escolher sem desmarcar). */
+    const val SELECAO_INICIAL = 3
     private val COMANDOS_PREFERIDOS = listOf("010C", "010B", "0123")
 }

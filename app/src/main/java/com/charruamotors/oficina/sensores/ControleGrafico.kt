@@ -26,6 +26,6 @@ class ControleGrafico {
 
     fun quadro(aoVivo: List<Amostra>, comandos: List<String>): QuadroGrafico {
         val amostras = congeladas ?: aoVivo
-        return MontadorGrafico.montar(amostras, comandos, amostras.lastOrNull()?.tMs ?: 0, janela, desdeMs)
+        return JanelaDeslizante.recortar(amostras, comandos, amostras.lastOrNull()?.tMs ?: 0, janela, desdeMs)
     }
 }

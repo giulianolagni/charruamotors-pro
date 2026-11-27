@@ -3,7 +3,10 @@ package com.charruamotors.ui.oficina.sensores
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.text.InputFilter
 import android.view.WindowManager
+import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
@@ -18,18 +21,26 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.charruamotors.CharruaMotorsApp
 import com.charruamotors.R
 import com.charruamotors.databinding.ActivityGraficosBinding
+import com.charruamotors.databinding.ItemChipFiltroBinding
 import com.charruamotors.domain.model.TipoCombustivel
 import com.charruamotors.obd.pid.DefinicaoPid
 import com.charruamotors.oficina.sensores.ControleGrafico
 import com.charruamotors.oficina.sensores.FormatadorSensor
 import com.charruamotors.oficina.sensores.JanelaTempo
+import com.charruamotors.oficina.sensores.PresetGrafico
+import com.charruamotors.oficina.sensores.PresetsGrafico
 import com.charruamotors.oficina.sensores.SelecaoGrafico
+import com.charruamotors.ui.componentes.GraficoSeriesView
 import com.charruamotors.ui.util.aplicarInsetsDoSistema
 import com.charruamotors.ui.util.comoNumero
 import com.charruamotors.ui.util.definirTexto
+import com.google.android.material.chip.Chip
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 /** Sobrevive à rotação: a pausa, o "Zerar", a janela e a seleção sem veículo ativo. */
 class GraficosViewModel : ViewModel() {
@@ -38,8 +49,10 @@ class GraficosViewModel : ViewModel() {
 }
 
 /**
- * Oficina → Gráficos em Tempo Real (v2.3.1): osciloscópio de 1 a 4 sensores da sessão, com janela de
- * 30/60/120 s, Pausar, Zerar e cursor de toque. A seleção fica no perfil do veículo ativo.
+ * Oficina → Gráficos em Tempo Real: 1 a 4 sensores da sessão em [GraficoSeriesView], com janela de
+ * 30 s, 2 min ou 5 min, Pausar, Zerar, cursor de toque (horário e valores) e presets. A seleção e os
+ * presets ficam no perfil do veículo ativo. Enquanto está na tela, o polling prioriza os sensores
+ * desenhados (v2.5.0).
  */
 class GraficosActivity : AppCompatActivity() {
 
@@ -48,8 +61,16 @@ class GraficosActivity : AppCompatActivity() {
     private val viewModel: GraficosViewModel by viewModels()
     private val veiculoAtivo: Long get() = app.perfisCarro.veiculoAtivo.value
 
-    /** Combustível do veículo ativo (decide a sugestão); null = ainda não lido ou sem veículo. */
+    /** Combustível do veículo ativo (decide as sugestões); null = ainda não lido ou sem veículo. */
     private var diesel: Boolean? = null
+
+    /** Sensores desenhados na última passada (rótulos de escala). */
+    private var desenhados: List<DefinicaoPid> = emptyList()
+
+    /** Presets desenhados nos chips, para só remontá-los quando mudarem. */
+    private var presetsNaTela: Pair<List<PresetGrafico>, List<PresetGrafico>>? = null
+
+    private val relogio = DateTimeFormatter.ofPattern("HH:mm:ss.S")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT))
@@ -66,16 +87,16 @@ class GraficosActivity : AppCompatActivity() {
         binding.grupoJanela.check(
             when (controle.janela) {
                 JanelaTempo.S30 -> R.id.botao_30s
-                JanelaTempo.S60 -> R.id.botao_60s
-                JanelaTempo.S120 -> R.id.botao_120s
+                JanelaTempo.M2 -> R.id.botao_2min
+                JanelaTempo.M5 -> R.id.botao_5min
             },
         )
         binding.grupoJanela.addOnButtonCheckedListener { _, id, marcado ->
             if (!marcado) return@addOnButtonCheckedListener
             controle.janela = when (id) {
                 R.id.botao_30s -> JanelaTempo.S30
-                R.id.botao_120s -> JanelaTempo.S120
-                else -> JanelaTempo.S60
+                R.id.botao_5min -> JanelaTempo.M5
+                else -> JanelaTempo.M2
             }
             atualizar()
         }
@@ -88,26 +109,34 @@ class GraficosActivity : AppCompatActivity() {
             atualizar()
         }
         binding.botaoSensores.setOnClickListener { escolherSensores() }
-        binding.grafico.aoMoverCursor = ::atualizar
+        binding.grafico.aoMoverCursorAoVivo = ::atualizar
+        binding.grafico.formatarCursor = ::horario
+        binding.grafico.formatarValor = { i, v ->
+            desenhados.getOrNull(i)?.let { FormatadorSensor.valor(it, v, app.preferenciasApp.config.value.conversor) }.orEmpty()
+        }
 
         lifecycleScope.launch {
             if (veiculoAtivo > 0) {
                 diesel = app.veiculoRepository.buscarPorId(veiculoAtivo)?.let { it.tipoCombustivel == TipoCombustivel.DIESEL }
             }
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                while (true) {
-                    atualizar()
-                    delay(INTERVALO_TELA_MS)
+                try {
+                    while (true) {
+                        atualizar()
+                        delay(INTERVALO_TELA_MS)
+                    }
+                } finally {
+                    // Saiu da tela: o polling volta ao normal.
+                    app.sessaoObd.liberarSensoresVisiveis(this@GraficosActivity)
                 }
             }
         }
     }
 
-    /** Sensores que responderam nesta sessão. */
-    private fun disponiveis(): List<DefinicaoPid> {
-        val responderam = app.sessaoObd.historico.estatisticas().keys
-        return app.definicoesDaSessao().filter { it.comando in responderam }
-    }
+    private fun horario(tMs: Long): String = relogio.format(Instant.ofEpochMilli(tMs).atZone(ZoneId.systemDefault()))
+
+    /** Sensores que a conexão suporta; um que ainda não respondeu passa a ser priorizado ao ser escolhido. */
+    private fun disponiveis(): List<DefinicaoPid> = app.definicoesDaSessao()
 
     private fun salvos(): List<String> =
         if (veiculoAtivo > 0) app.perfisCarro.ler(veiculoAtivo).favoritosGraficos else viewModel.selecaoSemVeiculo
@@ -119,22 +148,33 @@ class GraficosActivity : AppCompatActivity() {
 
     private fun atualizar() {
         val controle = viewModel.controle
-        val definicoes = selecionados(disponiveis())
+        val disponiveis = disponiveis()
+        val definicoes = selecionados(disponiveis)
+        desenhados = definicoes
+        val comandos = definicoes.map { it.comando }
+        if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) app.sessaoObd.definirSensoresVisiveis(this, comandos)
+        mostrarPresets(disponiveis)
+
         val conversor = app.preferenciasApp.config.value.conversor
-        val quadro = controle.quadro(app.sessaoObd.historico.amostras(), definicoes.map { it.comando })
+        val quadro = controle.quadro(if (controle.pausado) emptyList() else app.sessaoObd.historico.amostras(), comandos)
         binding.botaoPausar.setText(if (controle.pausado) R.string.graficos_retomar else R.string.graficos_pausar)
-        if (binding.grafico.manterCursor != controle.pausado) binding.grafico.manterCursor = controle.pausado
-        binding.grafico.mostrar(
-            quadro,
-            definicoes.zip(quadro.canais).map { (d, c) ->
-                FormatadorSensor.valor(d, c.minimo, conversor) to FormatadorSensor.valor(d, c.pico, conversor)
-            },
+        binding.grafico.manterCursor = controle.pausado
+        val fim = quadro.janela.fimMs
+        binding.grafico.formatarTempo = { t ->
+            val segundos = ((fim - t) / 1000.0).toInt()
+            if (segundos <= 0) getString(R.string.graficos_agora) else "-" + duracao(segundos)
+        }
+        binding.grafico.mostrarAoVivo(
+            quadro.instantes,
+            definicoes.mapIndexed { i, d -> GraficoSeriesView.Serie(d.nome, quadro.series[i], GraficoSeriesView.CORES_AO_VIVO[i]) },
+            quadro.janela,
         )
-        val leitura = binding.grafico.cursor?.let { quadro.cursor(it) }
+
+        val leitura = binding.grafico.indiceCursor?.let { quadro.leitura(it) }
         binding.textoCursor.definirTexto(
             when {
-                definicoes.isEmpty() -> getString(R.string.graficos_sem_dados)
-                leitura != null -> getString(R.string.graficos_cursor, ((quadro.fimMs - leitura.tMs) / 1000.0).comoNumero(1))
+                definicoes.isEmpty() || quadro.vazio -> getString(R.string.graficos_sem_dados)
+                leitura != null -> getString(R.string.graficos_cursor, horario(leitura.tMs), ((fim - leitura.tMs) / 1000.0).comoNumero(1))
                 else -> getString(R.string.graficos_dica_cursor)
             },
         )
@@ -142,21 +182,123 @@ class GraficosActivity : AppCompatActivity() {
             val d = definicoes.getOrNull(i)
             view.isVisible = d != null
             if (d == null) return@forEachIndexed
-            val canal = quadro.canais[i]
             val unidade = FormatadorSensor.unidade(d, conversor)
-            view.setTextColor(GraficoOsciloscopioView.CORES[i])
+            fun texto(valor: Double?) = FormatadorSensor.valor(d, valor, conversor)
+            view.setTextColor(GraficoSeriesView.CORES_AO_VIVO[i])
             view.definirTexto(
                 if (leitura != null) {
-                    getString(R.string.graficos_legenda_cursor, d.nome, FormatadorSensor.valor(d, leitura.valores[d.comando], conversor), unidade)
+                    getString(R.string.graficos_legenda_cursor, d.nome, texto(leitura.valores[d.comando]), unidade)
                 } else {
+                    val estatistica = quadro.estatistica(i)
                     getString(
-                        R.string.graficos_legenda, d.nome, FormatadorSensor.valor(d, canal.atual, conversor), unidade,
-                        FormatadorSensor.valor(d, canal.pico, conversor),
+                        R.string.graficos_legenda, d.nome, texto(quadro.atual(i)), unidade,
+                        texto(estatistica?.minimo), texto(estatistica?.maximo),
                     )
                 },
             )
         }
     }
+
+    private fun duracao(segundos: Int): String =
+        if (segundos < 60) "$segundos s" else "%d:%02d".format(segundos / 60, segundos % 60)
+
+    // ------------------------------------------------------------------ presets
+
+    private fun mostrarPresets(disponiveis: List<DefinicaoPid>) {
+        val prontos = PresetsGrafico.prontos(disponiveis.map { it.comando }, app.sessaoObd.historico.estatisticas().keys, diesel)
+        val salvos = if (veiculoAtivo > 0) app.perfisCarro.ler(veiculoAtivo).presetsGraficos else emptyList()
+        if (presetsNaTela == prontos to salvos) return
+        presetsNaTela = prontos to salvos
+        binding.grupoPresets.removeAllViews()
+        for (preset in prontos) adicionarChip(preset.nome) { aplicar(preset) }
+        for (preset in salvos) {
+            adicionarChip(preset.nome) { aplicar(preset) }.setOnLongClickListener {
+                confirmarExclusao(preset)
+                true
+            }
+        }
+        adicionarChip(getString(R.string.graficos_salvar_preset)) { pedirNomeDoPreset() }
+    }
+
+    private fun adicionarChip(titulo: String, aoTocar: () -> Unit): Chip {
+        val chip = ItemChipFiltroBinding.inflate(layoutInflater, binding.grupoPresets, false).root
+        chip.text = titulo
+        chip.isCheckable = false
+        chip.setOnClickListener { aoTocar() }
+        binding.grupoPresets.addView(chip)
+        return chip
+    }
+
+    private fun aplicar(preset: PresetGrafico) {
+        val suportados = disponiveis().map { it.comando }.toSet()
+        val comandos = preset.comandos.filter { it in suportados }
+        if (comandos.isEmpty()) {
+            Toast.makeText(this, R.string.graficos_preset_indisponivel, Toast.LENGTH_SHORT).show()
+            return
+        }
+        salvar(comandos)
+    }
+
+    private fun pedirNomeDoPreset() {
+        val id = veiculoAtivo
+        if (id <= 0) {
+            Toast.makeText(this, R.string.graficos_preset_sem_veiculo, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val comandos = selecionados(disponiveis()).map { it.comando }
+        if (comandos.isEmpty()) {
+            Toast.makeText(this, R.string.graficos_sem_dados, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val campo = EditText(this).apply {
+            hint = getString(R.string.graficos_nome_preset)
+            filters = arrayOf(InputFilter.LengthFilter(PresetsGrafico.MAX_NOME))
+            isSingleLine = true
+            setText(getString(R.string.graficos_nome_padrao, app.perfisCarro.ler(id).presetsGraficos.size + 1))
+            selectAll()
+        }
+        val margem = resources.getDimensionPixelSize(R.dimen.margem_tela)
+        val caixa = FrameLayout(this).apply {
+            setPadding(margem, 0, margem, 0)
+            addView(campo)
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.graficos_nome_preset)
+            .setView(caixa)
+            .setPositiveButton(R.string.graficos_salvar) { _, _ -> guardarPreset(id, PresetGrafico(campo.text.toString(), comandos)) }
+            .setNegativeButton(R.string.botao_cancelar, null)
+            .show()
+    }
+
+    private fun guardarPreset(veiculoId: Long, preset: PresetGrafico) {
+        var recusado = false
+        app.perfisCarro.atualizar(veiculoId) { perfil ->
+            val novos = PresetsGrafico.salvar(perfil.presetsGraficos, preset)
+            recusado = novos == null
+            if (novos == null) perfil else perfil.copy(presetsGraficos = novos)
+        }
+        val mensagem = if (recusado) {
+            getString(R.string.graficos_preset_recusado, PresetsGrafico.MAX_SALVOS)
+        } else {
+            getString(R.string.graficos_preset_salvo)
+        }
+        Toast.makeText(this, mensagem, Toast.LENGTH_SHORT).show()
+        atualizar()
+    }
+
+    private fun confirmarExclusao(preset: PresetGrafico) {
+        val id = veiculoAtivo
+        MaterialAlertDialogBuilder(this)
+            .setMessage(getString(R.string.graficos_apagar_preset, preset.nome))
+            .setPositiveButton(R.string.graficos_apagar) { _, _ ->
+                app.perfisCarro.atualizar(id) { it.copy(presetsGraficos = it.presetsGraficos - preset) }
+                atualizar()
+            }
+            .setNegativeButton(R.string.botao_cancelar, null)
+            .show()
+    }
+
+    // ------------------------------------------------------------------ sensores
 
     private fun escolherSensores() {
         val disponiveis = disponiveis()
@@ -194,7 +336,7 @@ class GraficosActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val INTERVALO_TELA_MS = 150L
+        private const val INTERVALO_TELA_MS = 200L
 
         fun intent(context: Context): Intent = Intent(context, GraficosActivity::class.java)
     }

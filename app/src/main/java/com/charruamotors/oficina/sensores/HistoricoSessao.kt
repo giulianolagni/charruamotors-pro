@@ -47,10 +47,10 @@ class HistoricoSessao(
     }
 
     companion object {
-        /** 120 s (a maior janela do gráfico) com folga. */
-        const val RETENCAO_MS = 125_000L
+        /** 5 min (a maior janela do gráfico) com folga. */
+        const val RETENCAO_MS = 305_000L
 
-        /** Teto de memória: ~48 amostras por segundo durante a retenção inteira. */
-        const val MAXIMO_AMOSTRAS = 6_000
+        /** Teto de memória: ~29 amostras por segundo durante a retenção inteira. */
+        const val MAXIMO_AMOSTRAS = 9_000
     }
 }

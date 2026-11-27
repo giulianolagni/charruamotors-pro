@@ -12,7 +12,6 @@ import com.charruamotors.sistema.unidades.ConversorUnidades
 import com.charruamotors.sistema.unidades.SistemaUnidades
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -60,45 +59,19 @@ class PacoteOficinaV231Test {
     )
 
     @Test
-    fun `janela deslizante recorta as amostras e calcula atual e pico`() {
-        val q = MontadorGrafico.montar(amostras, listOf("010C", "010B"), 70_000, JanelaTempo.S60)
-        val rpm = q.canais[0]
-
-        assertEquals(10_000L, q.inicioMs)
-        assertEquals(2_000.0, rpm.pico!!, 0.0)
-        assertEquals(1_500.0, rpm.atual!!, 0.0)
-        assertEquals(1_000.0, rpm.minimo!!, 0.0)
-        assertEquals(4_000.0, MontadorGrafico.montar(amostras, listOf("010C"), 70_000, JanelaTempo.S120).canais[0].pico!!, 0.0)
-        assertTrue(rpm.escala().start < 1_000.0 && rpm.escala().endInclusive > 2_000.0)
-    }
-
-    @Test
-    fun `cursor le todos os canais no mesmo instante`() {
-        val q = MontadorGrafico.montar(amostras, listOf("010C", "010B"), 70_000, JanelaTempo.S60)
-
-        val meio = q.cursor(0.75f)!! // 55 s
-        assertEquals(55_000L, meio.tMs)
-        assertEquals(2_000.0, meio.valores["010C"]!!, 0.0)
-        assertNull(meio.valores["010B"])
-        assertEquals(70_000L, q.cursor(2f)!!.tMs)
-        assertEquals(40_000L, q.cursor(-1f)!!.tMs)
-        assertNull(MontadorGrafico.montar(emptyList(), listOf("010C"), 0, JanelaTempo.S30).cursor(0.5f))
-    }
-
-    @Test
     fun `pausar congela, retomar volta ao vivo e zerar limpa os picos`() {
         val c = ControleGrafico()
         c.alternarPausa(amostras.take(2))
         assertTrue(c.pausado)
-        assertEquals(40_000L, c.quadro(amostras, listOf("010C")).fimMs)
+        assertEquals(40_000L, c.quadro(amostras, listOf("010C")).janela.fimMs)
 
         c.alternarPausa(amostras)
-        assertEquals(70_000L, c.quadro(amostras, listOf("010C")).fimMs)
+        assertEquals(70_000L, c.quadro(amostras, listOf("010C")).janela.fimMs)
 
         c.zerar(amostras)
         assertTrue(c.quadro(amostras, listOf("010C")).vazio)
         val depois = amostras + Amostra(71_000, mapOf("010C" to 900.0))
-        assertEquals(900.0, c.quadro(depois, listOf("010C")).canais[0].pico!!, 0.0)
+        assertEquals(900.0, c.quadro(depois, listOf("010C")).estatistica(0)!!.maximo, 0.0)
     }
 
     @Test

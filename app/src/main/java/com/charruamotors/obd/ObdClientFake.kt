@@ -96,6 +96,13 @@ class ObdClientFake(
     private val _sessaoManual = MutableStateFlow(false)
     override val sessaoManualAtiva: StateFlow<Boolean> = _sessaoManual.asStateFlow()
 
+    /** v2.5.0: o mesmo foco do cliente real, para as telas de inspeção se comportarem igual. */
+    @Volatile private var focoPolling: FocoPolling? = null
+
+    override fun definirFocoPolling(foco: FocoPolling?) {
+        focoPolling = foco
+    }
+
     private val ecu = EcuSimulada(random)
     private val cruze = SimuladorCruze(random)
 
@@ -281,6 +288,7 @@ class ObdClientFake(
                 continue
             }
             escalonador.atualizarSuportados(_pidsSuportados.value)
+            escalonador.definirFoco(focoPolling)
             val chaves = escalonador.proximoCiclo()
             val leitura = proximaLeitura(passoMs / 1000.0)
             val lidos = leitura.filterKeys { it in chaves }
