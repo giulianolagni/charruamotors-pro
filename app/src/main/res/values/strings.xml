@@ -202,20 +202,9 @@ Toque em “Novo veículo” para começar.</string>
     <string name="obd_bordo_motor_etanol">Motor %1$s L · %2$s · %3$s</string>
     <string name="obd_bordo_diesel_sem_ecu">Diesel: o consumo só é exibido se a ECU informar o PID 015E.</string>
 
-    <!-- Cronômetro 0–100 km/h -->
-    <string name="obd_cronometro_titulo">Cronômetro 0–100 km/h</string>
-    <string name="obd_cronometro_armar">Armar 0–100 km/h</string>
-    <string name="obd_cronometro_cancelar">Cancelar</string>
-    <string name="obd_cronometro_novamente">Armar novamente</string>
-    <string name="obd_cronometro_tempo">%1$s s</string>
-    <string name="obd_cronometro_desarmado">Arme o cronômetro com o carro parado. Só em local seguro e permitido.</string>
-    <string name="obd_cronometro_aguardando">Armado: pare o veículo para começar.</string>
-    <string name="obd_cronometro_pronto">Pronto: a contagem começa quando o carro sair do 0.</string>
-    <string name="obd_cronometro_medindo">Medindo… %1$d %2$s</string>
-    <string name="obd_cronometro_concluido">0–100 km/h concluído!</string>
-    <string name="obd_cronometro_melhor">Melhor tempo nesta sessão: %1$s s</string>
-    <string name="obd_cronometro_sem_conexao">Conecte o scanner para usar o cronômetro</string>
-    <string name="obd_cronometro_sem_velocidade">A ECU não informa a velocidade (PID 010D)</string>
+    <!-- Aceleração no Painel: recorde e atalho para os Testes de Aceleração -->
+    <string name="obd_cronometro_titulo">Aceleração 0–100 km/h</string>
+    <string name="obd_cronometro_abrir">Abrir Testes de Aceleração</string>
 
     <!-- Perfil de montadora (modos 21/22) -->
     <string name="obd_ecu_perfil">PIDs da montadora (modo 21 / UDS 22)</string>

@@ -13,7 +13,8 @@
 
     <string name="atualizacao_nova_titulo">Nova versão disponível: %1$s</string>
     <string name="atualizacao_nova_detalhe">Você está na v%1$s. A %2$s já está publicada</string>
-    <string name="atualizacao_sem_notas">Sem notas para esta versão.</string>
+    <string name="atualizacao_novidades">Novidades</string>
+    <string name="atualizacao_sem_notas">Sem notas para esta versão. Veja os detalhes em “Ver no GitHub”.</string>
     <string name="atualizacao_baixar_instalar">Baixar e instalar</string>
     <string name="atualizacao_depois">Depois</string>
 

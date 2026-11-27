@@ -88,10 +88,38 @@ class SessaoObdTest {
         aoSalvarLogReal = { _, csv -> logsReaisSalvos += csv.nome },
         relogioMonotonico = { testScheduler.currentTime },
         aoPercorrer = { _, km -> kmPercorridos += km },
+        aoRegistrarTempo = { _, marca -> temposRegistrados += marca.modalidade to marca.tempoMs },
     )
+
+    private val temposRegistrados = mutableListOf<Pair<ModalidadeTeste, Long>>()
 
     private val logsReaisSalvos = mutableListOf<String>()
     private val kmPercorridos = mutableListOf<Double>()
+
+    // ---------------------------------------------------------------- cronômetro automático (v2.11.1)
+
+    @Test
+    fun `tempo automatico entra no historico so na sessao real e nao duplica o teste armado`() = runTest {
+        val real = novaSessao(ModoObd.BLUETOOTH)
+        real.conectar(scanner, veiculoId = 7, origem = OrigemSessao.MANUAL)
+        avancar(5_000)
+        real.registrarTempoAutomatico(ModalidadeTeste.V0_100, 11.84)
+        assertTrue(real.armarTeste(ModalidadeTeste.V0_100))
+        real.registrarTempoAutomatico(ModalidadeTeste.V0_100, 11.0) // a tela de testes é quem grava
+        real.registrarTempoAutomatico(ModalidadeTeste.V0_60, 5.2)
+        assertEquals(listOf(ModalidadeTeste.V0_100 to 11_840L, ModalidadeTeste.V0_60 to 5_200L), temposRegistrados)
+        real.desconectar()
+        advanceUntilIdle()
+
+        temposRegistrados.clear()
+        val simulada = novaSessao(ModoObd.SIMULADO)
+        simulada.conectar(scanner, veiculoId = 7, origem = OrigemSessao.MANUAL)
+        avancar(5_000)
+        simulada.registrarTempoAutomatico(ModalidadeTeste.V0_100, 9.0)
+        assertTrue(temposRegistrados.isEmpty())
+        simulada.desconectar()
+        advanceUntilIdle()
+    }
 
     // ---------------------------------------------------------------- odômetro (v2.11.0)
 

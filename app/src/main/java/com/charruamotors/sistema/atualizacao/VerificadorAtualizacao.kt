@@ -50,6 +50,23 @@ class VerificadorAtualizacao(
         resultado
     }
 
+    /**
+     * v2.11.1: a release achada pelo redirect não traz as notas. Antes de mostrar a nova versão,
+     * busca o `body` em `releases/latest` na API (só quando há o que mostrar, para poupar o limite).
+     * Qualquer falha — `403/429`, sem rede, outra tag — devolve a própria [release]. Nunca lança.
+     */
+    suspend fun comNotas(release: ReleaseGithub): ReleaseGithub = withContext(dispatcher) {
+        if (release.notas.isNotBlank()) return@withContext release
+        val daApi = when (val r = pelaApi()) {
+            is ResultadoVerificacao.NovaVersao -> r.release
+            is ResultadoVerificacao.Atualizado -> r.ultima
+            else -> null
+        }
+        if (daApi == null || daApi.versao != release.versao) return@withContext release
+        release.copy(titulo = daApi.titulo, notas = daApi.notas, apk = daApi.apk ?: release.apk)
+            .also { cache?.gravar(it) }
+    }
+
     /** Segue os redirects da página até a tag; null = não deu (a API decide o que dizer ao usuário). */
     private fun pelaPagina(): ReleaseGithub? = try {
         seguirAteATag()

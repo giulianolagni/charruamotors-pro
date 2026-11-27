@@ -60,7 +60,7 @@ import com.charruamotors.ui.painel.MontadorMostradores
 import com.charruamotors.domain.perfis.DecodificadorVin
 import com.charruamotors.domain.perfis.PerfilCambio
 import com.charruamotors.domain.perfis.PerfilIdentificado
-import com.charruamotors.domain.calculo.EstadoCronometro
+import com.charruamotors.ui.desempenho.TesteAceleracaoActivity
 import com.charruamotors.domain.calculo.EstequiometriaFlex
 import com.charruamotors.domain.calculo.MetodoConsumo
 import com.charruamotors.domain.model.TipoCombustivel
@@ -224,7 +224,7 @@ class ObdFragment : Fragment() {
         botaoIgnorarPerfil.setOnClickListener { viewModel.ignorarPerfilAutomatico() }
         botaoSalvarLeitura.setOnClickListener { viewModel.salvarLeitura() }
         botaoGravarLog.setOnClickListener { viewModel.alternarLog() }
-        botaoArmarCronometro.setOnClickListener { viewModel.alternarCronometro() }
+        botaoAbrirAceleracao.setOnClickListener { startActivity(TesteAceleracaoActivity.intent(requireContext())) }
         botaoZerarViagem.setOnClickListener { viewModel.zerarViagem() }
         botaoRegistroComunicacao.setOnClickListener { mostrarRegistroComunicacao() }
         botaoVerTodosSensores.setOnClickListener {
@@ -519,7 +519,7 @@ class ObdFragment : Fragment() {
                     }
                 }
                 launch { viewModel.faixas.collect { app.centralAlertas.faixas = it } }
-                launch { viewModel.cronometro.collect { mostrarCronometro(it) } }
+                launch { app.recordesDesempenho.recordes.collect { mostrarRecorde() } }
                 launch { viewModel.grafico.collect { mostrarGrafico(it) } }
                 launch { viewModel.manterTelaAcesa.collect { aplicarTelaAcesa() } }
                 controladorMidia?.let { midia -> launch { midia.estado.collect { mostrarMidia(it) } } }
@@ -633,7 +633,7 @@ class ObdFragment : Fragment() {
         botaoSalvarLeitura.isEnabled = conectado && viewModel.dados.value != null
         // Gravando: o botão continua ativo para permitir parar mesmo após a queda da conexão.
         botaoGravarLog.isEnabled = conectado || viewModel.estadoLog.value.gravando
-        botaoArmarCronometro.isEnabled = conectado || viewModel.cronometro.value.estado.armado
+        botaoAbrirAceleracao.isEnabled = conectado
         botaoZerarViagem.isEnabled = viewModel.computador.value.viagem.segundos > 0
     }
 
@@ -753,14 +753,13 @@ class ObdFragment : Fragment() {
         }
     }
 
-    /** Configurações → Unidades globais / pressão: mostradores, lista rápida, computador de bordo e 0–100. */
+    /** Configurações → Unidades globais / pressão: mostradores, lista rápida e computador de bordo. */
     private fun aplicarConversor(novo: ConversorUnidades) {
         if (novo == conversor && assinaturaMostradores != null) return
         conversor = novo
         configurarMostradores()
         adapterSensores.definirConversor(novo)
         mostrarComputador(viewModel.computador.value)
-        mostrarCronometro(viewModel.cronometro.value)
     }
 
     /** Lista rápida: os sensores escolhidos (ou todos, sem escolha ou com "Ver todos"). */
@@ -892,41 +891,11 @@ class ObdFragment : Fragment() {
         return getString(R.string.obd_valor_unidade, numero, conversor.simboloConsumo)
     }
 
-    /** Cronômetro 0–100: tempo (ao vivo ou final), instrução do estado e melhor tempo. */
-    private fun mostrarCronometro(ui: CronometroUi) = with(binding) {
-        val estado = ui.estado
-        textoCronometroTempo.definirTexto(getString(
-            R.string.obd_cronometro_tempo,
-            when (estado) {
-                is EstadoCronometro.Medindo -> segundos(estado.decorridoMs, 1)
-                is EstadoCronometro.Concluido -> segundos(estado.tempoMs, 2)
-                else -> segundos(0, 2)
-            },
-        ))
-        val status = when (estado) {
-            EstadoCronometro.Desarmado -> getString(R.string.obd_cronometro_desarmado)
-            EstadoCronometro.AguardandoParada -> getString(R.string.obd_cronometro_aguardando)
-            EstadoCronometro.Pronto -> getString(R.string.obd_cronometro_pronto)
-            is EstadoCronometro.Medindo -> getString(
-                R.string.obd_cronometro_medindo, conversor.velocidade(estado.velocidade).toInt(), conversor.simboloVelocidade,
-            )
-            is EstadoCronometro.Concluido -> getString(R.string.obd_cronometro_concluido)
-        }
-        val viaGps = ui.fonte == FonteVelocidade.GPS && estado !is EstadoCronometro.Desarmado
-        textoCronometroStatus.definirTexto(if (viaGps) getString(R.string.obd_cronometro_via_gps, status) else status)
-        textoCronometroMelhor.isVisible = ui.melhorTempoMs != null
-        textoCronometroMelhor.definirTexto(ui.melhorTempoMs?.let { getString(R.string.obd_cronometro_melhor, segundos(it, 2)) })
-        botaoArmarCronometro.setText(
-            when {
-                estado.armado -> R.string.obd_cronometro_cancelar
-                estado is EstadoCronometro.Concluido -> R.string.obd_cronometro_novamente
-                else -> R.string.obd_cronometro_armar
-            },
-        )
-        atualizarBotoes()
+    /** Card de aceleração: o melhor 0–60 / 0–100 deste carro (os testes ficam na tela própria). */
+    private fun mostrarRecorde() {
+        val veiculoId = requireArguments().getLong(DiagnosticoActivity.EXTRA_VEICULO_ID)
+        binding.textoCronometroMelhor.definirTexto(app.recordesDesempenho.recordeDe(veiculoId).texto)
     }
-
-    private fun segundos(ms: Long, casas: Int): String = (ms / 1000.0).comoNumero(casas)
 
     private fun mostrarGrafico(pontos: List<PontoTelemetria>) {
         binding.graficoTelemetria.definirPontos(pontos)

@@ -118,6 +118,20 @@ object ClassificadorBateria {
     }
 }
 
+/** v2.11.1: o que cada linha horizontal do gráfico de tensão marca. */
+enum class TipoReferenciaBateria { PARTIDA_MINIMA, ALTERNADOR_MINIMO, ALTERNADOR_MAXIMO }
+
+data class ReferenciaBateria(val tipo: TipoReferenciaBateria, val volts: Double)
+
+/** Linhas de referência do gráfico: o limiar "bom" da partida (diesel ou Otto) e a faixa do alternador. */
+object ReferenciasBateria {
+    fun de(diesel: Boolean): List<ReferenciaBateria> = listOf(
+        ReferenciaBateria(TipoReferenciaBateria.PARTIDA_MINIMA, ClassificadorBateria.partidaBom(diesel)),
+        ReferenciaBateria(TipoReferenciaBateria.ALTERNADOR_MINIMO, ClassificadorBateria.ALTERNADOR_MIN),
+        ReferenciaBateria(TipoReferenciaBateria.ALTERNADOR_MAXIMO, ClassificadorBateria.ALTERNADOR_MAX),
+    )
+}
+
 /**
  * Ajuste do adaptador: volts somados à leitura OBD2 para compensar a queda fixa do diodo/chicote,
  * conferida com um multímetro nos polos. Guardado por veículo.
@@ -307,6 +321,10 @@ class TesteBateria {
     private val _curva = ArrayList<PontoCurva>()
     val curva: List<PontoCurva> get() = _curva
 
+    /** v2.11.1: o ponto da curva em que a partida fez o vale (o primeiro com a menor tensão); null sem partida. */
+    var pontoVale: PontoCurva? = null
+        private set
+
     /** Amostras da janela de medição em curso, já com o ajuste. */
     private val amostras = mutableListOf<Pair<Long, Double>>()
     private var inicioCapturaMs = 0L
@@ -352,6 +370,7 @@ class TesteBateria {
         perdidas = 0
         referenciaPartida = resultadoRepouso?.tensao
         vMinPartida = null
+        if (etapa == EtapaBateria.PARTIDA) pontoVale = null
         ultimaValidaMs = agoraMs
         inicioQuedaMs = null
         fimQuedaMs = null
@@ -377,7 +396,10 @@ class TesteBateria {
         _puladas += etapa
         when (etapa) {
             EtapaBateria.REPOUSO -> resultadoRepouso = null
-            EtapaBateria.PARTIDA -> resultadoPartida = null
+            EtapaBateria.PARTIDA -> {
+                resultadoPartida = null
+                pontoVale = null
+            }
             EtapaBateria.ALTERNADOR_LENTA -> resultadoLenta = null
             EtapaBateria.ALTERNADOR_CARGA -> resultadoCarga = null
             EtapaBateria.CONCLUIDO -> Unit
@@ -395,6 +417,7 @@ class TesteBateria {
         resultadoCarga = null
         _puladas.clear()
         _curva.clear()
+        pontoVale = null
     }
 
     /** Progresso da janela (0–1); null quando indeterminado (etapa 2) ou sem captura. */
@@ -489,6 +512,7 @@ class TesteBateria {
             if (lacuna) interrompida = true
             if (referenciaPartida == null) referenciaPartida = volts
             val referencia = referenciaPartida ?: volts
+            if (volts < (vMinPartida ?: Double.MAX_VALUE)) pontoVale = _curva.last()
             vMinPartida = minOf(vMinPartida ?: volts, volts)
             if (inicioQuedaMs == null && volts <= referencia - QUEDA_MINIMA_PARTIDA + 1e-9) inicioQuedaMs = agoraMs
             if (inicioQuedaMs != null && fimQuedaMs == null && volts >= referencia - RECUPERACAO_PARTIDA - 1e-9) {

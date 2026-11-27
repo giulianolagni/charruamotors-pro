@@ -1,7 +1,8 @@
 package com.charruamotors.obd
 
-import com.charruamotors.domain.calculo.Cronometro0a100
-import com.charruamotors.domain.calculo.EstadoCronometro
+import com.charruamotors.direcao.desempenho.CronometroAceleracao
+import com.charruamotors.direcao.desempenho.FaseTeste
+import com.charruamotors.direcao.desempenho.ModalidadeTeste
 import com.charruamotors.obd.pid.CatalogoTeste
 import com.charruamotors.obd.pid.Pids
 import kotlinx.coroutines.flow.take
@@ -53,19 +54,19 @@ class ObdClientFakeTelemetriaTest {
     @Test
     fun `arrancada simulada vai de 0 a 100 km por h em tempo realista`() = runTest {
         val obd = conectado()
-        val cronometro = Cronometro0a100()
+        val cronometro = CronometroAceleracao()
         obd.simularArrancada()
         assertTrue(obd.arrancadaEmAndamento)
-        cronometro.armar(null)
+        cronometro.armar(ModalidadeTeste.V0_100)
 
         // Instantes virtuais: 250 ms por ciclo. Para o carro, espera 2 s e acelera com tudo.
         obd.lerTelemetria(250).withIndex()
-            .takeWhile { (i, _) -> i < 400 && cronometro.estado !is EstadoCronometro.Concluido }
-            .collect { (i, dados) -> cronometro.registrar(dados[Pids.VELOCIDADE], i * 250L) }
+            .takeWhile { (i, _) -> i < 400 && cronometro.estado.fase != FaseTeste.CONCLUIDO }
+            .collect { (i, dados) -> dados[Pids.VELOCIDADE]?.let { cronometro.amostrar(it, i * 250L) } }
 
         val fim = cronometro.estado
-        assertTrue("estado final $fim", fim is EstadoCronometro.Concluido)
-        val segundos = (fim as EstadoCronometro.Concluido).tempoMs / 1000.0
+        assertEquals("estado final $fim", FaseTeste.CONCLUIDO, fim.fase)
+        val segundos = fim.resultado!!.tempoMs / 1000.0
         assertTrue("0–100 em $segundos s", segundos in 10.0..14.0)
     }
 

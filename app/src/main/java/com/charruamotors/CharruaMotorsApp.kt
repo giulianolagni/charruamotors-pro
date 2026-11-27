@@ -26,6 +26,7 @@ import com.charruamotors.data.repository.UsuarioRepository
 import com.charruamotors.data.repository.VeiculoRepository
 import com.charruamotors.data.session.SessaoManager
 import com.charruamotors.direcao.desempenho.CronometroDesempenho
+import com.charruamotors.direcao.desempenho.ModalidadeTeste
 import com.charruamotors.direcao.desempenho.RecordesDesempenho
 import com.charruamotors.direcao.hud.EssenciaisHud
 import com.charruamotors.direcao.hud.TelemetriaCompartilhada
@@ -261,9 +262,10 @@ class CharruaMotorsApp : Application() {
         TelemetriaCompartilhada(
             conversor = preferenciasApp.config.map { it.conversor },
             configHud = preferenciasPainel.config.map { it.hud },
+            // v2.11.1: o automático grava no histórico do carro pela sessão (que barra o Modo Simulado).
             cronometro = CronometroDesempenho(
-                aoParcial060 = { t -> recordesDesempenho.registrar(chaveRecorde(), t, null) },
-                aoConcluir0100 = { t60, t100 -> recordesDesempenho.registrar(chaveRecorde(), t60, t100) },
+                aoParcial060 = { t -> sessaoObd.registrarTempoAutomatico(ModalidadeTeste.V0_60, t) },
+                aoConcluir0100 = { _, t100 -> sessaoObd.registrarTempoAutomatico(ModalidadeTeste.V0_100, t100) },
             ),
             fonteCronometro = { preferenciasApp.config.value.fonteCronometroEfetiva },
         )

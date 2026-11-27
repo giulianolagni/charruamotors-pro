@@ -17,6 +17,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.withStarted
 import com.charruamotors.BuildConfig
 import com.charruamotors.R
+import com.charruamotors.databinding.DialogNovaVersaoBinding
 import com.charruamotors.sistema.atualizacao.CacheVerificacao
 import com.charruamotors.sistema.preferencias.ArmazenamentoChaveValor
 import com.charruamotors.sistema.atualizacao.InterpretadorReleaseGithub
@@ -76,8 +77,9 @@ class AtualizadorApp(private val activity: AppCompatActivity) {
         // Regra da Play Store: app instalado por ela só se atualiza por ela.
         if (!OrigemInstalacao.deveVerificarAtualizacao(activity)) return
         activity.lifecycleScope.launch {
-            val resultado = verificador.verificar(forcar = false)
-            if (resultado !is ResultadoVerificacao.NovaVersao) return@launch
+            var resultado = verificador.verificar(forcar = false)
+            if (resultado !is ResultadoVerificacao.NovaVersao || SessaoAtualizacao.adiadaNestaSessao) return@launch
+            resultado = resultado.copy(release = verificador.comNotas(resultado.release))
             activity.lifecycle.withStarted {
                 if (!SessaoAtualizacao.adiadaNestaSessao && !SessaoAtualizacao.dialogoAberto) mostrarNovaVersao(resultado)
             }
@@ -92,7 +94,10 @@ class AtualizadorApp(private val activity: AppCompatActivity) {
             .setCancelable(true)
             .show()
         activity.lifecycleScope.launch {
-            val resultado = verificador.verificar()
+            var resultado = verificador.verificar()
+            if (resultado is ResultadoVerificacao.NovaVersao) {
+                resultado = resultado.copy(release = verificador.comNotas(resultado.release))
+            }
             aguarde.dismiss()
             if (!activity.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return@launch
             when (resultado) {
@@ -123,18 +128,17 @@ class AtualizadorApp(private val activity: AppCompatActivity) {
 
     private fun mostrarNovaVersao(nova: ResultadoVerificacao.NovaVersao) {
         val release = nova.release
-        val notas = InterpretadorReleaseGithub.resumirNotas(release.notas)
         val tamanho = release.apk?.tamanhoBytes?.takeIf { it > 0 }?.let { Formatter.formatShortFileSize(activity, it) }
-        val texto = buildString {
-            append(activity.getString(R.string.atualizacao_nova_detalhe, BuildConfig.VERSION_NAME, release.versaoTexto))
-            tamanho?.let { append(" · APK de $it") }
-            append("\n\n")
-            append(notas.ifEmpty { activity.getString(R.string.atualizacao_sem_notas) })
-        }
+        val conteudo = DialogNovaVersaoBinding.inflate(activity.layoutInflater)
+        conteudo.textoDetalhe.text =
+            activity.getString(R.string.atualizacao_nova_detalhe, BuildConfig.VERSION_NAME, release.versaoTexto) +
+                tamanho?.let { " · APK de $it" }.orEmpty()
+        conteudo.textoNotas.text =
+            InterpretadorReleaseGithub.formatarNotas(release.notas, activity.getString(R.string.atualizacao_sem_notas))
         SessaoAtualizacao.dialogoAberto = true
         val construtor = MaterialAlertDialogBuilder(activity)
             .setTitle(activity.getString(R.string.atualizacao_nova_titulo, release.versaoTexto))
-            .setMessage(texto)
+            .setView(conteudo.root)
             .setNegativeButton(R.string.atualizacao_depois) { _, _ -> SessaoAtualizacao.adiadaNestaSessao = true }
             .setOnCancelListener { SessaoAtualizacao.adiadaNestaSessao = true }
             .setOnDismissListener { SessaoAtualizacao.dialogoAberto = false }

@@ -814,7 +814,7 @@ TCM        7E1"
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Cronômetro automático 0–100 km/h -->
+            <!-- Aceleração: recorde do carro e atalho para a tela de Testes de Aceleração -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_cronometro"
                 style="@style/Widget.Material3.CardView.Outlined"
@@ -836,41 +836,21 @@ TCM        7E1"
                         android:textAppearance="?attr/textAppearanceTitleMedium" />
 
                     <TextView
-                        android:id="@+id/texto_cronometro_tempo"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:gravity="center_horizontal"
-                        android:layout_marginTop="@dimen/espaco_pequeno"
-                        android:fontFeatureSettings="tnum"
-                        android:textAppearance="?attr/textAppearanceDisplaySmall"
-                        tools:text="11,84 s" />
-
-                    <TextView
-                        android:id="@+id/texto_cronometro_status"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:gravity="center_horizontal"
-                        android:textAppearance="?attr/textAppearanceBodyMedium"
-                        android:textColor="@color/texto_secundario"
-                        tools:text="Pronto: a contagem começa quando o carro sair do 0" />
-
-                    <TextView
                         android:id="@+id/texto_cronometro_melhor"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:gravity="center_horizontal"
-                        android:textAppearance="?attr/textAppearanceLabelMedium"
-                        android:visibility="gone"
-                        tools:text="Melhor tempo: 11,84 s"
-                        tools:visibility="visible" />
+                        android:layout_marginTop="@dimen/espaco_minimo"
+                        android:fontFeatureSettings="tnum"
+                        android:textAppearance="?attr/textAppearanceBodyMedium"
+                        tools:text="Melhor 0–60: 5,10 s · 0–100: 11,84 s" />
 
                     <com.google.android.material.button.MaterialButton
-                        android:id="@+id/botao_armar_cronometro"
+                        android:id="@+id/botao_abrir_aceleracao"
                         style="@style/Widget.Material3.Button.Icon"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="@dimen/espaco_pequeno"
-                        android:text="@string/obd_cronometro_armar"
+                        android:text="@string/obd_cronometro_abrir"
                         app:icon="@drawable/ic_cronometro" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>

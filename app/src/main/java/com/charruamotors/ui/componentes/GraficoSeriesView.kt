@@ -3,6 +3,7 @@ package com.charruamotors.ui.componentes
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.Path
 import android.util.AttributeSet
@@ -43,6 +44,28 @@ class GraficoSeriesView @JvmOverloads constructor(
      * escala pelo trecho visível, para curvas que precisam ser comparadas entre si.
      */
     class Serie(val rotulo: String, val valores: DoubleArray, val cor: Int, val escalaFixa: Pair<Double, Double>? = null)
+
+    /** Linha horizontal tracejada no [valor] da **primeira** série. */
+    data class Referencia(val valor: Double, val rotulo: String, val cor: Int)
+
+    /** Um ponto destacado da primeira série (ex.: o vale da partida). */
+    data class Marcador(val instanteMs: Long, val valor: Double, val rotulo: String, val cor: Int)
+
+    /** Linhas de referência (opcional; vazio = gráfico comum). A escala da primeira série se estica para elas. */
+    var referencias: List<Referencia> = emptyList()
+        set(novas) {
+            if (field == novas) return
+            field = novas
+            invalidate()
+        }
+
+    /** Ponto destacado (opcional). */
+    var marcador: Marcador? = null
+        set(novo) {
+            if (field == novo) return
+            field = novo
+            invalidate()
+        }
 
     interface Ouvinte {
         fun aoMudarJanela(janela: JanelaReplay)
@@ -115,6 +138,15 @@ class GraficoSeriesView @JvmOverloads constructor(
         color = corCursor
     }
     private val pincelPonto = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val pincelReferencia = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 1.5f * densidade
+        pathEffect = DashPathEffect(floatArrayOf(6f * densidade, 4f * densidade), 0f)
+    }
+    private val pincelMarcador = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 2.5f * densidade
+    }
     private val pincelRotulo = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textSize = sp(10f)
         color = corTexto
@@ -302,8 +334,10 @@ class GraficoSeriesView @JvmOverloads constructor(
 
         canvas.save()
         canvas.clipRect(esquerda, topo - pincelCurva.strokeWidth, direita, base + pincelCurva.strokeWidth)
-        val escalas = series.map { serie ->
-            serie.escalaFixa ?: AnaliseReplay.estatisticas(serie.valores, faixa)?.let(AnaliseReplay::escala)
+        val extras = referencias.map { it.valor } + listOfNotNull(marcador?.valor)
+        val escalas = series.mapIndexed { s, serie ->
+            val propria = serie.escalaFixa ?: AnaliseReplay.estatisticas(serie.valores, faixa)?.let(AnaliseReplay::escala)
+            if (s == 0 && extras.isNotEmpty()) propria?.let { AnaliseReplay.incluirNaEscala(it, extras) } else propria
         }
         series.forEachIndexed { s, serie ->
             val (minimo, maximo) = escalas[s] ?: return@forEachIndexed
@@ -313,8 +347,49 @@ class GraficoSeriesView @JvmOverloads constructor(
         }
         canvas.restore()
 
+        escalas.firstOrNull()?.let { desenharReferencias(canvas, it) }
         desenharEscalas(canvas, escalas)
+        escalas.firstOrNull()?.let { desenharMarcador(canvas, it) }
         desenharCursor(canvas, escalas)
+    }
+
+    private fun yDe(valor: Double, escala: Pair<Double, Double>): Float =
+        base - (base - topo) * AnaliseReplay.normalizar(valor, escala.first, escala.second).toFloat()
+
+    /** Linhas tracejadas com o rótulo à direita, logo acima delas. */
+    private fun desenharReferencias(canvas: Canvas, escala: Pair<Double, Double>) {
+        pincelRotulo.textAlign = Paint.Align.RIGHT
+        for (referencia in referencias) {
+            val y = yDe(referencia.valor, escala)
+            pincelReferencia.color = referencia.cor
+            caminho.reset()
+            caminho.moveTo(esquerda, y)
+            caminho.lineTo(direita, y)
+            canvas.drawPath(caminho, pincelReferencia)
+            pincelRotulo.color = referencia.cor
+            pincelContorno.textAlign = Paint.Align.RIGHT
+            canvas.drawText(referencia.rotulo, direita - 2 * densidade, y - 3 * densidade, pincelContorno)
+            canvas.drawText(referencia.rotulo, direita - 2 * densidade, y - 3 * densidade, pincelRotulo)
+        }
+        pincelContorno.textAlign = Paint.Align.LEFT
+    }
+
+    /** Anel no ponto marcado, com o rótulo abaixo dele, sem sair do quadro. */
+    private fun desenharMarcador(canvas: Canvas, escala: Pair<Double, Double>) {
+        val m = marcador ?: return
+        if (m.instanteMs < janela.inicioMs || m.instanteMs > janela.fimMs) return
+        val x = xDe(m.instanteMs)
+        val y = yDe(m.valor, escala)
+        pincelMarcador.color = m.cor
+        canvas.drawCircle(x, y, 6f * densidade, pincelMarcador)
+        val largura = pincelRotulo.measureText(m.rotulo)
+        val xt = (x - largura / 2).coerceIn(esquerda, (direita - largura).coerceAtLeast(esquerda))
+        val abaixo = y + 8 * densidade + pincelRotulo.textSize
+        val yt = if (abaixo <= base) abaixo else y - 10 * densidade
+        pincelRotulo.color = m.cor
+        pincelRotulo.textAlign = Paint.Align.LEFT
+        canvas.drawText(m.rotulo, xt, yt, pincelContorno)
+        canvas.drawText(m.rotulo, xt, yt, pincelRotulo)
     }
 
     /** Uma coluna de rótulos por série, na cor dela: o topo, o meio e a base da escala própria. */

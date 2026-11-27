@@ -164,5 +164,4 @@
     <string name="config_gps_fonte_ecu">ECU (010D)</string>
     <string name="config_gps_fonte_gps">GPS</string>
     <string name="config_gps_permissao_negada">Sem a permissão de localização precisa, a velocidade GPS fica indisponível.</string>
-    <string name="obd_cronometro_via_gps">%1$s · via GPS</string>
 </resources>
