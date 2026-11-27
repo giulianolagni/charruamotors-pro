@@ -11,6 +11,7 @@ import com.charruamotors.obd.FreezeFrame
 import com.charruamotors.obd.ModoComunicacaoEcu
 import com.charruamotors.obd.dtc.CatalogoDtc
 import com.charruamotors.obd.sessao.SessaoObd
+import com.charruamotors.oficina.bicos.AvaliacaoBicos
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,7 +39,19 @@ sealed interface EstadoFreezeFrame {
 class InjecaoViewModel(
     private val sessao: SessaoObd,
     private val catalogoDtc: CatalogoDtc,
+    /** O carro da sessão (ou o ativo) tem a leitura dos bicos `21AD`? */
+    private val temBicos: suspend () -> Boolean,
 ) : ViewModel() {
+
+    private val _bicosDisponiveis = MutableStateFlow(false)
+
+    /** Mostrar o bloco dos bicos injetores (perfil Toyota 1KD-FTV). */
+    val bicosDisponiveis: StateFlow<Boolean> = _bicosDisponiveis.asStateFlow()
+
+    /** O carro pode ter mudado (outra sessão, perfil trocado). */
+    fun reavaliarBicos() {
+        viewModelScope.launch { _bicosDisponiveis.value = runCatching { temBicos() }.getOrDefault(false) }
+    }
 
     private val _freezeFrame = MutableStateFlow<EstadoFreezeFrame>(EstadoFreezeFrame.SemConexao)
     val freezeFrame: StateFlow<EstadoFreezeFrame> = _freezeFrame.asStateFlow()
@@ -87,7 +100,11 @@ class InjecaoViewModel(
         val Factory = viewModelFactory {
             initializer {
                 val app = this[APPLICATION_KEY] as CharruaMotorsApp
-                InjecaoViewModel(app.sessaoObd, app.catalogoDtc)
+                InjecaoViewModel(app.sessaoObd, app.catalogoDtc) {
+                    val id = app.chaveRecorde()
+                    val veiculo = id.takeIf { it > 0 }?.let { app.veiculoRepository.buscarPorId(it) }
+                    veiculo != null && app.perfisCarro.ler(id).let { AvaliacaoBicos.disponivel(it, it.resolver(veiculo)) }
+                }
             }
         }
     }

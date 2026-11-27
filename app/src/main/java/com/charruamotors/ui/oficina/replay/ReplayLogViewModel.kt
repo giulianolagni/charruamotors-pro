@@ -13,10 +13,9 @@ import com.charruamotors.oficina.replay.CsvInvalidoException
 import com.charruamotors.oficina.replay.EstatisticaSerie
 import com.charruamotors.oficina.replay.JanelaReplay
 import com.charruamotors.oficina.replay.LogCsv
-import com.charruamotors.sistema.preferencias.PreferenciasApp
 import com.charruamotors.ui.laudo.ArquivoLaudoPdf
-import com.charruamotors.ui.laudo.LaudoGerado
-import kotlinx.coroutines.CancellationException
+import com.charruamotors.ui.laudo.GeradorLaudoLog
+import com.charruamotors.ui.laudo.ResultadoLaudoLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -50,60 +49,35 @@ data class ResumoReplay(val janela: JanelaReplay, val series: List<ResumoSerie>,
 sealed interface EventoReplay {
     data class Erro(val detalhe: String) : EventoReplay
     data object MaximoSensores : EventoReplay
-
-    /** Relatório `.txt` da sessão lido: a tela mostra no diálogo (aberto no topo). */
-    data class Texto(val arquivo: ArquivoLogCsv, val texto: TextoLog) : EventoReplay
-
-    data class Laudo(val laudo: LaudoGerado) : EventoReplay
-    data class ErroLaudo(val detalhe: String) : EventoReplay
-
-    /** O `.txt` escolhido não é um relatório de sessão do app. */
-    data object LaudoSemRelatorio : EventoReplay
+    data class Laudo(val resultado: ResultadoLaudoLog) : EventoReplay
 }
 
 /**
- * Visualizador de Logs CSV: lista os logs de `Downloads/CharruaOBD`, abre um (ou outro arquivo
- * pelo seletor do sistema), guarda a seleção de até 4 colunas, a janela de tempo e o cursor
- * (sobrevivem à rotação) e calcula o resumo Mínimo/Máximo/Média da janela visível.
+ * Replay de um log CSV (aberto pela aba Histórico): guarda a seleção de até 4 colunas, a janela de
+ * tempo e o cursor (sobrevivem à rotação) e calcula o resumo Mínimo/Máximo/Média da janela visível.
  */
 class ReplayLogViewModel(
     private val repositorio: RepositorioLogsCsv,
-    private val arquivoLaudo: ArquivoLaudoPdf,
-    private val preferencias: PreferenciasApp,
+    private val geradorLaudo: GeradorLaudoLog,
 ) : ViewModel() {
 
     private var gerandoLaudo = false
 
-    /** Laudo PDF de um log salvo, com a oficina/técnico das Configurações e as [observacoes]. */
+    /** Laudo PDF do log aberto (e do relatório `.txt` da mesma sessão), com as [observacoes]. */
     fun gerarLaudo(uri: Uri, nome: String, observacoes: String) {
         if (gerandoLaudo) return
         gerandoLaudo = true
-        val config = preferencias.config.value
         viewModelScope.launch {
             _carregando.value = true
             try {
-                val dados = repositorio.dadosDoLaudo(uri, nome, System.currentTimeMillis())
-                if (dados == null) {
-                    _eventos.send(EventoReplay.LaudoSemRelatorio)
-                } else {
-                    val completo = dados.copy(oficina = config.nomeOficina, tecnico = config.nomeTecnico, observacoes = observacoes)
-                    _eventos.send(EventoReplay.Laudo(arquivoLaudo.gerar(completo)))
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: OutOfMemoryError) {
-                _eventos.send(EventoReplay.ErroLaudo("arquivo grande demais para a memória do aparelho"))
-            } catch (e: Exception) {
-                _eventos.send(EventoReplay.ErroLaudo(e.message ?: e.javaClass.simpleName))
+                val resultado = geradorLaudo.gerar(observacoes) { repositorio.dadosDoLaudo(uri, nome, it) }
+                _eventos.send(EventoReplay.Laudo(resultado))
             } finally {
                 gerandoLaudo = false
                 _carregando.value = false
             }
         }
     }
-
-    private val _arquivos = MutableStateFlow<List<ArquivoLogCsv>>(emptyList())
-    val arquivos: StateFlow<List<ArquivoLogCsv>> = _arquivos.asStateFlow()
 
     private val _carregando = MutableStateFlow(false)
     val carregando: StateFlow<Boolean> = _carregando.asStateFlow()
@@ -145,36 +119,10 @@ class ReplayLogViewModel(
 
     private var carregamento: Job? = null
 
-    init {
-        atualizarLista()
-    }
+    /** CSV escolhido na lista do Histórico. */
+    fun abrir(uri: Uri, nome: String) = carregar(uri) { nome }
 
-    fun atualizarLista() {
-        viewModelScope.launch { _arquivos.value = runCatching { repositorio.listar() }.getOrDefault(emptyList()) }
-    }
-
-    /** CSV → replay no gráfico; `.txt` (relatório da caixa-preta) → diálogo de texto. */
-    fun abrir(arquivo: ArquivoLogCsv) {
-        if (!arquivo.texto) return carregar(arquivo.uri) { arquivo.nome }
-        carregamento?.cancel()
-        carregamento = viewModelScope.launch {
-            _carregando.value = true
-            try {
-                _eventos.send(EventoReplay.Texto(arquivo, repositorio.lerTexto(arquivo.uri)))
-            } catch (e: IOException) {
-                _eventos.send(EventoReplay.Erro(e.message ?: "falha de leitura"))
-            } catch (e: SecurityException) {
-                _eventos.send(EventoReplay.Erro("sem permissão para ler o arquivo"))
-            } finally {
-                _carregando.value = false
-            }
-        }
-    }
-
-    /** URI que outro app consegue ler, para compartilhar o arquivo. */
-    fun uriCompartilhavel(arquivo: ArquivoLogCsv): Uri = repositorio.uriCompartilhavel(arquivo)
-
-    /** Documento escolhido em "Abrir outro CSV" (Storage Access Framework). */
+    /** Documento escolhido em "Abrir CSV externo" (Storage Access Framework). */
     fun abrirDocumento(uri: Uri) = carregar(uri) { repositorio.nomeDe(uri) }
 
     private fun carregar(uri: Uri, nome: suspend () -> String) {
@@ -202,15 +150,6 @@ class ReplayLogViewModel(
         }
     }
 
-    /** Volta para a lista de arquivos. */
-    fun fecharLog() {
-        _log.value = null
-        _janela.value = null
-        _cursor.value = null
-        _selecionados.value = emptyList()
-        atualizarLista()
-    }
-
     fun alternarSensor(coluna: Int) {
         val nova = AnaliseReplay.alternarSelecao(_selecionados.value, coluna)
         if (nova == null) {
@@ -236,7 +175,7 @@ class ReplayLogViewModel(
         val Factory = viewModelFactory {
             initializer {
                 val app = this[APPLICATION_KEY] as CharruaMotorsApp
-                ReplayLogViewModel(RepositorioLogsCsv(app), ArquivoLaudoPdf(app), app.preferenciasApp)
+                ReplayLogViewModel(RepositorioLogsCsv(app), GeradorLaudoLog(ArquivoLaudoPdf(app), app.preferenciasApp))
             }
         }
     }

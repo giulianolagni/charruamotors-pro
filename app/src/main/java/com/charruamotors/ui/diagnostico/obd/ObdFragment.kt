@@ -76,7 +76,8 @@ import com.charruamotors.obd.sessao.ConfigAutoConexao
 import com.charruamotors.obd.sessao.EstadoSessao
 import com.charruamotors.obd.sessao.SessaoObd
 import com.charruamotors.ui.diagnostico.DiagnosticoActivity
-import com.charruamotors.ui.oficina.replay.ReplayLogActivity
+import com.charruamotors.ui.diagnostico.DiagnosticoPagerAdapter
+import com.charruamotors.ui.diagnostico.historico.HistoricoFragment
 import com.charruamotors.ui.util.ArquivoExportado
 import com.charruamotors.ui.util.ExportadorCsv
 import com.charruamotors.ui.util.PermissoesBluetooth
@@ -265,11 +266,14 @@ class ObdFragment : Fragment() {
         mostrarEstado(viewModel.estado.value)
     }
 
-    /** Sessão encerrada com os logs automáticos salvos: atalho para o visualizador. */
+    /** Sessão encerrada com os logs automáticos salvos: atalho para as sessões do Histórico. */
     private fun oferecerLogsSessao(logs: LogsSessaoSalvos) {
         val arquivo = logs.txt ?: logs.csv ?: return
         Snackbar.make(requireView(), getString(R.string.caixa_logs_salvos, arquivo.local), Snackbar.LENGTH_LONG)
-            .setAction(R.string.caixa_ver_logs) { startActivity(ReplayLogActivity.intent(requireContext())) }
+            .setAction(R.string.caixa_ver_logs) {
+                HistoricoFragment.pedirSessoes(parentFragmentManager)
+                (activity as? DiagnosticoActivity)?.mostrarAba(DiagnosticoPagerAdapter.ABA_HISTORICO)
+            }
             .show()
     }
 

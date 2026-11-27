@@ -92,9 +92,9 @@ Campos: marca, modelo, ano, placa, cor, km atual, tipo de combustível e capacid
 Desde a v1.4, quatro abas na navegação inferior (`BottomNavigationView` + `ViewPager2` sem deslizar), cada uma um Fragment:
 
 - **Painel:** card de conexão inteligente (início rápido Bluetooth/Simulado ou barra compacta conectada) e os blocos escolhidos pelo usuário — Músicas, Navegação, Mostradores (1 a 12), gráfico ao vivo, computador de bordo, cronômetro 0–100, lista rápida de sensores e informações da ECU.
-- **Oficina:** cards grandes para Teste de Bateria, Diagnóstico de Erros (DTCs), Varredura de PIDs e Terminal ELM327.
+- **Oficina:** cards em três seções — Diagnóstico (DTCs, Checkup, Falhas de Ignição, Injeção, Bateria e Sensores), Testes e Performance (Gráficos, Aceleração e Calibração de Consumo) e Engenharia (Varredura, Terminal e Atuadores).
 - **Manutenções:** histórico com edição e exclusão. O cadastro abre em BottomSheet: tipo de serviço, data, km, custo, oficina, descrição e lista dinâmica de peças trocadas (nome, quantidade e valor). No topo da lista aparece a previsão das próximas manutenções.
-- **Histórico:** abastecimentos (consumo médio, custo por km e CRUD em BottomSheet), logs CSV/TXT salvos e o diário de viagens.
+- **Histórico:** abastecimentos (consumo médio, custo por km e CRUD em BottomSheet), sessões gravadas (um cartão por sessão, com Replay Gráfico, Log Técnico e Laudo PDF) e viagens.
 
 ---
 
@@ -241,11 +241,12 @@ polling não muda: a tela usa uma sessão manual só com `ATRV`, sem RPM. A curv
   modos 21/22 nada é pedido e os cartões mostram "Não suportado neste veículo".
 - O resumo da sessão entra no Laudo Técnico em PDF; nada é gravado no histórico.
 
-### 2. Visualizador de Logs CSV (`ReplayLogActivity`)
+### 2. Replay Gráfico de logs CSV (`ReplayLogActivity`)
 
-- Lista os `.csv` de `Downloads/CharruaOBD`: no Android 10+ pelo `MediaStore`, que mostra os logs criados
-  pelo próprio app sem pedir permissão; no Android 8–9, pela pasta do app. O botão **Abrir outro CSV** usa o
-  Storage Access Framework (`ACTION_OPEN_DOCUMENT`).
+- A lista fica em **Histórico → Sessões** (v2.10): os `.csv` e `.txt` de `Downloads/CharruaOBD`, agrupados por
+  sessão — no Android 10+ pelo `MediaStore`, que mostra os logs criados pelo próprio app sem pedir permissão;
+  no Android 8–9, pela pasta do app. O botão **Abrir CSV externo** usa o Storage Access Framework
+  (`ACTION_OPEN_DOCUMENT`).
 - `LeitorCsvLog` lê o cabeçalho dinamicamente (`Nome (unidade) [comando]`; `timestamp_ms`/`data_hora`/`tempo_s`
   são as colunas de tempo) em streaming. Ele aceita RFC 4180 com BOM e também o CSV reexportado pelo Excel
   pt-BR (`;` e vírgula decimal).
@@ -365,8 +366,9 @@ falta), as métricas `X sensores encontrados · Y identificados · Z ignorados` 
 contexto do `ATSH` ativo, erros do ELM327 e respostas negativas `7F`). O botão **Laudo** (`LaudoTerminal`) gera o
 resumo da sessão, as leituras traduzidas e o log bruto para copiar/compartilhar.
 
-**Histórico (`HistoricoFragment`).** Abastecimentos, Logs (CSV do Data Logger e da caixa-preta, abertos direto no
-replay; toque longo compartilha) e Viagens (relatórios `.txt` de cada sessão da caixa-preta e as leituras salvas).
+**Histórico (`HistoricoFragment`).** Abastecimentos, Sessões (um cartão por sessão com o `.csv` e o `.txt`; replay,
+log técnico, laudo PDF; toque longo compartilha ou apaga) e Viagens (a viagem em curso ou a última, o atalho para as
+Estatísticas completas e as leituras salvas).
 
 **Unidades globais (Configurações → Aparência e Painel).** Métrico (km/h, °C, kPa ou bar, km/L) ou Imperial (mph,
 °F, psi, MPG do galão americano, milhas e galões). `ConversorUnidades` (puro) converte pela unidade do catálogo e é
@@ -558,7 +560,7 @@ uma mensagem) e pede confirmação entre **Mesclar** (só acrescenta os carros c
 
 ## Desempenho, viagem e calibração de consumo (v2.6)
 
-Três telas na aba **Oficina**; tudo o que é salvo fica no perfil isolado de cada carro.
+Três telas (Aceleração e Calibração na aba **Oficina**; Estatísticas em **Histórico → Viagens**); tudo o que é salvo fica no perfil isolado de cada carro.
 
 - **Testes de Aceleração:** 0–60, 0–100, 60–100, 80–120 km/h, 200 m e 400 m pela velocidade da ECU
   (`010D`). Fases *Aguardando parada → Armado → Em medição → Concluído*; a chegada é interpolada entre
@@ -577,7 +579,7 @@ Três telas na aba **Oficina**; tudo o que é salvo fica no perfil isolado de ca
 
 ## Laudo Técnico em PDF (v2.7)
 
-O botão **Gerar Laudo PDF** fica em **Oficina → Diagnóstico de Erros** (sessão em curso, com o scanner conectado) e no **Visualizador de Logs** (logs salvos). O arquivo A4, com quantas páginas forem necessárias, é gerado com `android.graphics.pdf.PdfDocument` e aberto no compartilhamento do Android (WhatsApp, e-mail) ou no leitor de PDF.
+O botão **Gerar Laudo PDF** fica em **Oficina → Diagnóstico de Erros** (sessão em curso, com o scanner conectado) e em **Histórico → Sessões** (logs salvos, combinando o `.txt` e o `.csv` da sessão). O arquivo A4, com quantas páginas forem necessárias, é gerado com `android.graphics.pdf.PdfDocument` e aberto no compartilhamento do Android (WhatsApp, e-mail) ou no leitor de PDF.
 
 - Conteúdo: oficina e técnico (opcionais, em Configurações), identificação do veículo, MIL, DTCs, Freeze Frame, monitores de prontidão, resumo técnico, alertas disparados e observações do técnico.
 - Fora de uma conexão Bluetooth real (ou em log simulado), todas as páginas levam a faixa **MODO SIMULADO — DADOS FICTÍCIOS**.

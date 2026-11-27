@@ -48,6 +48,16 @@ object LaudoUi {
             .show()
     }
 
+    /** Desfecho do laudo de um log salvo: entrega o PDF ou avisa por que não saiu. */
+    fun mostrar(activity: AppCompatActivity, raiz: View, resultado: ResultadoLaudoLog) {
+        val erro = when (resultado) {
+            is ResultadoLaudoLog.Gerado -> return entregar(activity, raiz, resultado.laudo)
+            is ResultadoLaudoLog.Erro -> activity.getString(R.string.laudo_erro, resultado.detalhe)
+            ResultadoLaudoLog.SemRelatorio -> activity.getString(R.string.laudo_txt_invalido)
+        }
+        Snackbar.make(raiz, erro, Snackbar.LENGTH_LONG).show()
+    }
+
     /**
      * Abre o compartilhamento nativo com o PDF (WhatsApp, e-mail...) e deixa na tela o atalho para o
      * visualizador de PDF.

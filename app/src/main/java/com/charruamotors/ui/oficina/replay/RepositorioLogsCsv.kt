@@ -119,16 +119,29 @@ class RepositorioLogsCsv(context: Context) {
     }
 
     /**
-     * v2.7.0: instantâneo para o laudo de um log salvo. O relatório `.txt` da sessão (o próprio
-     * arquivo ou o par do CSV, de mesmo nome) é a fonte completa; sem ele, só as colunas do CSV.
-     * Null = `.txt` que não é um relatório do app.
+     * v2.7.0: instantâneo para o laudo do CSV aberto no replay, junto com o relatório `.txt` de mesmo
+     * nome, se houver. Null = `.txt` que não é um relatório do app.
      */
-    suspend fun dadosDoLaudo(uri: Uri, nome: String, emitidoEmMs: Long): DadosLaudo? = withContext(Dispatchers.IO) {
-        if (nome.endsWith(".txt", ignoreCase = true)) return@withContext lerRelatorio(uri, nome, emitidoEmMs)
+    suspend fun dadosDoLaudo(uri: Uri, nome: String, emitidoEmMs: Long): DadosLaudo? {
         val par = nome.substringBeforeLast('.') + ".txt"
         val relatorio = listar().firstOrNull { it.nome.equals(par, ignoreCase = true) }
-        relatorio?.let { runCatching { lerRelatorio(it.uri, it.nome, emitidoEmMs) }.getOrNull() }
-            ?: LaudoDeLog.doCsv(nome, abrir(uri), emitidoEmMs)
+        return dadosDoLaudo(ArquivoLogCsv(uri, nome, 0, 0), relatorio, emitidoEmMs)
+    }
+
+    /**
+     * v2.10.0: laudo da sessão agrupada, combinando `.txt` e `.csv` ([LaudoDeLog.daSessao]). Com os
+     * dois, a falha de leitura de um não impede o laudo pelo outro.
+     */
+    suspend fun dadosDoLaudo(csv: ArquivoLogCsv?, txt: ArquivoLogCsv?, emitidoEmMs: Long): DadosLaudo? = withContext(Dispatchers.IO) {
+        val doTxt = txt?.let {
+            if (csv == null) lerRelatorio(it.uri, it.nome, emitidoEmMs)
+            else runCatching { lerRelatorio(it.uri, it.nome, emitidoEmMs) }.getOrNull()
+        }
+        val doCsv = csv?.let {
+            if (doTxt == null) LaudoDeLog.doCsv(it.nome, abrir(it.uri), emitidoEmMs)
+            else runCatching { LaudoDeLog.doCsv(it.nome, abrir(it.uri), emitidoEmMs) }.getOrNull()
+        }
+        LaudoDeLog.daSessao(doTxt, doCsv)
     }
 
     private fun lerRelatorio(uri: Uri, nome: String, emitidoEmMs: Long): DadosLaudo? {

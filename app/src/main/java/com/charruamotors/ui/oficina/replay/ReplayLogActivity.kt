@@ -2,15 +2,11 @@ package com.charruamotors.ui.oficina.replay
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
-import android.text.format.Formatter
-import android.view.LayoutInflater
-import android.view.ViewGroup
 import android.widget.TextView
-import androidx.activity.OnBackPressedCallback
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -19,23 +15,13 @@ import androidx.core.view.isVisible
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.recyclerview.widget.DiffUtil
-import androidx.recyclerview.widget.ListAdapter
-import androidx.recyclerview.widget.RecyclerView
 import com.charruamotors.R
 import com.charruamotors.databinding.ActivityReplayLogBinding
-import com.charruamotors.databinding.ItemArquivoLogBinding
-import com.charruamotors.databinding.ItemCabecalhoSimuladosBinding
 import com.charruamotors.oficina.replay.AnaliseReplay
 import com.charruamotors.oficina.replay.JanelaReplay
-import com.charruamotors.obd.log.DestinoLogs
-import com.charruamotors.obd.log.LinhaLog
-import com.charruamotors.obd.log.OrganizadorLogs
 import com.charruamotors.ui.componentes.GraficoSeriesView
 import com.charruamotors.ui.laudo.LaudoUi
-import com.charruamotors.ui.util.ArquivoExportado
-import com.charruamotors.ui.util.ExportadorCsv
-import com.charruamotors.ui.util.TextoCompartilhavel
+import com.charruamotors.ui.laudo.ResultadoLaudoLog
 import com.charruamotors.ui.util.aplicarInsetsDoSistema
 import com.charruamotors.ui.util.comoNumero
 import com.charruamotors.ui.util.definirTexto
@@ -49,33 +35,17 @@ import java.time.format.DateTimeFormatter
 import kotlin.math.abs
 
 /**
- * Ferramenta 2 — Visualizador Interno de Logs: lista os logs de `Downloads/CharruaOBD` — CSV do
- * Data Logger e da caixa-preta, e os relatórios `.txt` das sessões — ou abre outro CSV pelo
- * seletor do sistema. O CSV vira replay em [GraficoSeriesView] com até 4 colunas, zoom por
- * pinça, arraste, cursor com horário e valores e o resumo Mín/Máx/Média da janela visível; o
- * `.txt` abre num diálogo no topo (resumo da viagem primeiro). Toque longo compartilha o arquivo.
+ * Replay Gráfico de um log CSV, aberto pela aba Histórico (sessão da lista ou CSV externo): até 4
+ * colunas em [GraficoSeriesView], com zoom por pinça, arraste, cursor com horário e valores e o
+ * resumo Mín/Máx/Média da janela visível. A lista de sessões vive só no Histórico (v2.10.0).
  * Não usa a conexão OBD2.
  */
 class ReplayLogActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityReplayLogBinding
     private val viewModel: ReplayLogViewModel by viewModels { ReplayLogViewModel.Factory }
-    private val adapter = ArquivoAdapter(
-        aoAbrir = { viewModel.abrir(it) },
-        aoCompartilhar = ::compartilhar,
-        aoGerarLaudo = { pedirLaudo(it.uri, it.nome) },
-    )
     private val coresSeries by lazy {
         listOf(R.color.serie_1, R.color.serie_2, R.color.serie_3, R.color.serie_4).map { ContextCompat.getColor(this, it) }
-    }
-
-    private val abrirDocumento = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let(viewModel::abrirDocumento)
-    }
-
-    /** Com um log aberto, o "voltar" retorna à lista em vez de fechar a ferramenta. */
-    private val voltarParaLista = object : OnBackPressedCallback(false) {
-        override fun handleOnBackPressed() = viewModel.fecharLog()
     }
 
     private var formatoTempo = FormatoTempo(true, 0L)
@@ -88,22 +58,17 @@ class ReplayLogActivity : AppCompatActivity() {
         binding.appbar.aplicarInsetsDoSistema(base = false)
         binding.conteudo.aplicarInsetsDoSistema(topo = false)
         binding.toolbar.setNavigationOnClickListener { onBackPressedDispatcher.onBackPressed() }
-        onBackPressedDispatcher.addCallback(this, voltarParaLista)
 
-        // Aberto pela aba Histórico com um arquivo escolhido: já vai direto para ele.
-        if (savedInstanceState == null) arquivoDoIntent()?.let(viewModel::abrir)
+        // Também depois de o processo ser recriado: o ViewModel novo ainda não tem o log.
+        if (viewModel.log.value == null) abrirDoIntent()
 
-        binding.listaArquivos.adapter = adapter
-        binding.botaoAbrirOutro.setOnClickListener {
-            runCatching { abrirDocumento.launch(TIPOS_CSV) }.onFailure { mensagem(it.message ?: "") }
-        }
-        binding.botaoAtualizar.setOnClickListener { viewModel.atualizarLista() }
-        binding.botaoOutrosLogs.setOnClickListener { viewModel.fecharLog() }
         binding.botaoVerTudo.setOnClickListener {
             viewModel.log.value?.let { binding.graficoReplay.definirJanela(it.total) }
         }
         binding.botaoGerarLaudo.setOnClickListener {
-            viewModel.log.value?.let { pedirLaudo(it.uri, it.nome) }
+            viewModel.log.value?.let { log ->
+                LaudoUi.pedirObservacoes(this) { viewModel.gerarLaudo(log.uri, log.nome, it) }
+            }
         }
         binding.graficoReplay.ouvinte = object : GraficoSeriesView.Ouvinte {
             override fun aoMudarJanela(janela: JanelaReplay) = viewModel.mudarJanela(janela)
@@ -114,12 +79,6 @@ class ReplayLogActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                launch {
-                    viewModel.arquivos.collect {
-                        adapter.definirArquivos(it)
-                        binding.textoListaVazia.isVisible = it.isEmpty()
-                    }
-                }
                 launch { viewModel.carregando.collect { binding.progressoCarregando.isInvisible = !it } }
                 // Log ou seleção mudou: redesenha o gráfico com as séries novas.
                 launch { combine(viewModel.log, viewModel.selecionados) { log, sel -> log to sel }.collect { (log, sel) -> mostrarLog(log, sel) } }
@@ -129,10 +88,7 @@ class ReplayLogActivity : AppCompatActivity() {
                         when (evento) {
                             is EventoReplay.Erro -> mensagem(getString(R.string.replay_erro_ler, evento.detalhe))
                             EventoReplay.MaximoSensores -> mensagem(getString(R.string.replay_max_sensores, AnaliseReplay.MAX_SENSORES))
-                            is EventoReplay.Texto -> mostrarTexto(evento.arquivo, evento.texto)
-                            is EventoReplay.Laudo -> LaudoUi.entregar(this@ReplayLogActivity, binding.root, evento.laudo)
-                            is EventoReplay.ErroLaudo -> mensagem(getString(R.string.laudo_erro, evento.detalhe))
-                            EventoReplay.LaudoSemRelatorio -> mensagem(getString(R.string.laudo_txt_invalido))
+                            is EventoReplay.Laudo -> LaudoUi.mostrar(this@ReplayLogActivity, binding.root, evento.resultado)
                         }
                     }
                 }
@@ -140,34 +96,15 @@ class ReplayLogActivity : AppCompatActivity() {
         }
     }
 
-    /** Relatório `.txt`: diálogo aberto no início do texto; "Compartilhar" envia o arquivo inteiro. */
-    private fun mostrarTexto(arquivo: ArquivoLogCsv, texto: TextoLog) {
-        val conteudo = if (texto.truncado) {
-            texto.conteudo + getString(R.string.replay_txt_truncado, Formatter.formatShortFileSize(this, texto.conteudo.length.toLong()))
-        } else {
-            texto.conteudo
-        }
-        TextoCompartilhavel.mostrarDialogo(this, arquivo.nome, conteudo) { compartilhar(arquivo) }
-    }
-
-    private fun pedirLaudo(uri: android.net.Uri, nome: String) =
-        LaudoUi.pedirObservacoes(this) { viewModel.gerarLaudo(uri, nome, it) }
-
-    private fun compartilhar(arquivo: ArquivoLogCsv) {
-        val mime = if (arquivo.texto) DestinoLogs.MIME_TXT else DestinoLogs.MIME_CSV
-        val exportado = ArquivoExportado(viewModel.uriCompartilhavel(arquivo), arquivo.nome, "")
-        runCatching { startActivity(ExportadorCsv.intentCompartilhar(exportado, getString(R.string.replay_compartilhar_titulo), mime)) }
-            .onFailure { mensagem(it.message ?: "") }
+    private fun abrirDoIntent() {
+        val uri = intent.getStringExtra(EXTRA_URI)?.let(Uri::parse) ?: return finish()
+        val nome = intent.getStringExtra(EXTRA_NOME)
+        if (nome == null) viewModel.abrirDocumento(uri) else viewModel.abrir(uri, nome)
     }
 
     private fun mostrarLog(aberto: LogAberto?, selecionados: List<Int>) = with(binding) {
-        painelLista.isVisible = aberto == null
         painelGrafico.isVisible = aberto != null
-        voltarParaLista.isEnabled = aberto != null
-        if (aberto == null) {
-            toolbar.subtitle = null
-            return@with
-        }
+        if (aberto == null) return@with
         val log = aberto.log
         formatoTempo = FormatoTempo(log.tempoAbsoluto, log.inicioMs)
         toolbar.subtitle = aberto.nome
@@ -294,130 +231,15 @@ class ReplayLogActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Lista de logs salvos (também usada na aba Histórico): do mais recente para o mais antigo, com os
-     * logs reais direto na lista e os do Modo Simulado na pasta retrátil "Simulados (X arquivos)" no topo.
-     */
-    internal class ArquivoAdapter(
-        private val aoAbrir: (ArquivoLogCsv) -> Unit,
-        private val aoCompartilhar: (ArquivoLogCsv) -> Unit,
-        /** Null = a lista não oferece o laudo (aba Histórico). */
-        private val aoGerarLaudo: ((ArquivoLogCsv) -> Unit)? = null,
-    ) : ListAdapter<LinhaLog<ArquivoLogCsv>, RecyclerView.ViewHolder>(Diferenca) {
-
-        class Item(val binding: ItemArquivoLogBinding) : RecyclerView.ViewHolder(binding.root)
-        class Cabecalho(val binding: ItemCabecalhoSimuladosBinding) : RecyclerView.ViewHolder(binding.root)
-
-        private var arquivos: List<ArquivoLogCsv> = emptyList()
-        private var simuladosExpandidos = false
-
-        /** Recebe os arquivos em qualquer ordem: a lista é ordenada e separada aqui. */
-        fun definirArquivos(lista: List<ArquivoLogCsv>) {
-            arquivos = lista
-            atualizarLinhas()
-        }
-
-        private fun atualizarLinhas() = submitList(OrganizadorLogs.montarLinhas(arquivos, simuladosExpandidos))
-
-        override fun getItemViewType(position: Int) = when (getItem(position)) {
-            is LinhaLog.CabecalhoSimulados -> TIPO_CABECALHO
-            is LinhaLog.Arquivo -> TIPO_ARQUIVO
-        }
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-            val inflater = LayoutInflater.from(parent.context)
-            return if (viewType == TIPO_CABECALHO) {
-                Cabecalho(ItemCabecalhoSimuladosBinding.inflate(inflater, parent, false))
-            } else {
-                Item(ItemArquivoLogBinding.inflate(inflater, parent, false))
-            }
-        }
-
-        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-            when (val linha = getItem(position)) {
-                is LinhaLog.CabecalhoSimulados -> ligarCabecalho(holder as Cabecalho, linha)
-                is LinhaLog.Arquivo -> ligarArquivo(holder as Item, linha)
-            }
-        }
-
-        private fun ligarCabecalho(holder: Cabecalho, linha: LinhaLog.CabecalhoSimulados) {
-            val contexto = holder.itemView.context
-            holder.binding.textoTituloSimulados.text =
-                contexto.resources.getQuantityString(R.plurals.logs_simulados_titulo, linha.quantidade, linha.quantidade)
-            holder.binding.imagemExpandir.rotation = if (linha.expandido) 180f else 0f
-            holder.itemView.contentDescription = contexto.getString(
-                if (linha.expandido) R.string.logs_simulados_recolher else R.string.logs_simulados_expandir,
-            )
-            holder.itemView.setOnClickListener {
-                simuladosExpandidos = !simuladosExpandidos
-                atualizarLinhas()
-            }
-        }
-
-        private fun ligarArquivo(holder: Item, linha: LinhaLog.Arquivo<ArquivoLogCsv>) {
-            val arquivo = linha.item
-            val contexto = holder.itemView.context
-            holder.binding.textoNome.text = arquivo.nome
-            holder.binding.badgeSimulado.isVisible = linha.simulado
-            val data = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
-                .format(Instant.ofEpochMilli(OrganizadorLogs.instante(arquivo)).atZone(ZoneId.systemDefault()))
-            holder.binding.textoDetalhe.text =
-                contexto.getString(R.string.replay_item_detalhe, data, Formatter.formatShortFileSize(contexto, arquivo.tamanhoBytes))
-            holder.binding.imagemTipo.setImageResource(if (arquivo.texto) R.drawable.ic_terminal else R.drawable.ic_grafico)
-            holder.binding.botaoLaudo.isVisible = aoGerarLaudo != null
-            holder.binding.botaoLaudo.setOnClickListener { aoGerarLaudo?.invoke(arquivo) }
-            holder.itemView.setOnClickListener { aoAbrir(arquivo) }
-            holder.itemView.setOnLongClickListener {
-                aoCompartilhar(arquivo)
-                true
-            }
-        }
-
-        private object Diferenca : DiffUtil.ItemCallback<LinhaLog<ArquivoLogCsv>>() {
-            override fun areItemsTheSame(a: LinhaLog<ArquivoLogCsv>, b: LinhaLog<ArquivoLogCsv>) = when {
-                a is LinhaLog.CabecalhoSimulados && b is LinhaLog.CabecalhoSimulados -> true
-                a is LinhaLog.Arquivo && b is LinhaLog.Arquivo -> a.item.uri == b.item.uri
-                else -> false
-            }
-
-            override fun areContentsTheSame(a: LinhaLog<ArquivoLogCsv>, b: LinhaLog<ArquivoLogCsv>) = a == b
-        }
-
-        private companion object {
-            const val TIPO_ARQUIVO = 0
-            const val TIPO_CABECALHO = 1
-        }
-    }
-
-    private fun arquivoDoIntent(): ArquivoLogCsv? {
-        val uri = intent.getStringExtra(EXTRA_URI)?.let(android.net.Uri::parse) ?: return null
-        return ArquivoLogCsv(
-            uri = uri,
-            nome = intent.getStringExtra(EXTRA_NOME) ?: uri.lastPathSegment.orEmpty(),
-            tamanhoBytes = intent.getLongExtra(EXTRA_TAMANHO, 0),
-            modificadoMs = intent.getLongExtra(EXTRA_MODIFICADO, 0),
-        )
-    }
-
     companion object {
-        /** Alguns gerenciadores de arquivos marcam o CSV como texto genérico ou binário. */
-        private val TIPOS_CSV = arrayOf(
-            "text/csv", "text/comma-separated-values", "application/csv", "text/plain",
-            "application/vnd.ms-excel", "application/octet-stream",
-        )
-
         private const val EXTRA_URI = "extra_uri"
         private const val EXTRA_NOME = "extra_nome"
-        private const val EXTRA_TAMANHO = "extra_tamanho"
-        private const val EXTRA_MODIFICADO = "extra_modificado"
 
-        fun intent(context: Context): Intent = Intent(context, ReplayLogActivity::class.java)
+        /** Replay de um CSV da lista do Histórico. */
+        fun intent(context: Context, uri: Uri, nome: String): Intent = intentExterno(context, uri).putExtra(EXTRA_NOME, nome)
 
-        /** Abre direto um log da lista (CSV no replay; `.txt` no diálogo do relatório). */
-        fun intent(context: Context, arquivo: ArquivoLogCsv): Intent = intent(context)
-            .putExtra(EXTRA_URI, arquivo.uri.toString())
-            .putExtra(EXTRA_NOME, arquivo.nome)
-            .putExtra(EXTRA_TAMANHO, arquivo.tamanhoBytes)
-            .putExtra(EXTRA_MODIFICADO, arquivo.modificadoMs)
+        /** Replay de um documento do seletor do sistema: o nome é lido na abertura. */
+        fun intentExterno(context: Context, uri: Uri): Intent =
+            Intent(context, ReplayLogActivity::class.java).putExtra(EXTRA_URI, uri.toString())
     }
 }

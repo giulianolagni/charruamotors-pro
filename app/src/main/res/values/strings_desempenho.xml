@@ -4,8 +4,6 @@
     <!-- Cards da aba Oficina e ação em Meus Carros -->
     <string name="oficina_card_aceleracao">Testes de Aceleração</string>
     <string name="oficina_card_aceleracao_desc">0–60, 0–100, 60–100, 80–120 km/h, 200 m e 400 m pela velocidade da ECU, com histórico por carro</string>
-    <string name="oficina_card_viagem">Estatísticas da Viagem</string>
-    <string name="oficina_card_viagem_desc">Distância, tempo parado, velocidades, RPM, consumo, litros e custo estimado</string>
     <string name="oficina_card_calibracao">Calibração de Consumo</string>
     <string name="oficina_card_calibracao_desc">Motor, combustível, preço do litro e ajuste pela bomba, só deste carro</string>
     <string name="carros_acao_calibracao">Calibração de consumo</string>

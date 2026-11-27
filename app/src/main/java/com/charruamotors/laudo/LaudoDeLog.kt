@@ -91,6 +91,37 @@ object LaudoDeLog {
         )
     }
 
+    /**
+     * Laudo de uma sessão com os dois arquivos: o relatório `.txt` manda (veículo, DTCs, alertas) e o
+     * CSV completa o que ele não registrou no resumo (tempos em movimento/parado, sensores). Com um
+     * lado só, devolve esse lado; null sem nenhum.
+     */
+    fun daSessao(doTxt: DadosLaudo?, doCsv: DadosLaudo?): DadosLaudo? {
+        if (doTxt == null) return doCsv
+        if (doCsv == null) return doTxt
+        val a = doTxt.resumo
+        val b = doCsv.resumo
+        val simulado = doTxt.simulado || doCsv.simulado
+        return doTxt.copy(
+            origem = if (simulado) OrigemLaudo.SIMULADO else doTxt.origem,
+            fonte = "${doTxt.fonte} + ${doCsv.fonte}",
+            resumo = ResumoTecnicoLaudo(
+                tensao = a.tensao ?: b.tensao,
+                agua = a.agua ?: b.agua,
+                atf = a.atf ?: b.atf,
+                velocidadeMaximaKmh = a.velocidadeMaximaKmh ?: b.velocidadeMaximaKmh,
+                rpmMaximo = a.rpmMaximo ?: b.rpmMaximo,
+                duracaoSegundos = a.duracaoSegundos ?: b.duracaoSegundos,
+                distanciaKm = a.distanciaKm ?: b.distanciaKm,
+                segundosMovimento = a.segundosMovimento ?: b.segundosMovimento,
+                segundosParado = a.segundosParado ?: b.segundosParado,
+                velocidadeMediaKmh = a.velocidadeMediaKmh ?: b.velocidadeMediaKmh,
+                litros = a.litros ?: b.litros,
+                kmPorLitro = a.kmPorLitro ?: b.kmPorLitro,
+            ),
+        )
+    }
+
     /** Resumo calculado das colunas do CSV, identificadas pelo comando do cabeçalho. */
     fun doCsv(nome: String, log: LogCsv, emitidoEmMs: Long): DadosLaudo {
         fun serie(comando: String): DoubleArray? =
