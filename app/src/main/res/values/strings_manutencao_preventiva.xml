@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v2.11.0: manutenção preventiva por carro (aba Manutenções). -->
+<resources>
+    <string name="preventiva_titulo">Manutenção preventiva</string>
+    <string name="botao_confirmar">Confirmar</string>
+    <string name="preventiva_odometro">Odômetro: %1$s km</string>
+    <string name="preventiva_odometro_dica">Soma sozinho a distância das viagens OBD2 reais (o Modo Simulado não conta). Corrija pelo painel do carro quando quiser.</string>
+    <string name="preventiva_odometro_editar">Corrigir</string>
+    <string name="preventiva_odometro_campo">Quilometragem atual</string>
+    <string name="preventiva_odometro_invalido">Informe um número de 0 a 9.999.999</string>
+    <string name="preventiva_pendencias">%1$d vencido(s) · %2$d próximo(s)</string>
+    <string name="preventiva_vazio">Nenhum item cadastrado. Adicione o óleo, os filtros e o que mais quiser acompanhar.</string>
+    <string name="preventiva_adicionar">Adicionar item</string>
+    <string name="preventiva_historico">Histórico de trocas (%1$d)</string>
+    <string name="preventiva_historico_titulo">Histórico de trocas</string>
+    <string name="preventiva_historico_linha">%1$s · %2$s · %3$s km</string>
+    <string name="preventiva_ultima">Última troca: %1$s km em %2$s</string>
+    <string name="preventiva_registrar">Registrar troca agora</string>
+    <string name="preventiva_registrar_confirmar">Registrar a troca de %1$s com %2$s km, hoje?</string>
+    <string name="preventiva_registrada">Troca registrada</string>
+    <string name="preventiva_escolher_preset">O que deseja acompanhar?</string>
+    <string name="preventiva_novo">Novo item</string>
+    <string name="preventiva_editar">Editar item</string>
+    <string name="preventiva_campo_nome">Nome</string>
+    <string name="preventiva_campo_km">Km da última troca</string>
+    <string name="preventiva_campo_data">Data da última troca</string>
+    <string name="preventiva_campo_intervalo_km">Intervalo em km (opcional)</string>
+    <string name="preventiva_campo_intervalo_meses">Intervalo em meses (opcional)</string>
+    <string name="preventiva_campo_observacao">Observação (opcional)</string>
+    <string name="preventiva_sugestao">Os intervalos sugeridos são genéricos: confira o manual do veículo.</string>
+    <string name="preventiva_erro_obrigatorio">Obrigatório</string>
+    <string name="preventiva_erro_km">Informe um número de 0 a 9.999.999</string>
+    <string name="preventiva_erro_intervalo">Deixe vazio ou informe um número maior que zero</string>
+    <string name="preventiva_excluir_confirmar">Remover %1$s? As trocas já registradas continuam no histórico.</string>
+    <string name="preventiva_servicos_titulo">Serviços registrados</string>
+</resources>

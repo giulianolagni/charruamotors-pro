@@ -15,17 +15,6 @@
         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
         tools:listitem="@layout/item_manutencao" />
 
-    <TextView
-        android:id="@+id/texto_lista_vazia"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:gravity="center"
-        android:padding="@dimen/espaco_grande"
-        android:text="@string/manutencoes_lista_vazia"
-        android:textAppearance="?attr/textAppearanceBodyLarge"
-        android:textColor="@color/texto_secundario" />
-
     <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
         android:id="@+id/botao_nova_manutencao"
         android:layout_width="wrap_content"

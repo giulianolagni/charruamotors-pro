@@ -40,6 +40,9 @@ data class PreferenciasBackup(
     val painel: ConfigPainel? = null,
     /** v2.3.0 (formato 2): km/L ou L/100km. */
     val unidadeConsumo: UnidadeConsumo = UnidadeConsumo.PADRAO,
+    /** v2.11.0: oficina e técnico do laudo; null = backup antigo (restaurar mantém os atuais). */
+    val nomeOficina: String? = null,
+    val nomeTecnico: String? = null,
 )
 
 /**
@@ -198,6 +201,8 @@ object BackupJson {
         put("unidadePressao", p.unidadePressao.name)
         put("sistemaUnidades", p.sistemaUnidades.name)
         put("unidadeConsumo", p.unidadeConsumo.name)
+        putOpt("nomeOficina", p.nomeOficina)
+        putOpt("nomeTecnico", p.nomeTecnico)
         p.painel?.let { put("painel", JSONObject(CodecPainel.codificar(it))) }
     }
 
@@ -361,6 +366,8 @@ object BackupJson {
             sistemaUnidades = SistemaUnidades.deCodigo(o.textoOuNull("sistemaUnidades")),
             painel = o.optJSONObject("painel")?.let { p -> CodecPainel.decodificar { chave -> p.textoOuNull(chave) } },
             unidadeConsumo = UnidadeConsumo.deCodigo(o.textoOuNull("unidadeConsumo")),
+            nomeOficina = o.textoOuNull("nomeOficina"),
+            nomeTecnico = o.textoOuNull("nomeTecnico"),
         )
     }
 

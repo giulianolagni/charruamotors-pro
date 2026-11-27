@@ -87,9 +87,34 @@ class SessaoObdTest {
         velocidadeGps = velocidadeGps,
         aoSalvarLogReal = { _, csv -> logsReaisSalvos += csv.nome },
         relogioMonotonico = { testScheduler.currentTime },
+        aoPercorrer = { _, km -> kmPercorridos += km },
     )
 
     private val logsReaisSalvos = mutableListOf<String>()
+    private val kmPercorridos = mutableListOf<Double>()
+
+    // ---------------------------------------------------------------- odômetro (v2.11.0)
+
+    @Test
+    fun `viagem real soma a distancia no odometro e a simulada nunca`() = runTest {
+        val real = novaSessao(ModoObd.BLUETOOTH)
+        real.conectar(scanner, veiculoId = 7, origem = OrigemSessao.MANUAL)
+        avancar(90_000)
+        real.desconectar()
+        advanceUntilIdle()
+        val rodado = real.viagem.value.estatisticas.distanciaKm
+        assertTrue(rodado > 0)
+        assertEquals(rodado, kmPercorridos.sum(), 1e-9)
+
+        kmPercorridos.clear()
+        val simulada = novaSessao(ModoObd.SIMULADO)
+        simulada.conectar(scanner, veiculoId = 7, origem = OrigemSessao.MANUAL)
+        avancar(90_000)
+        simulada.desconectar()
+        advanceUntilIdle()
+        assertTrue(simulada.viagem.value.estatisticas.distanciaKm > 0)
+        assertTrue(kmPercorridos.isEmpty())
+    }
 
     // ---------------------------------------------------------------- testes de aceleração (v2.6.0)
 

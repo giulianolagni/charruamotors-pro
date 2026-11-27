@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Topo da aba Manutenções: odômetro, itens da preventiva e o título dos serviços registrados. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <com.google.android.material.card.MaterialCardView
+        style="@style/Widget.Material3.CardView.Filled"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/margem_tela"
+        app:cardCornerRadius="@dimen/raio_card">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="@dimen/espaco_medio">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/preventiva_titulo"
+                android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+            <TextView
+                android:id="@+id/texto_pendencias"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/espaco_minimo"
+                android:background="@drawable/fundo_pilula_status"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="2dp"
+                android:textAppearance="?attr/textAppearanceLabelMedium"
+                android:textColor="@android:color/white"
+                android:visibility="gone"
+                tools:text="1 vencido(s) · 2 próximo(s)"
+                tools:visibility="visible" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/texto_odometro"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFeatureSettings="tnum"
+                    android:textAppearance="?attr/textAppearanceTitleLarge"
+                    tools:text="Odômetro: 182.450 km" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/botao_odometro"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/preventiva_odometro_editar" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/preventiva_odometro_dica"
+                android:textAppearance="?attr/textAppearanceBodySmall"
+                android:textColor="@color/texto_secundario" />
+
+            <TextView
+                android:id="@+id/texto_itens_vazio"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/espaco_pequeno"
+                android:text="@string/preventiva_vazio"
+                android:textAppearance="?attr/textAppearanceBodyMedium"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/lista_itens"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/botao_adicionar_item"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/espaco_pequeno"
+                android:text="@string/preventiva_adicionar" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/botao_historico_trocas"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                tools:text="Histórico de trocas (3)"
+                tools:visibility="visible" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/espaco_grande"
+        android:text="@string/preventiva_servicos_titulo"
+        android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+    <TextView
+        android:id="@+id/texto_lista_vazia"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingVertical="@dimen/espaco_medio"
+        android:text="@string/manutencoes_lista_vazia"
+        android:textAppearance="?attr/textAppearanceBodyMedium"
+        android:textColor="@color/texto_secundario"
+        android:visibility="gone" />
+</LinearLayout>

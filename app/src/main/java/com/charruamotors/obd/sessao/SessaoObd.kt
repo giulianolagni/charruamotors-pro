@@ -286,6 +286,8 @@ class SessaoObd(
     private val calibracaoConsumo: (veiculoId: Long) -> CalibracaoConsumo = { CalibracaoConsumo() },
     /** v2.6.0: litros estimados numa sessão **real** de `veiculoId`, para o contador do tanque. */
     private val aoAcumularLitros: (veiculoId: Long, litros: Double) -> Unit = { _, _ -> },
+    /** v2.11.0: distância de viagens reais, para o odômetro do carro. */
+    private val aoPercorrer: (veiculoId: Long, km: Double) -> Unit = { _, _ -> },
     /** v2.6.0: teste de aceleração concluído numa sessão **real** de `veiculoId`. */
     private val aoRegistrarTempo: (veiculoId: Long, marca: MarcaDesempenho) -> Unit = { _, _ -> },
     /** Relógio que não salta (cronômetro e integração da viagem). */
@@ -501,6 +503,7 @@ class SessaoObd(
     private val percurso = AcumuladorPercurso()
     private var motorViagem = ParametrosMotor()
     private var litrosPendentes = 0.0
+    private var kmPendentes = 0.0
     private var ultimaGravacaoLitrosMs = 0L
 
     private val _viagem = MutableStateFlow(ViagemSessao())
@@ -523,16 +526,23 @@ class SessaoObd(
         }
     }
 
-    /** Entrega os litros ainda não gravados no contador do tanque (antes de lê-lo ou zerá-lo). */
+    /** Entrega os litros (contador do tanque) e os km (odômetro) ainda não gravados no perfil do carro. */
     fun descarregarLitrosTanque() {
-        val (veiculoId, litros) = synchronized(travaViagem) {
-            val pendente = veiculoIdSessao to litrosPendentes
+        val veiculoId: Long
+        val litros: Double
+        val km: Double
+        synchronized(travaViagem) {
+            veiculoId = veiculoIdSessao
+            litros = litrosPendentes
+            km = kmPendentes
             litrosPendentes = 0.0
+            kmPendentes = 0.0
             ultimaGravacaoLitrosMs = relogioMonotonico()
-            pendente
         }
         // Fora da trava: gravar o perfil avisa quem o observa, e um deles volta aqui (recarregar a calibração).
-        if (litros > 0 && veiculoId > 0) runCatching { aoAcumularLitros(veiculoId, litros) }
+        if (veiculoId <= 0) return
+        if (litros > 0) runCatching { aoAcumularLitros(veiculoId, litros) }
+        if (km > 0) runCatching { aoPercorrer(veiculoId, km) }
     }
 
     private fun iniciarViagem(veiculo: VeiculoSessao?) {
@@ -541,6 +551,7 @@ class SessaoObd(
             percurso.zerar()
             motorViagem = veiculo?.parametrosMotor(calibracao ?: veiculo.calibracaoPerfil) ?: ParametrosMotor()
             litrosPendentes = 0.0
+            kmPendentes = 0.0
             ultimaGravacaoLitrosMs = relogioMonotonico()
             _viagem.value = ViagemSessao(precoLitro = calibracao?.precoLitro, veiculo = veiculo?.nomeCurto, simulada = sessaoSimulada)
         }
@@ -551,9 +562,13 @@ class SessaoObd(
             val agora = relogioMonotonico()
             val consumo = TelemetriaCalculada.consumoInstantaneo(dados, motorViagem)
             val antes = percurso.estatisticas.litros
+            val kmAntes = percurso.estatisticas.distanciaKm
             val estatisticas = percurso.registrar(dados[Pids.VELOCIDADE], dados[Pids.RPM], consumo?.litrosPorHora, agora)
             _viagem.update { it.copy(estatisticas = estatisticas) }
-            if (!sessaoSimulada && veiculoAtual != null) litrosPendentes += estatisticas.litros - antes
+            if (!sessaoSimulada && veiculoAtual != null) {
+                litrosPendentes += estatisticas.litros - antes
+                kmPendentes += estatisticas.distanciaKm - kmAntes
+            }
             agora - ultimaGravacaoLitrosMs >= INTERVALO_GRAVACAO_LITROS_MS
         }
         if (gravar) descarregarLitrosTanque()

@@ -11,6 +11,8 @@ import com.charruamotors.domain.calculo.LimitesProtecao
 import com.charruamotors.domain.faixas.FaixasVeiculo
 import com.charruamotors.domain.faixas.NivelPerfil
 import com.charruamotors.domain.faixas.ResolucaoPerfil
+import com.charruamotors.domain.manutencao.Odometro
+import com.charruamotors.domain.manutencao.PlanoManutencao
 import com.charruamotors.domain.model.Veiculo
 import com.charruamotors.domain.perfis.CarregadorPerfis
 import com.charruamotors.domain.perfis.CatalogoPerfis
@@ -78,6 +80,10 @@ data class PerfilCarro(
     val offsetTensaoV: Double = 0.0,
     /** v2.8.0: testes de bateria e alternador concluídos neste carro. */
     val historicoBateria: HistoricoBateria = HistoricoBateria(),
+    /** v2.11.0: itens e histórico da manutenção preventiva deste carro. */
+    val planoManutencao: PlanoManutencao = PlanoManutencao(),
+    /** v2.11.0: odômetro somado pelas viagens reais; null = ainda o do cadastro. */
+    val odometro: Odometro? = null,
 ) {
     /** Carro sem perfil específico, no OBD2 genérico (sem PIDs da SW4, do Cruze ou de outra montadora). */
     val obd2Generico: Boolean get() = perfilFaixasId == OBD2_GENERICO

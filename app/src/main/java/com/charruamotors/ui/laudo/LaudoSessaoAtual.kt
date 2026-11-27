@@ -26,7 +26,7 @@ class LaudoSessaoAtual(private val app: CharruaMotorsApp) {
     private val arquivo = ArquivoLaudoPdf(app)
 
     /** Chamar na main thread (o contexto da sessão): as leituras da sessão são tiradas de uma vez. */
-    suspend fun gerar(diagnostico: ResultadoDiagnostico, prontidao: StatusProntidao?, observacoes: String): LaudoGerado {
+    suspend fun gerar(diagnostico: ResultadoDiagnostico, prontidao: StatusProntidao?, opcoes: OpcoesLaudo): LaudoGerado {
         val sessao = app.sessaoObd
         val config = app.preferenciasApp.config.value
         val conexao = sessao.infoConexao.value
@@ -51,11 +51,16 @@ class LaudoSessaoAtual(private val app: CharruaMotorsApp) {
             diagnostico = converter(diagnostico, prontidao),
             resumo = LaudoDaSessao.resumo(sessao.historico.estatisticas(), sessao.viagem.value.estatisticas),
             alertas = sessao.alertasDisparados(),
-            observacoes = observacoes,
+            observacoes = opcoes.observacoes,
             testeBateria = sessao.testeBateria.resultadoDaSessao?.let { LaudoDaSessao.testeBateria(it.resumo) },
             injecao = sessao.injecao.resumo()?.let(TextosInjecao::linhasDoLaudo).orEmpty(),
         )
-        return arquivo.gerar(dados.copy(veiculo = identificar(veiculoId, dados.veiculo)))
+        val manutencao = if (opcoes.incluirManutencao) {
+            runCatching { PendenciasManutencao(app).doVeiculo(veiculoId) }.getOrDefault(emptyList())
+        } else {
+            emptyList()
+        }
+        return arquivo.gerar(dados.copy(veiculo = identificar(veiculoId, dados.veiculo), manutencao = manutencao))
     }
 
     /** Cadastro e perfil isolado do veículo da sessão (só leitura, sem travar o gerenciador). */

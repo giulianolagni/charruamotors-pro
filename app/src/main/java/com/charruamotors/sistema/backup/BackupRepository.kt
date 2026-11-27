@@ -71,6 +71,8 @@ class BackupRepository(
                 unidadePressao = preferenciasApp.unidadePressao,
                 sistemaUnidades = preferenciasApp.sistemaUnidades,
                 unidadeConsumo = preferenciasApp.unidadeConsumo,
+                nomeOficina = preferenciasApp.config.value.nomeOficina,
+                nomeTecnico = preferenciasApp.config.value.nomeTecnico,
             ),
             // v2.3.0: o perfil isolado de cada veículo (Painel/HUD, Cluster, perfil técnico, recordes).
             perfisCarros = perfisCarro.lerTodos(veiculos.map { it.id }),
@@ -123,6 +125,8 @@ class BackupRepository(
         preferenciasCaixaPreta.restaurar(completo.caixaPretaRestauravel())
         val p = completo.preferencias
         preferenciasApp.restaurar(p.tema, p.unidadePressao, p.sistemaUnidades, p.unidadeConsumo)
+        p.nomeOficina?.let(preferenciasApp::definirNomeOficina)
+        p.nomeTecnico?.let(preferenciasApp::definirNomeTecnico)
         aoRestaurarPerfis()
         return completo.veiculos.size
     }

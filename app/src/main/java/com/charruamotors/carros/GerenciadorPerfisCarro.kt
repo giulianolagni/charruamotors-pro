@@ -5,6 +5,9 @@ import com.charruamotors.direcao.desempenho.HistoricoDesempenho
 import com.charruamotors.direcao.desempenho.MarcaDesempenho
 import com.charruamotors.direcao.desempenho.ModalidadeTeste
 import com.charruamotors.direcao.desempenho.RecordeDesempenho
+import com.charruamotors.domain.manutencao.Odometro
+import com.charruamotors.domain.manutencao.PlanoManutencao
+import java.time.LocalDate
 import com.charruamotors.oficina.bateria.HistoricoBateria
 import com.charruamotors.oficina.bateria.RegistroTesteBateria
 import com.charruamotors.sistema.preferencias.ArmazenamentoChaveValor
@@ -101,6 +104,9 @@ class GerenciadorPerfisCarro(private val armazenamento: ArmazenamentoChaveValor)
             offsetTensaoV = 0.0,
             historicoBateria = HistoricoBateria(),
             calibracaoConsumo = base.calibracaoConsumo.copy(ajustePercentual = 0.0),
+            // v2.11.0: trocas e quilometragem são de cada carro físico.
+            planoManutencao = PlanoManutencao(),
+            odometro = null,
         )
         salvar(copia)
         return copia
@@ -137,6 +143,54 @@ class GerenciadorPerfisCarro(private val armazenamento: ArmazenamentoChaveValor)
         if (!existe(veiculoId)) salvar(PerfilCarro(veiculoId))
         val total = ler(veiculoId).litrosTanque + litros
         escopo(veiculoId).gravar(mapOf(CodecPerfilCarro.LITROS_TANQUE to total.toString()))
+    }
+
+    // ---------------------------------------------------------------- odômetro e manutenção (v2.11.0)
+
+    private val _odometros = MutableStateFlow(0L)
+
+    /** Conta as gravações automáticas de odômetro (a aba Manutenções se redesenha, sem recarregar o perfil). */
+    val odometros: StateFlow<Long> = _odometros.asStateFlow()
+
+    /**
+     * O cadastro do carro tem [kmCadastro]: se o odômetro se refere a outro valor (ou não existe),
+     * passa a partir dele. Não cria perfil.
+     */
+    @Synchronized
+    fun sincronizarOdometro(veiculoId: Long, kmCadastro: Int) {
+        if (!existe(veiculoId) || ler(veiculoId).odometro?.kmCadastro == kmCadastro) return
+        gravarOdometro(veiculoId, Odometro(kmCadastro, kmCadastro.toDouble()))
+    }
+
+    /**
+     * Soma a distância de uma viagem real. Como o contador do tanque, grava só essa chave. Sem
+     * referência ([sincronizarOdometro]) não há onde somar.
+     */
+    @Synchronized
+    fun acumularQuilometros(veiculoId: Long, km: Double) {
+        if (veiculoId <= 0 || !km.isFinite() || km <= 0) return
+        val atual = ler(veiculoId).odometro ?: return
+        gravarOdometro(veiculoId, atual.copy(km = atual.km + km))
+    }
+
+    /** Odômetro corrigido pelo usuário (vale mesmo se menor que o anterior). */
+    fun definirOdometro(veiculoId: Long, kmCadastro: Int, km: Int) {
+        if (veiculoId <= 0 || km < 0) return
+        atualizar(veiculoId) { it.copy(odometro = Odometro(kmCadastro, km.toDouble())) }
+    }
+
+    /** "Registrar troca agora": o item passa a contar do odômetro atual e de [data]. */
+    @Synchronized
+    fun registrarTroca(veiculoId: Long, itemId: Long, kmCadastro: Int, data: LocalDate) {
+        if (veiculoId <= 0) return
+        atualizar(veiculoId) {
+            it.copy(planoManutencao = it.planoManutencao.registrarTroca(itemId, Odometro.atual(it.odometro, kmCadastro), data))
+        }
+    }
+
+    private fun gravarOdometro(veiculoId: Long, odometro: Odometro) {
+        escopo(veiculoId).gravar(mapOf(CodecPerfilCarro.ODOMETRO to odometro.codificar()))
+        _odometros.value++
     }
 
     /** Recorde 0–60 / 0–100 (só melhora) do veículo da sessão. */
