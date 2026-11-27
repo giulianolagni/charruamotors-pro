@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v2.6.0: Testes de Aceleração, Estatísticas da Viagem e Calibração de Consumo. -->
+<resources>
+    <!-- Cards da aba Oficina e ação em Meus Carros -->
+    <string name="oficina_card_aceleracao">Testes de Aceleração</string>
+    <string name="oficina_card_aceleracao_desc">0–60, 0–100, 60–100, 80–120 km/h, 200 m e 400 m pela velocidade da ECU, com histórico por carro</string>
+    <string name="oficina_card_viagem">Estatísticas da Viagem</string>
+    <string name="oficina_card_viagem_desc">Distância, tempo parado, velocidades, RPM, consumo, litros e custo estimado</string>
+    <string name="oficina_card_calibracao">Calibração de Consumo</string>
+    <string name="oficina_card_calibracao_desc">Motor, combustível, preço do litro e ajuste pela bomba, só deste carro</string>
+    <string name="carros_acao_calibracao">Calibração de consumo</string>
+
+    <!-- Testes de Aceleração -->
+    <string name="aceleracao_titulo">Testes de Aceleração</string>
+    <string name="aceleracao_aviso">Use apenas em pista ou local fechado e autorizado. Quem dirige não deve operar o celular.</string>
+    <string name="aceleracao_armar">Armar teste</string>
+    <string name="aceleracao_armar_novamente">Armar novamente</string>
+    <string name="aceleracao_cancelar">Cancelar</string>
+    <string name="aceleracao_requer_conexao">Conecte o scanner (e feche ferramentas manuais) para armar o teste.</string>
+    <string name="aceleracao_sem_velocidade">A ECU não informa a velocidade (010D).</string>
+    <string name="aceleracao_tempo">%1$s s</string>
+    <string name="aceleracao_estado_desarmado">Escolha o teste e toque em Armar</string>
+    <string name="aceleracao_estado_parada">Aguardando parada (0 km/h)</string>
+    <string name="aceleracao_estado_abaixo">Reduza para menos de %1$d km/h</string>
+    <string name="aceleracao_estado_armado">Armado — acelere quando quiser</string>
+    <string name="aceleracao_estado_armado_retomada">Armado — a contagem começa ao passar de %1$d km/h</string>
+    <string name="aceleracao_estado_medindo">Em medição…</string>
+    <string name="aceleracao_estado_concluido">Concluído · %1$d km/h na chegada</string>
+    <string name="aceleracao_leituras">%1$s km/h · %2$s rpm · %3$d m</string>
+    <string name="aceleracao_polling_focado">Durante o teste o scanner lê só velocidade e RPM; ao terminar, a leitura normal e os alertas voltam.</string>
+    <string name="aceleracao_polling_normal">Neste modo de comunicação (21/22) o scanner mantém a leitura normal: a precisão do tempo é menor.</string>
+    <string name="aceleracao_nao_salvo">Modo Simulado: os tempos não entram no histórico.</string>
+    <string name="aceleracao_sem_veiculo">Sem veículo selecionado: os tempos não são salvos.</string>
+    <string name="aceleracao_historico">Melhores tempos · %1$s · %2$s</string>
+    <string name="aceleracao_historico_vazio">Nenhum tempo salvo neste teste.</string>
+    <string name="aceleracao_historico_linha">%1$d. %2$s s · %3$d km/h · %4$s</string>
+    <string name="aceleracao_apagar">Apagar tempos deste teste</string>
+    <string name="aceleracao_apagar_confirmar">Apagar os tempos de %1$s deste carro? O recorde 0–60 / 0–100 do Cluster não muda.</string>
+    <string name="aceleracao_apagar_botao">Apagar</string>
+
+    <!-- Estatísticas da Viagem -->
+    <string name="viagem_titulo">Estatísticas da Viagem</string>
+    <string name="viagem_vazia">Nenhuma viagem ainda: conecte o scanner para começar a contar.</string>
+    <string name="viagem_veiculo">Veículo: %1$s</string>
+    <string name="viagem_sem_veiculo">Sem veículo vinculado: consumo com motor 1.6 flex padrão.</string>
+    <string name="viagem_simulada">Modo Simulado: dados ilustrativos, fora do contador do tanque.</string>
+    <string name="viagem_distancia">Distância percorrida</string>
+    <string name="viagem_tempo_total">Tempo total</string>
+    <string name="viagem_tempo_movimento">Tempo em movimento</string>
+    <string name="viagem_tempo_parado">Tempo parado (marcha lenta)</string>
+    <string name="viagem_velocidade_media">Velocidade média (total)</string>
+    <string name="viagem_velocidade_movimento">Velocidade média (em movimento)</string>
+    <string name="viagem_velocidade_maxima">Velocidade máxima</string>
+    <string name="viagem_rpm_medio">RPM médio</string>
+    <string name="viagem_rpm_maximo">RPM máximo</string>
+    <string name="viagem_km_l">Consumo médio</string>
+    <string name="viagem_l_100">Consumo médio (L/100 km)</string>
+    <string name="viagem_litros">Combustível gasto (estimado)</string>
+    <string name="viagem_custo">Custo estimado</string>
+    <string name="viagem_sem_preco">Informe o preço do litro na calibração</string>
+    <string name="viagem_nota">Distância, litros e custo são estimativas integradas das leituras do scanner. Intervalos sem leitura não são contados.</string>
+    <string name="viagem_zerar">Zerar viagem</string>
+    <string name="viagem_calibrar">Calibrar consumo</string>
+
+    <!-- Calibração de Consumo -->
+    <string name="calibracao_titulo">Calibração de Consumo</string>
+    <string name="calibracao_veiculo">Carro: %1$s</string>
+    <string name="calibracao_sem_veiculo">Selecione um carro em Meus Carros para calibrar.</string>
+    <string name="calibracao_cadastro">Em branco vale o cadastro: %1$s L · %2$s</string>
+    <string name="calibracao_cilindrada">Cilindrada (L)</string>
+    <string name="calibracao_combustivel">Combustível</string>
+    <string name="calibracao_combustivel_auto">Automático (cadastro e ECU)</string>
+    <string name="calibracao_eficiencia">Eficiência volumétrica / correção (%)</string>
+    <string name="calibracao_eficiencia_ajuda">Só para carros sem sensor MAF (consumo por MAP + temperatura do ar + RPM). Padrão: 85. No diesel sem MAF e sem consumo da ECU, preencha para estimar pelo MAP.</string>
+    <string name="calibracao_preco">Preço do litro (R$)</string>
+    <string name="calibracao_ajuste">Ajuste fino (%)</string>
+    <string name="calibracao_ajuste_ajuda">Positivo aumenta os litros estimados; é somado à calibração do cadastro do veículo.</string>
+    <string name="calibracao_salvar">Salvar calibração</string>
+    <string name="calibracao_salvo">Calibração salva</string>
+    <string name="calibracao_salvo_contador_zerado">Calibração salva. O contador do tanque recomeçou.</string>
+    <string name="calibracao_campo_invalido">Há um campo com valor não numérico</string>
+    <string name="calibracao_bomba_titulo">Ajuste pela bomba</string>
+    <string name="calibracao_bomba_passos">1. Encha o tanque e zere o contador.\n2. Rode com o app conectado o tempo todo.\n3. Encha de novo e informe os litros que couberam.</string>
+    <string name="calibracao_contador">Estimado pelo app desde o último zeramento: %1$s L</string>
+    <string name="calibracao_litros_bomba">Litros abastecidos na bomba</string>
+    <string name="calibracao_litros_app">Litros estimados pelo app</string>
+    <string name="calibracao_aplicar">Calcular e aplicar ajuste</string>
+    <string name="calibracao_aplicado">Ajuste de %1$s %% aplicado. Contador zerado.</string>
+    <string name="calibracao_ajuste_recusado">Não foi possível ajustar: informe ao menos %1$d L nos dois campos e confira os valores (o ajuste vai de -50 %% a +100 %%).</string>
+    <string name="calibracao_zerar_contador">Zerar contador (tanque cheio)</string>
+    <string name="calibracao_contador_zerado">Contador zerado</string>
+</resources>

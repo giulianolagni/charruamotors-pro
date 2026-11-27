@@ -74,6 +74,18 @@
             layout="@layout/item_card_oficina" />
 
         <include
+            android:id="@+id/card_aceleracao"
+            layout="@layout/item_card_oficina" />
+
+        <include
+            android:id="@+id/card_viagem"
+            layout="@layout/item_card_oficina" />
+
+        <include
+            android:id="@+id/card_calibracao"
+            layout="@layout/item_card_oficina" />
+
+        <include
             android:id="@+id/card_bateria"
             layout="@layout/item_card_oficina" />
 

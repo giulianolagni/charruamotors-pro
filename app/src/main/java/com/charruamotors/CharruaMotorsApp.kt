@@ -29,6 +29,7 @@ import com.charruamotors.direcao.desempenho.CronometroDesempenho
 import com.charruamotors.direcao.desempenho.RecordesDesempenho
 import com.charruamotors.direcao.hud.EssenciaisHud
 import com.charruamotors.direcao.hud.TelemetriaCompartilhada
+import com.charruamotors.domain.calculo.CalibracaoConsumo
 import com.charruamotors.domain.calculo.CentralAlertas
 import com.charruamotors.domain.alertas.ConfigAlertas
 import com.charruamotors.domain.perfis.CarregadorPerfis
@@ -415,10 +416,18 @@ class CharruaMotorsApp : Application() {
             essenciaisHud = {
                 if (telemetriaCompartilhada.hudAtivo.value) EssenciaisHud.comandos(preferenciasPainel.config.value.hud) else emptySet()
             },
+            calibracaoConsumo = { id -> if (id > 0) perfisCarro.ler(id).calibracaoConsumo else CalibracaoConsumo() },
+            aoAcumularLitros = perfisCarro::acumularLitrosTanque,
+            aoRegistrarTempo = perfisCarro::registrarTempo,
         ).also { sessao ->
             val escopo = escopoDoApp()
-            // v2.4.0: limites editados valem na sessão em curso.
-            escopo.launch { perfisCarro.alteracoes.drop(1).collect { sessao.recarregarConfigAlertas() } }
+            // v2.4.0: limites editados valem na sessão em curso (v2.6.0: a calibração do consumo também).
+            escopo.launch {
+                perfisCarro.alteracoes.drop(1).collect {
+                    sessao.recarregarConfigAlertas()
+                    sessao.recarregarCalibracaoConsumo()
+                }
+            }
             escopo.launch {
                 sessao.estadoSessao.map { it.fase == FaseSessao.Conectada }
                     .combine(preferenciasApp.config.map { it.velocidadeGps }) { conectada, gps -> conectada && gps }

@@ -182,6 +182,13 @@ class Elm327BluetoothClient(
         focoPolling = foco
     }
 
+    /** v2.6.0: polling prioritário do teste de aceleração; null = polling normal. */
+    @Volatile private var prioridadePolling: PrioridadePolling? = null
+
+    override fun definirPrioridadePolling(prioridade: PrioridadePolling?) {
+        prioridadePolling = prioridade
+    }
+
     /** Comandos que uma lista de PIDs rápidos custa por ciclo: cada lote do Multi-PID conta como 1. */
     private fun comandosDaFilaRapida(chaves: List<String>): Int {
         val lotes = lotesDoCiclo(chaves, definicoesEstendidas)
@@ -463,6 +470,8 @@ class Elm327BluetoothClient(
             escalonador.definirFoco(
                 focoPolling?.takeIf { modoServico == null }?.let { it.copy(essenciais = it.essenciais + confirmar) },
             )
+            // v2.6.0: idem para o teste de aceleração; nos modos 21/22 ele usa o polling de sempre.
+            escalonador.definirPrioridade(prioridadePolling?.takeIf { modoServico == null }?.copy(urgentes = confirmar))
             val ciclo = try {
                 cicloForaDaSessaoManual { lerChaves(escalonador.proximoCiclo()) } ?: continue
             } catch (e: CancellationException) {
@@ -2393,6 +2402,7 @@ class Elm327BluetoothClient(
         cabecalhoServico = null
         cambioAtivo = false
         usaLoteMultiPid = false
+        prioridadePolling = null
         falhasLote.clear()
         brutosTcm.clear()
         filtroVelocidade.reiniciar()

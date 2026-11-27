@@ -1,6 +1,8 @@
 package com.charruamotors.carros
 
+import com.charruamotors.direcao.desempenho.HistoricoDesempenho
 import com.charruamotors.direcao.desempenho.RecordeDesempenho
+import com.charruamotors.domain.calculo.CalibracaoConsumo
 import com.charruamotors.direcao.painel.ClusterPainel
 import com.charruamotors.direcao.painel.CodecPainel
 import com.charruamotors.direcao.painel.SensorPainel
@@ -30,6 +32,9 @@ object CodecPerfilCarro {
     const val RECORDE_0100 = "recorde_0100"
     const val ALERTAS = "alertas"
     const val PRESETS_GRAFICOS = "presets_graficos"
+    const val CALIBRACAO_CONSUMO = "calibracao_consumo"
+    const val HISTORICO_DESEMPENHO = "historico_desempenho"
+    const val LITROS_TANQUE = "litros_tanque"
 
     /** Bolinha do Cluster sem escolha (padrão/automático). */
     private const val BOLINHA_PADRAO = "-"
@@ -39,6 +44,7 @@ object CodecPerfilCarro {
     val CHAVES_PERFIL = listOf(
         SCHEMA, CLUSTER, PERFIL_FAIXAS, PERFIL_CAMBIO, CAMADA, GATILHO_NOME, GATILHO_ENDERECO,
         FAVORITOS_GRAFICOS, RECORDE_060, RECORDE_0100, ALERTAS, PRESETS_GRAFICOS,
+        CALIBRACAO_CONSUMO, HISTORICO_DESEMPENHO, LITROS_TANQUE,
     )
 
     /** Campos do perfil (sem o Painel); null = chave removida. */
@@ -55,6 +61,9 @@ object CodecPerfilCarro {
         RECORDE_0100 to p.recorde.melhor0100?.toString(),
         ALERTAS to p.alertas.codificar(),
         PRESETS_GRAFICOS to PresetsGrafico.codificar(p.presetsGraficos),
+        CALIBRACAO_CONSUMO to p.calibracaoConsumo.codificar(),
+        HISTORICO_DESEMPENHO to p.historicoDesempenho.codificar(),
+        LITROS_TANQUE to p.litrosTanque.takeIf { it > 0 }?.toString(),
     )
 
     /** Perfil completo (Painel + campos), pronto para o [com.charruamotors.sistema.preferencias.ArmazenamentoChaveValor.gravar]. */
@@ -77,6 +86,9 @@ object CodecPerfilCarro {
         recorde = RecordeDesempenho(tempo(ler(RECORDE_060)), tempo(ler(RECORDE_0100))),
         alertas = ConfigAlertas.decodificar(ler(ALERTAS)),
         presetsGraficos = PresetsGrafico.decodificar(ler(PRESETS_GRAFICOS)),
+        calibracaoConsumo = CalibracaoConsumo.decodificar(ler(CALIBRACAO_CONSUMO)),
+        historicoDesempenho = HistoricoDesempenho.decodificar(ler(HISTORICO_DESEMPENHO)),
+        litrosTanque = ler(LITROS_TANQUE)?.toDoubleOrNull()?.takeIf { it.isFinite() && it > 0.0 } ?: 0.0,
     )
 
     /** Sempre [ClusterPainel.BOLINHAS] posições; nomes desconhecidos viram o padrão. */

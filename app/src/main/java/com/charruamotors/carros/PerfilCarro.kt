@@ -1,6 +1,8 @@
 package com.charruamotors.carros
 
+import com.charruamotors.direcao.desempenho.HistoricoDesempenho
 import com.charruamotors.direcao.desempenho.RecordeDesempenho
+import com.charruamotors.domain.calculo.CalibracaoConsumo
 import com.charruamotors.direcao.painel.ClusterPainel
 import com.charruamotors.direcao.painel.ConfigPainel
 import com.charruamotors.direcao.painel.SensorPainel
@@ -65,6 +67,12 @@ data class PerfilCarro(
     val recorde: RecordeDesempenho = RecordeDesempenho(),
     /** v2.4.0: alertas sonoros e visuais (regras, limites, canal e volume) só deste veículo. */
     val alertas: ConfigAlertas = ConfigAlertas(),
+    /** v2.6.0: motor, combustível, preço e ajuste pela bomba usados no consumo deste carro. */
+    val calibracaoConsumo: CalibracaoConsumo = CalibracaoConsumo(),
+    /** v2.6.0: melhores tempos da tela Testes de Aceleração. */
+    val historicoDesempenho: HistoricoDesempenho = HistoricoDesempenho(),
+    /** v2.6.0: litros estimados desde o último zeramento (tanque cheio), para comparar com a bomba. */
+    val litrosTanque: Double = 0.0,
 ) {
     /** Carro sem perfil específico, no OBD2 genérico (sem PIDs da SW4, do Cruze ou de outra montadora). */
     val obd2Generico: Boolean get() = perfilFaixasId == OBD2_GENERICO

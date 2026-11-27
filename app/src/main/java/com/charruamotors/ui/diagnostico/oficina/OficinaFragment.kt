@@ -28,6 +28,9 @@ import com.charruamotors.oficina.bicos.SituacaoBico
 import com.charruamotors.sistema.unidades.ConversorUnidades
 import com.charruamotors.domain.model.EstadoConexaoObd
 import com.charruamotors.ui.diagnostico.DiagnosticoActivity
+import com.charruamotors.ui.desempenho.CalibracaoConsumoActivity
+import com.charruamotors.ui.desempenho.EstatisticasViagemActivity
+import com.charruamotors.ui.desempenho.TesteAceleracaoActivity
 import com.charruamotors.ui.diagnostico.DiagnosticoPagerAdapter
 import com.charruamotors.ui.oficina.atuadores.TesteAtuadoresActivity
 import com.charruamotors.ui.oficina.bateria.TesteBateriaActivity
@@ -67,6 +70,9 @@ class OficinaFragment : Fragment() {
         with(binding) {
             preencher(cardSensores, R.string.oficina_card_sensores, R.string.oficina_card_sensores_desc, R.drawable.ic_checklist, R.color.azul_primario)
             preencher(cardGraficos, R.string.oficina_card_graficos, R.string.oficina_card_graficos_desc, R.drawable.ic_grafico, R.color.terminal_card)
+            preencher(cardAceleracao, R.string.oficina_card_aceleracao, R.string.oficina_card_aceleracao_desc, R.drawable.ic_cronometro, R.color.veredito_atencao)
+            preencher(cardViagem, R.string.oficina_card_viagem, R.string.oficina_card_viagem_desc, R.drawable.ic_historico, R.color.status_ok)
+            preencher(cardCalibracao, R.string.oficina_card_calibracao, R.string.oficina_card_calibracao_desc, R.drawable.ic_posto, R.color.azul_primario)
             preencher(cardBateria, R.string.oficina_card_bateria, R.string.oficina_card_bateria_desc, R.drawable.ic_bateria, R.color.veredito_bom)
             preencher(cardFalhas, R.string.oficina_card_falhas, R.string.oficina_card_falhas_desc, R.drawable.ic_falha, R.color.dtc_confirmado)
             preencher(cardCheckup, R.string.oficina_card_checkup, R.string.oficina_card_checkup_desc, R.drawable.ic_checklist, R.color.status_ok)
@@ -77,6 +83,10 @@ class OficinaFragment : Fragment() {
 
             cardSensores.root.setOnClickListener { abrirConectada { SensoresActivity.intent(requireContext()) } }
             cardGraficos.root.setOnClickListener { abrirConectada { GraficosActivity.intent(requireContext()) } }
+            cardAceleracao.root.setOnClickListener { abrirConectada { TesteAceleracaoActivity.intent(requireContext()) } }
+            // Viagem e calibração abrem sempre: a última viagem continua visível depois de desconectar.
+            cardViagem.root.setOnClickListener { startActivity(EstatisticasViagemActivity.intent(requireContext())) }
+            cardCalibracao.root.setOnClickListener { startActivity(CalibracaoConsumoActivity.intent(requireContext(), veiculoId)) }
             cardBateria.root.setOnClickListener { abrirConectada { TesteBateriaActivity.intent(requireContext(), veiculoId) } }
             // O DTC abre sempre: a tela mostra o estado e só habilita ler/apagar com o scanner ligado.
             cardFalhas.root.setOnClickListener { startActivity(DiagnosticoErrosActivity.intent(requireContext(), veiculoId)) }
@@ -129,7 +139,7 @@ class OficinaFragment : Fragment() {
         textoConexao.definirTexto(getString(if (conectado) R.string.oficina_conectado else R.string.oficina_desconectado))
         val cor = if (conectado) R.color.status_ok else R.color.status_espera
         pontoConexao.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), cor))
-        listOf(cardSensores, cardGraficos, cardBateria, cardCheckup, cardMisfire, cardVarredura, cardTerminal, cardAtuadores).forEach { card ->
+        listOf(cardSensores, cardGraficos, cardAceleracao, cardBateria, cardCheckup, cardMisfire, cardVarredura, cardTerminal, cardAtuadores).forEach { card ->
             card.textoRequisito.isVisible = !conectado
             card.root.alpha = if (conectado) 1f else ALFA_INDISPONIVEL
         }

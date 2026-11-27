@@ -160,6 +160,61 @@ class FocoPollingTest {
         catalogoCascata = CatalogoTeste.cascata,
     )
 
+    // ---------------------------------------------------------------- prioridade (v2.6.0)
+
+    @Test
+    fun `prioridade le so RPM e velocidade, vigia 1 alerta por vez e devolve o ciclo normal`() {
+        val e = escalonador()
+        val normal = escalonador().ciclos(24)
+        e.definirPrioridade(PrioridadePolling(PrioridadePolling.ACELERACAO, vigiados = listOf("0105", "ATRV", "GM_X", "7E1_ATF"), ciclosPorVigiado = 5))
+        val vigiando = e.ciclos(20)
+
+        vigiando.forEachIndexed { i, ciclo ->
+            assertEquals(listOf(Pids.RPM, Pids.VELOCIDADE), ciclo.takeLast(2))
+            // PID de montadora e do câmbio nunca entram: custariam um ATSH no meio do teste.
+            assertEquals("ciclo $i: $ciclo", if (i % 5 == 0) 3 else 2, ciclo.size)
+        }
+        assertEquals(setOf("0105", "ATRV"), vigiando.filter { it.size == 3 }.map { it.first() }.toSet())
+
+        // Alerta em confirmação continua em todo ciclo, mesmo medindo.
+        e.definirPrioridade(PrioridadePolling(PrioridadePolling.ACELERACAO, urgentes = listOf("0105")))
+        assertEquals(listOf("0105", Pids.RPM, Pids.VELOCIDADE), e.proximoCiclo())
+
+        e.definirPrioridade(null)
+        val depois = e.ciclos(24)
+        assertTrue(depois.all { it.containsAll(listOf("010C", "010B", "010D", "0110")) })
+        assertEquals(normal.flatten().toSet(), depois.flatten().toSet())
+    }
+
+    @Test
+    fun `no ELM327 v2_1 a prioridade pede so o lote de RPM e velocidade e depois volta ao normal`() = runTest {
+        val t = Ecu(
+            mapOf(
+                "ATZ" to "\r\rELM327 v2.1\r\r",
+                "0100" to "41001E3F8000\r\r",
+                "01001" to "41001E3F8000\r\r",
+                "ATDP" to "AUTO, \r\r",
+                "ATDPN" to "A6\r\r",
+                "ATRV" to "14.1V\r\r",
+                "010C0D" to "410C0FA00D32\r\r",
+                "010B10" to "410B32100FA0\r\r",
+            ),
+        )
+        val obd = cliente(t)
+        obd.conectar(DispositivoObd("OBDII", "00:11:22:33:44:55"), "Chevrolet Onix").getOrThrow()
+        suspend fun comandosEm(ciclos: Int): List<String> {
+            val de = t.enviados.size
+            obd.lerTelemetria().take(ciclos).toList()
+            return t.enviados.drop(de)
+        }
+        obd.definirPrioridadePolling(PrioridadePolling(PrioridadePolling.ACELERACAO))
+        assertEquals(List(6) { "010C0D" }, comandosEm(6).filterNot { it.startsWith("AT") })
+
+        obd.definirPrioridadePolling(null)
+        val depois = comandosEm(6)
+        assertTrue("$depois", depois.count { it == "010B10" } == 6)
+    }
+
     @Test
     fun `no ELM327 v2_1 o foco mantem o lote e nao aumenta os comandos`() = runTest {
         val t = Ecu(

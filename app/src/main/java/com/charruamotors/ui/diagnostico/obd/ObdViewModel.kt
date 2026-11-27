@@ -13,6 +13,7 @@ import com.charruamotors.R
 import com.charruamotors.data.repository.DiagnosticoRepository
 import com.charruamotors.direcao.desempenho.FonteVelocidade
 import com.charruamotors.direcao.desempenho.SeletorVelocidade
+import com.charruamotors.domain.calculo.CalibracaoConsumo
 import com.charruamotors.domain.calculo.ComputadorBordo
 import com.charruamotors.domain.calculo.Cronometro0a100
 import com.charruamotors.domain.calculo.EstadoCronometro
@@ -57,7 +58,10 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -105,6 +109,8 @@ class ObdViewModel(
     private val relogio: () -> Long = System::currentTimeMillis,
     /** Fonte da velocidade do cronômetro 0–100 (Configurações): ECU ou GPS com fallback para a ECU. */
     private val fonteCronometro: () -> FonteVelocidade = { FonteVelocidade.PADRAO },
+    /** v2.6.0: calibração do consumo do perfil do veículo, relida quando muda. */
+    private val calibracao: Flow<CalibracaoConsumo> = flowOf(CalibracaoConsumo()),
 ) : ViewModel() {
 
     val modo: StateFlow<ModoObd> = sessao.modo
@@ -238,12 +244,14 @@ class ObdViewModel(
         if (estado.value is EstadoConexaoObd.Conectado) iniciarViagem()
         viewModelScope.launch {
             val v = dadosVeiculo.await()
-            parametrosMotor = ParametrosMotor.deVeiculo(v?.modelo, v?.tipoCombustivel, v?.calibracaoConsumo ?: 1.0)
             _faixas.value = FaixasVeiculo.paraVeiculo(v)
-            _computador.value = _computador.value.copy(motor = parametrosMotor)
             // O favorito (veículo da caixa-preta) só muda pela estrela em Meus Veículos; aqui ele é
             // definido se ainda não houver um, e a descrição acompanha renomeações.
             if (v != null) preferencias?.vincularVeiculoSeLivre(veiculoId, v.descricao)
+            calibracao.collect {
+                parametrosMotor = it.parametros(v?.modelo, v?.tipoCombustivel, v?.calibracaoConsumo ?: 1.0)
+                _computador.value = _computador.value.copy(motor = parametrosMotor)
+            }
         }
         // Cada instantâneo da telemetria da sessão. Segue com a tela em segundo plano: o serviço da
         // sessão mantém o polling, e o computador de bordo não perde a viagem.
@@ -527,6 +535,9 @@ class ObdViewModel(
                     veiculo = { app.veiculoRepository.buscarPorId(veiculoId) },
                     salvarCsv = { nome, escrever -> app.exportadorCsv.salvar(nome, escrever) },
                     fonteCronometro = { app.preferenciasApp.config.value.fonteCronometroEfetiva },
+                    calibracao = app.perfisCarro.alteracoes
+                        .map { app.perfisCarro.ler(veiculoId).calibracaoConsumo }
+                        .distinctUntilChanged(),
                 )
             }
         }
