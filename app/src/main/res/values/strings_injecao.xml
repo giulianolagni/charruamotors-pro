@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Oficina → Diagnóstico de Injeção (v2.9.0) -->
+    <string name="oficina_card_injecao">Diagnóstico de Injeção</string>
+    <string name="oficina_card_injecao_desc">Fuel trims na lenta e em carga, sondas O2 e catalisador, e o Freeze Frame (Modo 02)</string>
+    <string name="injecao_titulo">Diagnóstico de Injeção</string>
+    <string name="oficina_requer_conexao_injecao">Conecte o scanner no Painel para ler os dados.</string>
+    <string name="injecao_regime">Regime: %1$s · água %2$s %3$s</string>
+    <string name="injecao_regime_nenhum">intermediário / motor parado</string>
+    <string name="injecao_banco1">Mistura · banco 1</string>
+    <string name="injecao_banco2">Mistura · banco 2</string>
+    <string name="injecao_banco_valores">Trim total: %1$s\nCurto prazo (STFT): %2$s\nLongo prazo (LTFT): %3$s\nMédia em marcha lenta: %4$s\nMédia em carga: %5$s</string>
+    <string name="injecao_faixas">Trim total: normal de −8 % a +8 %; atenção até ±15 %; acima de +15 % pobre, abaixo de −15 % rica. As médias contam com a água a partir de 70 °C. Lenta: RPM &lt; 1.100 e parado; carga: RPM ≥ 1.800 ou carga &gt; 45 %.</string>
+    <string name="injecao_sondas">Sondas lambda (O2) e catalisador</string>
+    <string name="injecao_sondas_valores">S1 pré-catalisador (%1$s): %2$s\nS2 pós-catalisador: %3$s</string>
+    <string name="injecao_serie_s1">S1 pré</string>
+    <string name="injecao_serie_s2">S2 pós</string>
+    <string name="injecao_legenda">Ciano: S1 (pré) · amarelo: S2 (pós). Tensão de 0 a 1,1 V; banda larga em λ de 0,7 a 1,3. A análise usa ~30 s com o motor quente.</string>
+    <string name="injecao_nao_suportado">Não suportado neste veículo</string>
+    <string name="injecao_ff_lendo">Lendo o Freeze Frame…</string>
+    <string name="injecao_ff_vazio">Nenhum DTC com Freeze Frame gravado na ECU.</string>
+    <string name="injecao_ff_erro">Não foi possível ler o Freeze Frame: %1$s</string>
+    <string name="injecao_ff_recarregar">Recarregar Freeze Frame</string>
+    <string name="injecao_ff_ver_completo">Ver Freeze Frame completo</string>
+</resources>

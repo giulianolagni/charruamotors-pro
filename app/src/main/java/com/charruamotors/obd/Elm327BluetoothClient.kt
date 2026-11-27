@@ -734,8 +734,12 @@ class Elm327BluetoothClient(
                 RespostaObd.SemConexao -> throw respostaInesperada(r, "ler o freeze frame", brutoDtc)
                 else -> null // ECU não informa o DTC do quadro; os valores ainda podem existir
             }
+            // `00 00` no 0202 = nenhum quadro armazenado: não há o que pedir.
+            if (dtc == null && ObdParser.parseDtcFreezeFrame(brutoDtc) is RespostaObd.Ok) return@operacao FreezeFrame()
+            val suportados = _pidsSuportados.value
             val valores = buildMap {
                 for (comando in Pids.FREEZE_FRAME) {
+                    if (comando !in Pids.FREEZE_FRAME_BASICOS && comando !in suportados) continue
                     val definicao = catalogo[comando] ?: continue
                     val bruto = enviar(ObdParser.comandoFreezeFrame(definicao), timeoutComandoMs, cabecalhoDiagnostico)
                     when (val r = ObdParser.parseFreezeFrame(bruto, definicao)) {

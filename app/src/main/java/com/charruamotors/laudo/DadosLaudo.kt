@@ -99,6 +99,8 @@ data class DadosLaudo(
     val observacoes: String? = null,
     /** v2.8.0: null = nenhum teste de bateria concluído na sessão. */
     val testeBateria: TesteBateriaLaudo? = null,
+    /** v2.9.0: resumo curto (rótulo → texto) dos fuel trims e sondas da sessão; vazio = não analisados. */
+    val injecao: List<Pair<String, String>> = emptyList(),
 ) {
     val simulado: Boolean get() = origem == OrigemLaudo.SIMULADO
 }

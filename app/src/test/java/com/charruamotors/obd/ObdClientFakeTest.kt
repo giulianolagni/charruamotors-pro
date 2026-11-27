@@ -199,7 +199,7 @@ class ObdClientFakeTest {
         obd.conectar(dispositivo)
         val ff = obd.lerFreezeFrame().getOrThrow()
         assertEquals("P0300", ff.dtc)
-        assertEquals(Pids.FREEZE_FRAME.toSet(), ff.valores.keys)
+        assertTrue(Pids.FREEZE_FRAME.containsAll(ff.valores.keys) && ff.valores.keys.containsAll(Pids.FREEZE_FRAME_BASICOS))
         assertTrue(ff.rpm!! in 600..6500)
         assertTrue(ff.temperaturaMotor!! in 60..120)
     }

@@ -46,7 +46,7 @@ class Elm327TelemetriaTest {
 
     /**
      * Mesma ECU do `Elm327BluetoothClientTest`: suporta, do catálogo, 0104 0105 0106 0107 010C 010D
-     * 010E 010F 0110 0111 011F 0121 012F 0133 0142 0146 015C + ATRV (sem MAP: a borboleta entra na fila rápida).
+     * 010E 010F 0110 0111 0115 011F 0121 012F 0133 0142 0146 015C + ATRV (sem MAP: a borboleta entra na fila rápida).
      */
     private fun ecu() = mutableMapOf(
         "ATZ" to "ELM327 v1.5\r\r",
@@ -119,13 +119,13 @@ class Elm327TelemetriaTest {
         val obd = cliente(t)
         obd.conectar(dispositivo)
 
-        // 15 lentos (com a borboleta), 1 a cada 3 ciclos = 45 ciclos por volta.
-        val leituras = obd.lerTelemetria(250).take(45).toList()
+        // 16 lentos (com a borboleta e o 0115), 1 a cada 3 ciclos = 48 ciclos por volta.
+        val leituras = obd.lerTelemetria(250).take(48).toList()
         leituras.drop(3).forEach { assertEquals(83, it.temperaturaMotor) } // lido no 4º ciclo e retido
-        assertFalse("015C" in leituras[38].valores)
-        assertEquals(95.0, leituras[39]["015C"]!!, 0.0) // óleo: 14º lento, 40º ciclo
-        assertEquals(95.0, leituras[44]["015C"]!!, 0.0)
-        assertEquals(12.6, leituras[42].tensaoBateria!!, 0.0) // ATRV: 15º lento
+        assertFalse("015C" in leituras[41].valores)
+        assertEquals(95.0, leituras[42]["015C"]!!, 0.0) // óleo: 15º lento, 43º ciclo
+        assertEquals(95.0, leituras[47]["015C"]!!, 0.0)
+        assertEquals(12.6, leituras[45].tensaoBateria!!, 0.0) // ATRV: 16º lento
     }
 
     @Test
@@ -262,8 +262,8 @@ class Elm327TelemetriaTest {
         obd.ativarPerfilFabricante("VW")
         t.enviados.clear()
 
-        // 15 lentos padrão + VW_OLEO = 16; o DID é o último da fila: 46º ciclo.
-        val leituras = obd.lerTelemetria(250).take(46).toList()
+        // 16 lentos padrão + VW_OLEO = 17; o DID é o último da fila: 49º ciclo.
+        val leituras = obd.lerTelemetria(250).take(49).toList()
         assertEquals(90.0, leituras.last()["VW_OLEO"]!!, 0.0)
         val i = t.enviados.indexOf("2211BD1") // com o sufixo de resposta única
         assertEquals("ATSH7E0", t.enviados[i - 1])
@@ -301,8 +301,8 @@ class Elm327TelemetriaTest {
         assertEquals(1, t.enviados.count { it == "2113" })
 
         // Na telemetria os dois injetores ocupam uma só vez da fila lenta: 1 requisição por volta
-        // (16º lento → 46º ciclo), já com o sufixo de resposta única.
-        val leituras = obd.lerTelemetria(250).take(46).toList()
+        // (17º lento → 49º ciclo), já com o sufixo de resposta única.
+        val leituras = obd.lerTelemetria(250).take(49).toList()
         assertEquals(0.1, leituras.last()["TOY_INJ1"]!!, 1e-9)
         assertEquals(-0.1, leituras.last()["TOY_INJ2"]!!, 1e-9)
         assertEquals(1, t.enviados.count { it == "2113" })

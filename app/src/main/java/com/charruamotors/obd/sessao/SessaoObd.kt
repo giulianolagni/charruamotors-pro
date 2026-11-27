@@ -46,6 +46,8 @@ import com.charruamotors.oficina.bateria.ControladorTesteBateria
 import com.charruamotors.oficina.bateria.LaudoBateria
 import com.charruamotors.oficina.bateria.RegistroTesteBateria
 import com.charruamotors.oficina.bateria.TesteDaSessao
+import com.charruamotors.oficina.injecao.ControladorInjecao
+import com.charruamotors.oficina.injecao.SuporteInjecao
 import com.charruamotors.obd.InfoConexao
 import com.charruamotors.obd.ModoObd
 import com.charruamotors.obd.ObdClient
@@ -471,6 +473,27 @@ class SessaoObd(
         runCatching { aoRegistrarTempo(veiculoIdSessao, marca) }
     }
 
+    // ------------------------------------------------------------------ diagnóstico de injeção (v2.9.0)
+
+    /** Fuel trims e sondas O2 da sessão em curso; só acumula com a tela aberta e nada é gravado. */
+    val injecao = ControladorInjecao(relogioMonotonico)
+
+    /**
+     * A tela de Diagnóstico de Injeção está visível: o polling prioriza os PIDs que o carro suporta
+     * (nunca nos modos 21/22). Chamar de novo se os suportados mudarem; [fecharInjecao] ao sair.
+     */
+    fun abrirInjecao(tela: Any) {
+        val cli = cliente
+        val suporte = SuporteInjecao.de(cli.pidsSuportados.value, cli.infoConexao.value.modo)
+        injecao.abrir(suporte, combustivelAtual == TipoCombustivel.DIESEL)
+        definirSensoresVisiveis(tela, suporte.comandos)
+    }
+
+    fun fecharInjecao(tela: Any) {
+        injecao.fechar()
+        liberarSensoresVisiveis(tela)
+    }
+
     // ------------------------------------------------------------------ viagem (v2.6.0)
 
     private val travaViagem = Any()
@@ -784,6 +807,7 @@ class SessaoObd(
             combustivelAtual = veiculo?.combustivel
             testeAceleracao.selecionar(testeAceleracao.estado.value.modalidade)
             testeBateria.novaSessao(if (veiculo != null) veiculoId else 0)
+            injecao.novaSessao()
             iniciarViagem(veiculo)
             // A750F (alavanca no 7E1) e GM têm estimador próprio; os demais automáticos usam as razões do perfil.
             estimadorPerfil = veiculo?.cambio?.takeIf { it.estimaMarcha && it.mapaAlavanca == null }?.let(::EstimadorMarchaPerfil)
@@ -898,6 +922,7 @@ class SessaoObd(
         // O instantâneo da ECU: só ele sabe quais leituras são frescas.
         testeAceleracao.amostrar(daEcu)
         testeBateria.amostrar(daEcu)
+        injecao.amostrar(daEcu)
         registrarNaViagem(dados)
         historico.registrar(dados.valores, relogio())
         _dados.value = dados
