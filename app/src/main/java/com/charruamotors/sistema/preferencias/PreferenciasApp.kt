@@ -41,6 +41,10 @@ data class ConfigApp(
     val fonteCronometro: FonteVelocidade = FonteVelocidade.PADRAO,
     /** v2.3.0: consumo em km/L ou L/100km no métrico (Painel, HUD e relatórios). */
     val unidadeConsumo: UnidadeConsumo = UnidadeConsumo.PADRAO,
+    /** v2.7.0: nome da oficina no cabeçalho do laudo PDF (vazio = não sai). */
+    val nomeOficina: String = "",
+    /** v2.7.0: nome do técnico no cabeçalho do laudo PDF (vazio = não sai). */
+    val nomeTecnico: String = "",
 ) {
     /** Fonte que o cronômetro realmente usa: sem a velocidade GPS ligada, sempre a ECU. */
     val fonteCronometroEfetiva: FonteVelocidade
@@ -113,6 +117,10 @@ class PreferenciasApp(private val armazenamento: ArmazenamentoChaveValor) {
 
     fun definirFonteCronometro(fonte: FonteVelocidade) = atualizar { it.copy(fonteCronometro = fonte) }
 
+    fun definirNomeOficina(nome: String) = atualizar { it.copy(nomeOficina = nome) }
+
+    fun definirNomeTecnico(nome: String) = atualizar { it.copy(nomeTecnico = nome) }
+
     /** "Refazer Assistente Inicial" nas Configurações. */
     fun reiniciarAssistente() = atualizar { it.copy(assistenteConcluido = false) }
 
@@ -137,6 +145,8 @@ class PreferenciasApp(private val armazenamento: ArmazenamentoChaveValor) {
                 VELOCIDADE_GPS to nova.velocidadeGps,
                 FONTE_CRONOMETRO to nova.fonteCronometro.name,
                 UNIDADE_CONSUMO to nova.unidadeConsumo.name,
+                NOME_OFICINA to nova.nomeOficina,
+                NOME_TECNICO to nova.nomeTecnico,
             ),
         )
         _config.value = nova
@@ -150,6 +160,8 @@ class PreferenciasApp(private val armazenamento: ArmazenamentoChaveValor) {
         velocidadeGps = armazenamento.lerBooleano(VELOCIDADE_GPS, false),
         fonteCronometro = FonteVelocidade.deCodigo(armazenamento.lerTexto(FONTE_CRONOMETRO)),
         unidadeConsumo = UnidadeConsumo.deCodigo(armazenamento.lerTexto(UNIDADE_CONSUMO)),
+        nomeOficina = armazenamento.lerTexto(NOME_OFICINA).orEmpty(),
+        nomeTecnico = armazenamento.lerTexto(NOME_TECNICO).orEmpty(),
     )
 
     companion object {
@@ -161,5 +173,7 @@ class PreferenciasApp(private val armazenamento: ArmazenamentoChaveValor) {
         const val VELOCIDADE_GPS = "velocidade_gps"
         const val FONTE_CRONOMETRO = "fonte_cronometro"
         const val UNIDADE_CONSUMO = "unidade_consumo"
+        const val NOME_OFICINA = "laudo_oficina"
+        const val NOME_TECNICO = "laudo_tecnico"
     }
 }

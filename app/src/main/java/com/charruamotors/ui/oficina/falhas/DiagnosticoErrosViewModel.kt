@@ -20,6 +20,9 @@ import com.charruamotors.obd.sessao.SessaoObd
 import com.charruamotors.ui.diagnostico.DiagnosticoActivity
 import com.charruamotors.ui.diagnostico.obd.DtcExibicao
 import com.charruamotors.ui.diagnostico.obd.ResultadoDiagnostico
+import com.charruamotors.ui.laudo.LaudoGerado
+import com.charruamotors.ui.laudo.LaudoSessaoAtual
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -33,6 +36,8 @@ import kotlinx.coroutines.launch
 sealed interface EventoFalhas {
     data class Mensagem(@param:StringRes val resId: Int) : EventoFalhas
     data class Texto(val texto: String) : EventoFalhas
+    data class Laudo(val laudo: LaudoGerado) : EventoFalhas
+    data class ErroLaudo(val detalhe: String) : EventoFalhas
 }
 
 /**
@@ -46,6 +51,7 @@ class DiagnosticoErrosViewModel(
     private val repository: DiagnosticoRepository,
     private val catalogoDtc: CatalogoDtc,
     veiculo: suspend () -> Veiculo?,
+    private val laudos: LaudoSessaoAtual,
 ) : ViewModel() {
 
     private val cliente: ObdClient get() = sessao.cliente
@@ -87,6 +93,29 @@ class DiagnosticoErrosViewModel(
                 lerDiagnostico(anunciar = false)
             }
             .onFailure { _eventos.send(EventoFalhas.Texto(it.message ?: "")) }
+    }
+
+    /**
+     * Laudo PDF da sessão em curso: lê as falhas (se ainda não lidas nesta conexão) e a prontidão
+     * (`0101`), tira o instantâneo e gera o arquivo em segundo plano.
+     */
+    fun gerarLaudo(observacoes: String) = executar {
+        if (_diagnostico.value == null) lerDiagnostico(anunciar = false)
+        val diagnostico = _diagnostico.value
+        val prontidao = cliente.lerStatusMil()
+        if (estado.value !is EstadoConexaoObd.Conectado) {
+            _eventos.send(EventoFalhas.Mensagem(R.string.laudo_conexao_perdida))
+            return@executar
+        }
+        // Falha na leitura dos códigos: a mensagem já foi enviada por lerDiagnostico.
+        if (diagnostico == null) return@executar
+        try {
+            _eventos.send(EventoFalhas.Laudo(laudos.gerar(diagnostico, prontidao, observacoes)))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            _eventos.send(EventoFalhas.ErroLaudo(e.message ?: e.javaClass.simpleName))
+        }
     }
 
     private fun executar(acao: suspend () -> Unit) {
@@ -153,6 +182,7 @@ class DiagnosticoErrosViewModel(
                     repository = app.diagnosticoRepository,
                     catalogoDtc = app.catalogoDtc,
                     veiculo = { app.veiculoRepository.buscarPorId(veiculoId) },
+                    laudos = LaudoSessaoAtual(app),
                 )
             }
         }

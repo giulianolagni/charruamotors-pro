@@ -6,12 +6,17 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.charruamotors.CharruaMotorsApp
 import com.charruamotors.oficina.replay.AnaliseReplay
 import com.charruamotors.oficina.replay.ColunaLog
 import com.charruamotors.oficina.replay.CsvInvalidoException
 import com.charruamotors.oficina.replay.EstatisticaSerie
 import com.charruamotors.oficina.replay.JanelaReplay
 import com.charruamotors.oficina.replay.LogCsv
+import com.charruamotors.sistema.preferencias.PreferenciasApp
+import com.charruamotors.ui.laudo.ArquivoLaudoPdf
+import com.charruamotors.ui.laudo.LaudoGerado
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -28,7 +33,7 @@ import kotlinx.coroutines.launch
 import java.io.IOException
 
 /** Log aberto no replay. */
-data class LogAberto(val nome: String, val log: LogCsv, val total: JanelaReplay, val duracaoMinimaMs: Long)
+data class LogAberto(val nome: String, val uri: Uri, val log: LogCsv, val total: JanelaReplay, val duracaoMinimaMs: Long)
 
 /** Resumo de um sensor selecionado: estatísticas da janela e o valor no cursor. */
 data class ResumoSerie(
@@ -48,6 +53,12 @@ sealed interface EventoReplay {
 
     /** Relatório `.txt` da sessão lido: a tela mostra no diálogo (aberto no topo). */
     data class Texto(val arquivo: ArquivoLogCsv, val texto: TextoLog) : EventoReplay
+
+    data class Laudo(val laudo: LaudoGerado) : EventoReplay
+    data class ErroLaudo(val detalhe: String) : EventoReplay
+
+    /** O `.txt` escolhido não é um relatório de sessão do app. */
+    data object LaudoSemRelatorio : EventoReplay
 }
 
 /**
@@ -55,7 +66,41 @@ sealed interface EventoReplay {
  * pelo seletor do sistema), guarda a seleção de até 4 colunas, a janela de tempo e o cursor
  * (sobrevivem à rotação) e calcula o resumo Mínimo/Máximo/Média da janela visível.
  */
-class ReplayLogViewModel(private val repositorio: RepositorioLogsCsv) : ViewModel() {
+class ReplayLogViewModel(
+    private val repositorio: RepositorioLogsCsv,
+    private val arquivoLaudo: ArquivoLaudoPdf,
+    private val preferencias: PreferenciasApp,
+) : ViewModel() {
+
+    private var gerandoLaudo = false
+
+    /** Laudo PDF de um log salvo, com a oficina/técnico das Configurações e as [observacoes]. */
+    fun gerarLaudo(uri: Uri, nome: String, observacoes: String) {
+        if (gerandoLaudo) return
+        gerandoLaudo = true
+        val config = preferencias.config.value
+        viewModelScope.launch {
+            _carregando.value = true
+            try {
+                val dados = repositorio.dadosDoLaudo(uri, nome, System.currentTimeMillis())
+                if (dados == null) {
+                    _eventos.send(EventoReplay.LaudoSemRelatorio)
+                } else {
+                    val completo = dados.copy(oficina = config.nomeOficina, tecnico = config.nomeTecnico, observacoes = observacoes)
+                    _eventos.send(EventoReplay.Laudo(arquivoLaudo.gerar(completo)))
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: OutOfMemoryError) {
+                _eventos.send(EventoReplay.ErroLaudo("arquivo grande demais para a memória do aparelho"))
+            } catch (e: Exception) {
+                _eventos.send(EventoReplay.ErroLaudo(e.message ?: e.javaClass.simpleName))
+            } finally {
+                gerandoLaudo = false
+                _carregando.value = false
+            }
+        }
+    }
 
     private val _arquivos = MutableStateFlow<List<ArquivoLogCsv>>(emptyList())
     val arquivos: StateFlow<List<ArquivoLogCsv>> = _arquivos.asStateFlow()
@@ -139,7 +184,7 @@ class ReplayLogViewModel(private val repositorio: RepositorioLogsCsv) : ViewMode
             try {
                 val log = repositorio.abrir(uri)
                 val total = AnaliseReplay.janelaCompleta(log)
-                _log.value = LogAberto(nome(), log, total, AnaliseReplay.duracaoMinima(log))
+                _log.value = LogAberto(nome(), uri, log, total, AnaliseReplay.duracaoMinima(log))
                 _selecionados.value = AnaliseReplay.selecaoInicial(log)
                 _janela.value = total
                 _cursor.value = null
@@ -190,8 +235,8 @@ class ReplayLogViewModel(private val repositorio: RepositorioLogsCsv) : ViewMode
     companion object {
         val Factory = viewModelFactory {
             initializer {
-                val app = this[APPLICATION_KEY]!!
-                ReplayLogViewModel(RepositorioLogsCsv(app))
+                val app = this[APPLICATION_KEY] as CharruaMotorsApp
+                ReplayLogViewModel(RepositorioLogsCsv(app), ArquivoLaudoPdf(app), app.preferenciasApp)
             }
         }
     }

@@ -20,6 +20,7 @@ import com.charruamotors.sistema.unidades.ConversorUnidades
 import com.charruamotors.ui.diagnostico.DiagnosticoActivity
 import com.charruamotors.ui.diagnostico.obd.DiagnosticoDtcAdapter
 import com.charruamotors.ui.diagnostico.obd.ResultadoDiagnostico
+import com.charruamotors.ui.laudo.LaudoUi
 import com.charruamotors.ui.util.aplicarInsetsDoSistema
 import com.charruamotors.ui.util.comoDecimal
 import com.charruamotors.ui.util.comoMilhar
@@ -52,6 +53,7 @@ class DiagnosticoErrosActivity : AppCompatActivity(), FerramentaManualObd {
         binding.listaCodigos.adapter = adapter
         binding.botaoLerCodigos.setOnClickListener { viewModel.lerCodigos() }
         binding.botaoLimparCodigos.setOnClickListener { confirmarLimpeza() }
+        binding.botaoGerarLaudo.setOnClickListener { LaudoUi.pedirObservacoes(this, viewModel::gerarLaudo) }
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -65,6 +67,11 @@ class DiagnosticoErrosActivity : AppCompatActivity(), FerramentaManualObd {
                         val texto = when (evento) {
                             is EventoFalhas.Mensagem -> getString(evento.resId)
                             is EventoFalhas.Texto -> evento.texto
+                            is EventoFalhas.ErroLaudo -> getString(R.string.laudo_erro, evento.detalhe)
+                            is EventoFalhas.Laudo -> {
+                                LaudoUi.entregar(this@DiagnosticoErrosActivity, binding.root, evento.laudo)
+                                ""
+                            }
                         }
                         if (texto.isNotBlank()) Snackbar.make(binding.root, texto, Snackbar.LENGTH_LONG).show()
                     }
@@ -78,6 +85,7 @@ class DiagnosticoErrosActivity : AppCompatActivity(), FerramentaManualObd {
         val livre = conectado && !viewModel.ocupado.value
         botaoLerCodigos.isEnabled = livre
         botaoLimparCodigos.isEnabled = livre
+        botaoGerarLaudo.isEnabled = livre
         textoFalhasEstado.setText(if (conectado) R.string.falhas_descricao else R.string.oficina_requer_conexao)
     }
 

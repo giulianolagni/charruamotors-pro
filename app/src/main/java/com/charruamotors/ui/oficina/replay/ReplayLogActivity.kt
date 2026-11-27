@@ -32,6 +32,7 @@ import com.charruamotors.obd.log.DestinoLogs
 import com.charruamotors.obd.log.LinhaLog
 import com.charruamotors.obd.log.OrganizadorLogs
 import com.charruamotors.ui.componentes.GraficoSeriesView
+import com.charruamotors.ui.laudo.LaudoUi
 import com.charruamotors.ui.util.ArquivoExportado
 import com.charruamotors.ui.util.ExportadorCsv
 import com.charruamotors.ui.util.TextoCompartilhavel
@@ -59,7 +60,11 @@ class ReplayLogActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityReplayLogBinding
     private val viewModel: ReplayLogViewModel by viewModels { ReplayLogViewModel.Factory }
-    private val adapter = ArquivoAdapter(aoAbrir = { viewModel.abrir(it) }, aoCompartilhar = ::compartilhar)
+    private val adapter = ArquivoAdapter(
+        aoAbrir = { viewModel.abrir(it) },
+        aoCompartilhar = ::compartilhar,
+        aoGerarLaudo = { pedirLaudo(it.uri, it.nome) },
+    )
     private val coresSeries by lazy {
         listOf(R.color.serie_1, R.color.serie_2, R.color.serie_3, R.color.serie_4).map { ContextCompat.getColor(this, it) }
     }
@@ -97,6 +102,9 @@ class ReplayLogActivity : AppCompatActivity() {
         binding.botaoVerTudo.setOnClickListener {
             viewModel.log.value?.let { binding.graficoReplay.definirJanela(it.total) }
         }
+        binding.botaoGerarLaudo.setOnClickListener {
+            viewModel.log.value?.let { pedirLaudo(it.uri, it.nome) }
+        }
         binding.graficoReplay.ouvinte = object : GraficoSeriesView.Ouvinte {
             override fun aoMudarJanela(janela: JanelaReplay) = viewModel.mudarJanela(janela)
             override fun aoMoverCursor(indice: Int?) = viewModel.moverCursor(indice)
@@ -122,6 +130,9 @@ class ReplayLogActivity : AppCompatActivity() {
                             is EventoReplay.Erro -> mensagem(getString(R.string.replay_erro_ler, evento.detalhe))
                             EventoReplay.MaximoSensores -> mensagem(getString(R.string.replay_max_sensores, AnaliseReplay.MAX_SENSORES))
                             is EventoReplay.Texto -> mostrarTexto(evento.arquivo, evento.texto)
+                            is EventoReplay.Laudo -> LaudoUi.entregar(this@ReplayLogActivity, binding.root, evento.laudo)
+                            is EventoReplay.ErroLaudo -> mensagem(getString(R.string.laudo_erro, evento.detalhe))
+                            EventoReplay.LaudoSemRelatorio -> mensagem(getString(R.string.laudo_txt_invalido))
                         }
                     }
                 }
@@ -138,6 +149,9 @@ class ReplayLogActivity : AppCompatActivity() {
         }
         TextoCompartilhavel.mostrarDialogo(this, arquivo.nome, conteudo) { compartilhar(arquivo) }
     }
+
+    private fun pedirLaudo(uri: android.net.Uri, nome: String) =
+        LaudoUi.pedirObservacoes(this) { viewModel.gerarLaudo(uri, nome, it) }
 
     private fun compartilhar(arquivo: ArquivoLogCsv) {
         val mime = if (arquivo.texto) DestinoLogs.MIME_TXT else DestinoLogs.MIME_CSV
@@ -287,6 +301,8 @@ class ReplayLogActivity : AppCompatActivity() {
     internal class ArquivoAdapter(
         private val aoAbrir: (ArquivoLogCsv) -> Unit,
         private val aoCompartilhar: (ArquivoLogCsv) -> Unit,
+        /** Null = a lista não oferece o laudo (aba Histórico). */
+        private val aoGerarLaudo: ((ArquivoLogCsv) -> Unit)? = null,
     ) : ListAdapter<LinhaLog<ArquivoLogCsv>, RecyclerView.ViewHolder>(Diferenca) {
 
         class Item(val binding: ItemArquivoLogBinding) : RecyclerView.ViewHolder(binding.root)
@@ -348,6 +364,8 @@ class ReplayLogActivity : AppCompatActivity() {
             holder.binding.textoDetalhe.text =
                 contexto.getString(R.string.replay_item_detalhe, data, Formatter.formatShortFileSize(contexto, arquivo.tamanhoBytes))
             holder.binding.imagemTipo.setImageResource(if (arquivo.texto) R.drawable.ic_terminal else R.drawable.ic_grafico)
+            holder.binding.botaoLaudo.isVisible = aoGerarLaudo != null
+            holder.binding.botaoLaudo.setOnClickListener { aoGerarLaudo?.invoke(arquivo) }
             holder.itemView.setOnClickListener { aoAbrir(arquivo) }
             holder.itemView.setOnLongClickListener {
                 aoCompartilhar(arquivo)

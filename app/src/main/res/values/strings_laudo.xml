@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v2.7.0: Laudo Técnico de Oficina em PDF. -->
+<resources>
+    <string name="config_secao_laudo">Laudo técnico (PDF)</string>
+    <string name="config_laudo_oficina">Nome da oficina (opcional)</string>
+    <string name="config_laudo_tecnico">Nome do técnico (opcional)</string>
+
+    <string name="laudo_gerar">Gerar Laudo PDF</string>
+    <string name="laudo_observacoes_titulo">Observações do técnico</string>
+    <string name="laudo_observacoes_dica">Opcional: serviço feito, recomendações…</string>
+    <string name="laudo_confirmar">Gerar</string>
+    <string name="laudo_compartilhar_titulo">Enviar laudo</string>
+    <string name="laudo_pronto">Laudo gerado</string>
+    <string name="laudo_abrir">Abrir</string>
+    <string name="laudo_erro">Não foi possível gerar o laudo: %1$s</string>
+    <string name="laudo_sem_leitor">Nenhum app para abrir PDF neste aparelho</string>
+    <string name="laudo_conexao_perdida">A conexão caiu durante a leitura. Gere o laudo pelo log salvo da sessão.</string>
+    <string name="laudo_txt_invalido">Este arquivo não é um relatório de sessão do Charrua OBD Pro</string>
+</resources>

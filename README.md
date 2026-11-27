@@ -561,6 +561,14 @@ Três telas na aba **Oficina**; tudo o que é salvo fica no perfil isolado de ca
 
 ---
 
+## Laudo Técnico em PDF (v2.7)
+
+O botão **Gerar Laudo PDF** fica em **Oficina → Diagnóstico de Erros** (sessão em curso, com o scanner conectado) e no **Visualizador de Logs** (logs salvos). O arquivo A4, com quantas páginas forem necessárias, é gerado com `android.graphics.pdf.PdfDocument` e aberto no compartilhamento do Android (WhatsApp, e-mail) ou no leitor de PDF.
+
+- Conteúdo: oficina e técnico (opcionais, em Configurações), identificação do veículo, MIL, DTCs, Freeze Frame, monitores de prontidão, resumo técnico, alertas disparados e observações do técnico.
+- Fora de uma conexão Bluetooth real (ou em log simulado), todas as páginas levam a faixa **MODO SIMULADO — DADOS FICTÍCIOS**.
+- Em log salvo, a fonte é o relatório `.txt` da sessão (que não registra MIL, Freeze Frame nem prontidão); um CSV sem relatório gera só o resumo calculado das colunas.
+
 ## Regras de negócio e cálculos
 
 Validações e cálculos ficam na camada de domínio (`domain/`), sem dependência do Android, e são cobertos por testes unitários. A UI apenas exibe os resultados.

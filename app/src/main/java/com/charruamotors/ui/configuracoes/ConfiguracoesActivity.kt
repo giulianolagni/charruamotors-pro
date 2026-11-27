@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
+import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -83,6 +84,7 @@ class ConfiguracoesActivity : AppCompatActivity() {
         configurarCaixaPreta()
         configurarAparencia()
         configurarGps()
+        configurarLaudo()
         binding.botaoRefazerAssistente.setOnClickListener {
             prefsApp.reiniciarAssistente()
             startActivity(AssistenteActivity.intent(this))
@@ -118,6 +120,16 @@ class ConfiguracoesActivity : AppCompatActivity() {
         super.onResume()
         // O usuário pode ter voltado agora da tela de bateria do sistema.
         atualizarBateria()
+    }
+
+    // ------------------------------------------------------------------ laudo PDF
+
+    private fun configurarLaudo() = with(binding) {
+        // Preenche antes de ouvir; depois, a rotação restaura o texto e o ouvinte o regrava.
+        campoNomeOficina.setText(prefsApp.config.value.nomeOficina)
+        campoNomeTecnico.setText(prefsApp.config.value.nomeTecnico)
+        campoNomeOficina.doAfterTextChanged { prefsApp.definirNomeOficina(it?.toString().orEmpty()) }
+        campoNomeTecnico.doAfterTextChanged { prefsApp.definirNomeTecnico(it?.toString().orEmpty()) }
     }
 
     // ------------------------------------------------------------------ caixa-preta

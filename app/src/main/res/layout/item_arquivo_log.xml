@@ -65,5 +65,16 @@
             android:textAppearance="?attr/textAppearanceBodySmall"
             android:textColor="@color/texto_secundario"
             tools:text="20/11/2026 14:52 · 1,2 MB" />
+
+        <!-- Só no Visualizador de Logs (a aba Histórico não gera laudo) -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/botao_laudo"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingStart="0dp"
+            android:text="@string/laudo_gerar"
+            android:visibility="gone"
+            tools:visibility="visible" />
     </LinearLayout>
 </LinearLayout>

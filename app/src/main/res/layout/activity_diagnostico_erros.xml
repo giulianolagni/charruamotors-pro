@@ -91,6 +91,14 @@
                     android:text="@string/obd_limpar_codigos" />
             </LinearLayout>
 
+            <!-- v2.7.0: laudo da sessão em curso (lê os códigos antes, se preciso) -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/botao_gerar_laudo"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/laudo_gerar" />
+
             <TextView
                 android:id="@+id/texto_codigos_vazio"
                 android:layout_width="match_parent"
