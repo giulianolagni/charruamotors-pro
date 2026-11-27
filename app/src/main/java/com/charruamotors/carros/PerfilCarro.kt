@@ -15,6 +15,7 @@ import com.charruamotors.domain.model.Veiculo
 import com.charruamotors.domain.perfis.CarregadorPerfis
 import com.charruamotors.domain.perfis.CatalogoPerfis
 import com.charruamotors.domain.perfis.PerfilCambio
+import com.charruamotors.oficina.bateria.HistoricoBateria
 import com.charruamotors.oficina.sensores.PresetGrafico
 
 /**
@@ -73,6 +74,10 @@ data class PerfilCarro(
     val historicoDesempenho: HistoricoDesempenho = HistoricoDesempenho(),
     /** v2.6.0: litros estimados desde o último zeramento (tanque cheio), para comparar com a bomba. */
     val litrosTanque: Double = 0.0,
+    /** v2.8.0: volts somados à leitura OBD2 no teste de bateria (diodo/chicote deste carro). */
+    val offsetTensaoV: Double = 0.0,
+    /** v2.8.0: testes de bateria e alternador concluídos neste carro. */
+    val historicoBateria: HistoricoBateria = HistoricoBateria(),
 ) {
     /** Carro sem perfil específico, no OBD2 genérico (sem PIDs da SW4, do Cruze ou de outra montadora). */
     val obd2Generico: Boolean get() = perfilFaixasId == OBD2_GENERICO

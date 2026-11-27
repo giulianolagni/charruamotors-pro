@@ -133,6 +133,9 @@ interface ObdClient {
      */
     fun definirPrioridadePolling(prioridade: PrioridadePolling?) = Unit
 
+    /** v2.8.0: quantas vezes o adaptador reiniciou sozinho (`LV RESET`) durante o polling; só cresce. */
+    val reiniciosDoAdaptador: Int get() = 0
+
     /** Limpa os códigos de falha (modo 04). A UI deve sempre pedir confirmação antes. */
     suspend fun limparCodigosFalha(): Result<Unit>
 

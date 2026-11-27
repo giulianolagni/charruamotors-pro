@@ -480,6 +480,69 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- Ajuste do adaptador no teste de bateria (v2.8.0), do veículo ativo -->
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.Material3.CardView.Outlined"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/espaco_medio"
+                app:cardCornerRadius="@dimen/raio_card">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="@dimen/espaco_medio">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/config_secao_offset"
+                        android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/espaco_pequeno"
+                        android:text="@string/bateria_aviso_obd"
+                        android:textAppearance="?attr/textAppearanceBodySmall"
+                        android:textColor="@color/texto_secundario" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/espaco_pequeno"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/texto_offset"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:textAppearance="?attr/textAppearanceBodyLarge"
+                            tools:text="Ajuste do adaptador: +0,3 V" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/botao_offset_menos"
+                            style="?attr/materialButtonOutlinedStyle"
+                            android:layout_width="64dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="@dimen/espaco_pequeno"
+                            android:contentDescription="@string/bateria_offset_menos"
+                            android:text="@string/bateria_menos" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/botao_offset_mais"
+                            style="?attr/materialButtonOutlinedStyle"
+                            android:layout_width="64dp"
+                            android:layout_height="wrap_content"
+                            android:contentDescription="@string/bateria_offset_mais"
+                            android:text="@string/bateria_mais" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
             <!-- Laudo técnico em PDF -->
             <com.google.android.material.card.MaterialCardView
                 style="@style/Widget.Material3.CardView.Outlined"

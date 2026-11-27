@@ -36,6 +36,8 @@ import com.charruamotors.ui.atualizacao.AtualizadorApp
 import com.charruamotors.ui.permissoes.ChecklistPermissoesActivity
 import com.charruamotors.ui.permissoes.SolicitadorPermissoes
 import com.charruamotors.ui.util.aplicarInsetsDoSistema
+import com.charruamotors.oficina.bateria.LaudoBateria
+import com.charruamotors.oficina.bateria.OffsetAdaptador
 import com.charruamotors.ui.util.definirTexto
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.flow.combine
@@ -85,6 +87,8 @@ class ConfiguracoesActivity : AppCompatActivity() {
         configurarAparencia()
         configurarGps()
         configurarLaudo()
+        binding.botaoOffsetMenos.setOnClickListener { ajustarOffset(-1) }
+        binding.botaoOffsetMais.setOnClickListener { ajustarOffset(1) }
         binding.botaoRefazerAssistente.setOnClickListener {
             prefsApp.reiniciarAssistente()
             startActivity(AssistenteActivity.intent(this))
@@ -120,6 +124,33 @@ class ConfiguracoesActivity : AppCompatActivity() {
         super.onResume()
         // O usuário pode ter voltado agora da tela de bateria do sistema.
         atualizarBateria()
+        mostrarOffset()
+    }
+
+    // ------------------------------------------------------------------ teste de bateria
+
+    /** Ajuste do adaptador do veículo ativo (perfil isolado). */
+    private fun mostrarOffset() {
+        val perfis = (application as CharruaMotorsApp).perfisCarro
+        val id = perfis.veiculoAtivo.value
+        val volts = if (id > 0) perfis.ler(id).offsetTensaoV else 0.0
+        binding.textoOffset.text = if (id > 0) {
+            getString(R.string.bateria_offset_valor, LaudoBateria.offset(volts))
+        } else {
+            getString(R.string.config_offset_sem_veiculo)
+        }
+        binding.botaoOffsetMenos.isEnabled = id > 0 && volts > OffsetAdaptador.MINIMO
+        binding.botaoOffsetMais.isEnabled = id > 0 && volts < OffsetAdaptador.MAXIMO
+    }
+
+    private fun ajustarOffset(passos: Int) {
+        val perfis = (application as CharruaMotorsApp).perfisCarro
+        val id = perfis.veiculoAtivo.value
+        if (id <= 0) return
+        perfis.atualizar(id) {
+            it.copy(offsetTensaoV = OffsetAdaptador.limitar(it.offsetTensaoV + passos * OffsetAdaptador.PASSO))
+        }
+        mostrarOffset()
     }
 
     // ------------------------------------------------------------------ laudo PDF

@@ -7,6 +7,8 @@ import com.charruamotors.domain.model.EstadoConexaoObd
 import com.charruamotors.domain.model.TipoCombustivel
 import com.charruamotors.domain.model.Veiculo
 import com.charruamotors.obd.DispositivoObd
+import com.charruamotors.obd.FaseBateriaSimulada
+import com.charruamotors.oficina.bateria.RegistroTesteBateria
 import com.charruamotors.obd.ModoObd
 import com.charruamotors.obd.ObdClient
 import com.charruamotors.obd.ObdClientFake
@@ -76,6 +78,8 @@ class SessaoPerfilCarroTest {
         veiculo: VeiculoSessao,
         modo: ModoObd = ModoObd.SIMULADO,
         destino: DestinoMemoria? = null,
+        aoRegistrarTeste: (Long, RegistroTesteBateria) -> Unit = { _, _ -> },
+        relogioMonotonico: () -> Long = { System.nanoTime() / 1_000_000 },
     ) = SessaoObd(
         clientePorModo = { cliente },
         modoInicial = modo,
@@ -88,6 +92,8 @@ class SessaoPerfilCarroTest {
         escopo = CoroutineScope(StandardTestDispatcher(testScheduler)).also { escopos += it },
         io = StandardTestDispatcher(testScheduler),
         telemetria = TelemetriaCompartilhada(),
+        aoRegistrarTesteBateria = aoRegistrarTeste,
+        relogioMonotonico = relogioMonotonico,
     )
 
     private fun TestScope.avancar(ms: Long) {
@@ -152,5 +158,33 @@ class SessaoPerfilCarroTest {
         sessao.desconectar()
         advanceUntilIdle()
         assertEquals(0L, sessao.estadoSessao.value.veiculoId)
+    }
+
+    @Test
+    fun `teste de bateria le a telemetria mas so a sessao real grava o historico do carro`() = runTest {
+        val carro = Veiculo(id = 5, marca = "Marca X", modelo = "Hatch 1.0", ano = 2015, placa = "BAT0E01", kmAtual = 1, tipoCombustivel = TipoCombustivel.FLEX)
+        for ((modo, esperados) in listOf(ModoObd.SIMULADO to 0, ModoObd.BLUETOOTH to 1)) {
+            val gravados = mutableListOf<Long>()
+            val cliente = ObdClientFake(random = Random(4), latenciaMs = 10, relogioMs = { testScheduler.currentTime })
+            val sessao = sessaoCom(
+                cliente, VeiculoSessao.de(carro), modo,
+                aoRegistrarTeste = { id, _ -> gravados += id },
+                relogioMonotonico = { testScheduler.currentTime },
+            )
+            sessao.conectar(scanner, carro.id, OrigemSessao.MANUAL)
+            avancar(5_000)
+
+            sessao.testeBateria.preparar(carro.id, comRpm = true, diesel = false, offsetV = 0.0)
+            cliente.simularBateria(FaseBateriaSimulada.REPOUSO)
+            assertTrue(sessao.iniciarCapturaBateria())
+            avancar(8_000)
+            assertNotNull(sessao.testeBateria.estado.value.resumo.repouso)
+            repeat(3) { sessao.testeBateria.pular() }
+
+            assertNotNull("o laudo da sessão leva o teste", sessao.testeBateria.resultadoDaSessao)
+            assertEquals(modo.name, esperados, gravados.size)
+            sessao.desconectar()
+            advanceUntilIdle()
+        }
     }
 }

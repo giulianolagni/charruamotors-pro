@@ -208,24 +208,25 @@ tela própria; a lógica de cada uma fica no pacote puro `oficina/` (testável n
 
 ### 1. Teste de Bateria e Alternador (`TesteBateriaActivity`)
 
-Tela guiada em 3 etapas. Ela lê `ATRV` na taxa máxima do adaptador (piso de 50 ms, ~20 amostras/s) e mostra a
-tensão num gráfico em `Canvas` (`GraficoTensaoView`, janela de 20 s com as linhas de referência da etapa). A
-máquina de estados `TesteBateria` é pura:
+Teste guiado em 3 etapas, com faixas para a tensão lida pela porta OBD2 (0,3–0,7 V abaixo dos polos). No
+OBD2 padrão, enquanto uma etapa captura, o `EscalonadorPolling` lê só RPM (`010C`) e tensão (`ATRV`, ou
+`0142`), e volta ao normal ao concluir, cancelar ou sair da tela. Nos modos 21/22 (SW4) a sequência de
+polling não muda: a tela usa uma sessão manual só com `ATRV`, sem RPM. A curva aparece no
+`GraficoSeriesView`. A máquina de estados `TesteBateria` é pura:
 
 | Etapa | Captura | Classificação |
 |---|---|---|
-| 1. Repouso (ignição ligada, motor desligado) | 5 s; vale a média da 2ª metade (tensão estabilizada) | Saudável ≥ 12,4 V · Carga baixa 12,0–12,3 V · Crítica < 12,0 V |
-| 2. Partida (cranking) | espera a queda (≥ 0,8 V ou um `LV RESET`), guarda o vale `V_min` e termina 1 s depois de o motor pegar (> 13,2 V) | OK ≥ 10,0 V · Atenção 9,6–9,9 V · Fraca < 9,6 V |
-| 3. Alternador | 8 s em marcha lenta e 10 s a ~2.500 RPM com cargas: média, pico e ripple estimado | Subcarga < 13,5 V · Normal 13,6–14,6 V · Sobrecarga > 14,8 V |
+| 1. Repouso (ignição ligada, `RPM == 0`) | ~3 s; média da 2ª metade | Bom ≥ 12,1 V · Atenção 11,7–12,09 V · Fraca < 11,7 V |
+| 2. Partida | menor tensão até o RPM passar de 400 (e mais 1 s) | Gasolina/Flex: Bom ≥ 9,2 V · Atenção 8,3–9,19 V · Crítica < 8,3 V. Diesel: 8,8 V e 7,8 V |
+| 3. Alternador | 3 s em marcha lenta e 3 s a ~2.000 RPM com farol/ar | Subcarga < 13,3 V · Normal 13,3–14,9 V · Sobretensão > 14,9 V |
 
-- O `LV RESET` (o ELM327 reiniciando por subtensão na partida) conta como amostra perdida e nunca aborta o
-  teste. O laudo avisa que o vale real pode ter sido menor que o registrado.
-- Etapas podem ser puladas ou refeitas. Sem queda de tensão em 20 s, a etapa 2 pede para repetir.
-- O **Laudo Resumido** (`LaudoBateria`) traz o veredito da bateria e do alternador e os valores medidos, com
-  botões Copiar e Compartilhar.
-- No modo simulado, o `ObdClientFake` acompanha as fases. Em repouso a tensão fica em ~12,5 V, com a carga
-  superficial se dissipando. Na partida cai para um vale de ~10,3 V, com um `LV RESET` e as oscilações das
-  compressões. Com o motor ligado, o alternador fica em ~14,2 V.
+- Leituras abaixo de 5,0 V são descartadas. `LV RESET`, leituras interrompidas ou conexão perdida no arranque
+  deixam a partida **Inconclusiva** (não reprova a bateria). O mesmo vale se o motor pegar sem a queda ter
+  sido amostrada.
+- **Ajuste do adaptador** (−1,0 a +1,5 V, por veículo): na tela ou em Configurações.
+- O motor diesel vem do combustível do perfil do carro, com um interruptor na tela.
+- Os testes concluídos ficam no histórico do veículo (`GerenciadorPerfisCarro`); o Modo Simulado não grava. O
+  teste da sessão entra no Laudo Técnico em PDF.
 
 ### 2. Visualizador de Logs CSV (`ReplayLogActivity`)
 
@@ -723,7 +724,7 @@ app/src/main/java/com/charruamotors/
     ├── assistente/          # AssistenteActivity (Assistente de Primeira Abertura)
     ├── configuracoes/       # ConfiguracoesActivity e DialogosCaixaPreta
     ├── permissoes/          # ChecklistPermissoesActivity, PainelPermissoes, SolicitadorPermissoes
-    ├── componentes/         # GaugeView (3 estilos), BarraVarreduraView, TelemetriaChartView, GraficoTensaoView, LogReplayChartView
+    ├── componentes/         # GaugeView (3 estilos), BarraVarreduraView, TelemetriaChartView, LogReplayChartView
     └── util/                # Formatadores, insets, seletor de data, permissões Bluetooth, rótulos
 ```
 

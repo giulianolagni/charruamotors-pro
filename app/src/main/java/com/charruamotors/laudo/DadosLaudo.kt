@@ -70,6 +70,16 @@ data class ResumoTecnicoLaudo(
     val kmPorLitro: Double? = null,
 )
 
+/** v2.8.0: resumo do teste de bateria concluído na sessão, já formatado. */
+data class TesteBateriaLaudo(
+    val repouso: String,
+    val partida: String,
+    val alternador: String,
+    val veredito: String,
+    /** Motor considerado e ajuste do adaptador. */
+    val condicoes: String,
+)
+
 /**
  * Instantâneo imutável de tudo o que o laudo mostra: montado de uma vez, antes de gerar o PDF em
  * segundo plano, sem referência à sessão OBD nem aos perfis.
@@ -87,6 +97,8 @@ data class DadosLaudo(
     /** Alertas críticos disparados; null = a fonte não os registra. */
     val alertas: List<String>? = null,
     val observacoes: String? = null,
+    /** v2.8.0: null = nenhum teste de bateria concluído na sessão. */
+    val testeBateria: TesteBateriaLaudo? = null,
 ) {
     val simulado: Boolean get() = origem == OrigemLaudo.SIMULADO
 }

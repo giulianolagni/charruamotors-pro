@@ -10,87 +10,106 @@ data class VereditoResumo(val titulo: String, val gravidade: Int?) {
 }
 
 /**
- * Laudo Resumido do Teste de Bateria e Alternador: veredito da bateria (repouso + partida), do
- * alternador (marcha lenta + carga) e os valores medidos, em texto simples para copiar ou
- * compartilhar (WhatsApp, e-mail). Puro: testável na JVM.
+ * Textos do Teste de Bateria: vereditos da bateria (repouso + partida) e do alternador (lenta +
+ * carga) e o laudo em texto simples para copiar ou compartilhar. Puro: testável na JVM.
  */
 object LaudoBateria {
 
     private val localeBr: Locale = Locale.forLanguageTag("pt-BR")
     private val formatoDataHora: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
 
+    const val TEXTO_INCONCLUSIVO = "Inconclusivo (corte/perda de comunicação na partida — conferir nos polos)"
+    const val TEXTO_QUEDA_NAO_CAPTURADA = "Inconclusivo (queda não capturada — repetir ou conferir nos polos)"
+
     fun rotulo(v: VereditoRepouso) = when (v) {
-        VereditoRepouso.SAUDAVEL -> "Saudável"
-        VereditoRepouso.CARGA_BAIXA -> "Carga baixa"
-        VereditoRepouso.CRITICA -> "Crítica"
+        VereditoRepouso.BOM -> "Bom"
+        VereditoRepouso.ATENCAO -> "Atenção"
+        VereditoRepouso.FRACA -> "Fraca"
     }
 
-    fun rotulo(v: VereditoPartida) = when (v) {
-        VereditoPartida.OK -> "OK"
+    fun rotulo(p: ResultadoPartida) = when (p.veredito) {
+        VereditoPartida.BOM -> "Bom"
         VereditoPartida.ATENCAO -> "Atenção"
-        VereditoPartida.FRACA -> "Bateria fraca/comprometida"
+        VereditoPartida.CRITICA -> "Crítica"
+        VereditoPartida.INCONCLUSIVO ->
+            if (p.motivo == MotivoInconclusivo.QUEDA_NAO_CAPTURADA) TEXTO_QUEDA_NAO_CAPTURADA else TEXTO_INCONCLUSIVO
     }
 
     fun rotulo(v: VereditoAlternador) = when (v) {
         VereditoAlternador.SUBCARGA -> "Subcarga"
-        VereditoAlternador.LIMITE_INFERIOR -> "Limite inferior"
         VereditoAlternador.NORMAL -> "Normal"
-        VereditoAlternador.LIMITE_SUPERIOR -> "Limite superior"
-        VereditoAlternador.SOBRECARGA -> "Sobrecarga/regulador"
+        VereditoAlternador.SOBRETENSAO -> "Sobretensão / regulador"
     }
 
-    /** Bateria: o pior entre repouso e partida; não avaliada se as duas etapas foram puladas. */
-    fun vereditoBateria(teste: TesteBateria): VereditoResumo {
-        val r = teste.resultadoRepouso
-        val p = teste.resultadoPartida
-        val gravidade = listOfNotNull(r?.veredito?.gravidade, p?.veredito?.gravidade).maxOrNull()
-            ?: return VereditoResumo("Não avaliada", null)
+    /** Bateria: o pior entre repouso e partida. Partida inconclusiva não entra na nota. */
+    fun vereditoBateria(r: ResumoTesteBateria): VereditoResumo {
+        val inconclusiva = r.partida?.inconclusivo == true
+        val gravidade = listOfNotNull(
+            r.repouso?.veredito?.gravidade,
+            r.partida?.takeIf { !it.inconclusivo }?.veredito?.gravidade,
+        ).maxOrNull() ?: return VereditoResumo(if (inconclusiva) "INCONCLUSIVA (conferir nos polos)" else "Não avaliada", null)
         val titulo = when (gravidade) {
-            0 -> "SAUDÁVEL"
+            0 -> "BOA"
             1 -> "ATENÇÃO"
-            else -> "COMPROMETIDA"
+            else -> "FRACA / COMPROMETIDA"
         }
-        return VereditoResumo(titulo, gravidade)
+        return VereditoResumo(if (inconclusiva) "$titulo (partida inconclusiva)" else titulo, gravidade)
     }
 
-    /**
-     * Alternador: o pior entre marcha lenta e carga (no empate, a fase com carga, que é a mais
-     * exigente); o título diz qual problema (subcarga/sobrecarga).
-     */
-    fun vereditoAlternador(teste: TesteBateria): VereditoResumo {
-        val fases = listOfNotNull(teste.resultadoLenta, teste.resultadoCarga)
+    /** Alternador: o pior entre marcha lenta e carga (no empate, a fase com carga). */
+    fun vereditoAlternador(r: ResumoTesteBateria): VereditoResumo {
+        val fases = listOfNotNull(r.lenta, r.carga)
         if (fases.isEmpty()) return VereditoResumo("Não avaliado", null)
         val pior = fases.reversed().maxBy { it.veredito.gravidade }.veredito
-        val titulo = when (pior) {
-            VereditoAlternador.NORMAL -> "NORMAL"
-            VereditoAlternador.LIMITE_INFERIOR, VereditoAlternador.LIMITE_SUPERIOR -> "ATENÇÃO (${rotulo(pior).lowercase(localeBr)})"
-            VereditoAlternador.SUBCARGA -> "SUBCARGA"
-            VereditoAlternador.SOBRECARGA -> "SOBRECARGA (regulador)"
-        }
-        return VereditoResumo(titulo, pior.gravidade)
+        return VereditoResumo(rotulo(pior).uppercase(localeBr), pior.gravidade)
     }
 
-    fun gerar(teste: TesteBateria, veiculo: String?, quando: LocalDateTime): String = buildString {
+    fun linhaRepouso(r: ResultadoRepouso?): String =
+        if (r == null) "não realizado" else "${v(r.tensao)} — ${rotulo(r.veredito)}"
+
+    fun linhaPartida(p: ResultadoPartida?): String = when {
+        p == null -> "não realizada"
+        p.inconclusivo -> rotulo(p) + (p.vMin?.let { " · menor leitura ${v(it)}" } ?: "")
+        else -> "mínimo ${p.vMin?.let(::v) ?: "—"} — ${rotulo(p)}"
+    }
+
+    fun linhaAlternador(r: ResumoTesteBateria): String {
+        val partes = listOfNotNull(
+            r.lenta?.let { "lenta ${v(it.media)}" },
+            r.carga?.let { "com carga ${v(it.media)}" },
+        )
+        return if (partes.isEmpty()) "não realizado" else partes.joinToString(" · ") + " — " + vereditoAlternador(r).titulo
+    }
+
+    fun faixas(diesel: Boolean): String = listOf(
+        "Referências (leitura OBD2): repouso ≥ 12,1 V bom, 11,7–12,09 V atenção, < 11,7 V fraca;",
+        if (diesel) {
+            "partida diesel ≥ 8,8 V bom, 7,8–8,79 V atenção, < 7,8 V crítica;"
+        } else {
+            "partida gasolina/flex ≥ 9,2 V bom, 8,3–9,19 V atenção, < 8,3 V crítica;"
+        },
+        "alternador 13,3–14,9 V normal, < 13,3 V subcarga, > 14,9 V sobretensão.",
+    ).joinToString("\n")
+
+    /** "+0,3 V". */
+    fun offset(volts: Double): String = String.format(localeBr, "%+.1f V", volts)
+
+    fun gerar(r: ResumoTesteBateria, veiculo: String?, quando: LocalDateTime): String = buildString {
         appendLine("LAUDO — TESTE DE BATERIA E ALTERNADOR")
         appendLine("Charrua OBD Pro · ${quando.format(formatoDataHora)}")
         if (!veiculo.isNullOrBlank()) appendLine("Veículo: $veiculo")
+        appendLine("Motor: ${if (r.diesel) "diesel" else "gasolina/flex"} · ajuste do adaptador: ${offset(r.offsetV)}")
         appendLine()
 
-        appendLine("BATERIA: ${vereditoBateria(teste).titulo}")
-        val r = teste.resultadoRepouso
-        if (r == null) {
-            appendLine("• Repouso: não realizado")
-        } else {
-            append("• Repouso (motor desligado): ${v(r.tensao)} — ${rotulo(r.veredito)}")
-            appendLine(if (r.estavel) "" else " (tensão instável: ${v(r.minima)} a ${v(r.maxima)})")
-            if (r.motorPareceLigado) appendLine("  Atenção: acima de 13,2 V o motor parecia ligado; refaça com o motor desligado")
-        }
-        val p = teste.resultadoPartida
-        if (p == null) {
-            appendLine("• Partida: não realizada")
-        } else {
-            appendLine("• Partida: vale de ${v(p.vMin)} (antes ${v(p.tensaoInicial)}) — ${rotulo(p.veredito)}")
-            appendLine("  " + textoQueda(p.duracaoQuedaMs, p.motorPegou))
+        appendLine("BATERIA: ${vereditoBateria(r).titulo}")
+        val rep = r.repouso
+        append("• Repouso (motor desligado): ${linhaRepouso(rep)}")
+        appendLine(if (rep == null || rep.estavel) "" else " (tensão instável: ${v(rep.minima)} a ${v(rep.maxima)})")
+        if (rep?.motorPareceLigado == true) appendLine("  Atenção: acima de 13,2 V o motor parecia ligado; refaça com o motor desligado")
+        val p = r.partida
+        appendLine("• Partida: ${linhaPartida(p)}")
+        if (p != null) {
+            if (!p.inconclusivo) appendLine("  " + textoQueda(p.duracaoQuedaMs, p.motorPegou))
             if (p.lvResets > 0) {
                 appendLine(
                     "  O adaptador reiniciou por subtensão (LV RESET) ${p.lvResets}× durante a partida: " +
@@ -100,15 +119,13 @@ object LaudoBateria {
         }
         appendLine()
 
-        appendLine("ALTERNADOR: ${vereditoAlternador(teste).titulo}")
-        linhaCarga("Marcha lenta", teste.resultadoLenta)
-        linhaCarga("~2.500 RPM com cargas", teste.resultadoCarga)
+        appendLine("ALTERNADOR: ${vereditoAlternador(r).titulo}")
+        linhaCarga("Marcha lenta", r.lenta)
+        linhaCarga("~2.000 RPM com cargas", r.carga)
         appendLine()
 
-        appendLine("Referências: repouso ≥ 12,4 V saudável, 12,0–12,3 V carga baixa, < 12,0 V crítica;")
-        appendLine("partida ≥ 10,0 V OK, 9,6–9,9 V atenção, < 9,6 V fraca;")
-        appendLine("alternador 13,6–14,6 V normal, < 13,5 V subcarga, > 14,8 V sobrecarga.")
-        append("Tensões lidas pelo ELM327 (ATRV, resolução de 0,1 V); ripple estimado pela variação entre amostras.")
+        appendLine(faixas(r.diesel))
+        append("A leitura OBD2 costuma ficar 0,3–0,7 V abaixo dos polos; ripple estimado pela variação entre amostras.")
     }
 
     private fun StringBuilder.linhaCarga(nome: String, c: ResultadoCarga?) {

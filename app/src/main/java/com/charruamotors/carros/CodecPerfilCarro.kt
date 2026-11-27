@@ -7,6 +7,8 @@ import com.charruamotors.direcao.painel.ClusterPainel
 import com.charruamotors.direcao.painel.CodecPainel
 import com.charruamotors.direcao.painel.SensorPainel
 import com.charruamotors.domain.alertas.ConfigAlertas
+import com.charruamotors.oficina.bateria.HistoricoBateria
+import com.charruamotors.oficina.bateria.OffsetAdaptador
 import com.charruamotors.oficina.sensores.PresetsGrafico
 
 /**
@@ -35,6 +37,8 @@ object CodecPerfilCarro {
     const val CALIBRACAO_CONSUMO = "calibracao_consumo"
     const val HISTORICO_DESEMPENHO = "historico_desempenho"
     const val LITROS_TANQUE = "litros_tanque"
+    const val OFFSET_TENSAO = "offset_tensao"
+    const val HISTORICO_BATERIA = "historico_bateria"
 
     /** Bolinha do Cluster sem escolha (padrão/automático). */
     private const val BOLINHA_PADRAO = "-"
@@ -44,7 +48,7 @@ object CodecPerfilCarro {
     val CHAVES_PERFIL = listOf(
         SCHEMA, CLUSTER, PERFIL_FAIXAS, PERFIL_CAMBIO, CAMADA, GATILHO_NOME, GATILHO_ENDERECO,
         FAVORITOS_GRAFICOS, RECORDE_060, RECORDE_0100, ALERTAS, PRESETS_GRAFICOS,
-        CALIBRACAO_CONSUMO, HISTORICO_DESEMPENHO, LITROS_TANQUE,
+        CALIBRACAO_CONSUMO, HISTORICO_DESEMPENHO, LITROS_TANQUE, OFFSET_TENSAO, HISTORICO_BATERIA,
     )
 
     /** Campos do perfil (sem o Painel); null = chave removida. */
@@ -64,6 +68,8 @@ object CodecPerfilCarro {
         CALIBRACAO_CONSUMO to p.calibracaoConsumo.codificar(),
         HISTORICO_DESEMPENHO to p.historicoDesempenho.codificar(),
         LITROS_TANQUE to p.litrosTanque.takeIf { it > 0 }?.toString(),
+        OFFSET_TENSAO to p.offsetTensaoV.takeIf { it != 0.0 }?.toString(),
+        HISTORICO_BATERIA to p.historicoBateria.codificar(),
     )
 
     /** Perfil completo (Painel + campos), pronto para o [com.charruamotors.sistema.preferencias.ArmazenamentoChaveValor.gravar]. */
@@ -89,6 +95,8 @@ object CodecPerfilCarro {
         calibracaoConsumo = CalibracaoConsumo.decodificar(ler(CALIBRACAO_CONSUMO)),
         historicoDesempenho = HistoricoDesempenho.decodificar(ler(HISTORICO_DESEMPENHO)),
         litrosTanque = ler(LITROS_TANQUE)?.toDoubleOrNull()?.takeIf { it.isFinite() && it > 0.0 } ?: 0.0,
+        offsetTensaoV = OffsetAdaptador.limitar(ler(OFFSET_TENSAO)?.toDoubleOrNull() ?: 0.0),
+        historicoBateria = HistoricoBateria.decodificar(ler(HISTORICO_BATERIA)),
     )
 
     /** Sempre [ClusterPainel.BOLINHAS] posições; nomes desconhecidos viram o padrão. */

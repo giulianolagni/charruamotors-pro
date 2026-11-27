@@ -18,13 +18,17 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.charruamotors.R
 import com.charruamotors.databinding.ActivityTesteBateriaBinding
-import com.charruamotors.oficina.bateria.ClassificadorBateria
+import com.charruamotors.oficina.bateria.AvisoCaptura
+import com.charruamotors.oficina.bateria.EstadoTesteBateria
 import com.charruamotors.oficina.bateria.EtapaBateria
 import com.charruamotors.oficina.bateria.LaudoBateria
+import com.charruamotors.oficina.bateria.OffsetAdaptador
+import com.charruamotors.oficina.bateria.PontoCurva
+import com.charruamotors.oficina.bateria.RegistroTesteBateria
 import com.charruamotors.oficina.bateria.ResultadoCarga
 import com.charruamotors.oficina.bateria.Veredito
-import com.charruamotors.oficina.bateria.VereditoResumo
-import com.charruamotors.ui.componentes.ReferenciaTensao
+import com.charruamotors.oficina.replay.JanelaReplay
+import com.charruamotors.ui.componentes.GraficoSeriesView
 import com.charruamotors.ui.diagnostico.DiagnosticoActivity
 import com.charruamotors.ui.util.TextoCompartilhavel
 import com.charruamotors.ui.util.aplicarInsetsDoSistema
@@ -33,11 +37,14 @@ import com.charruamotors.ui.util.definirTexto
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 /**
- * Ferramenta 1 — Teste de Bateria e Alternador guiado em 3 etapas (repouso, partida, alternador
- * em marcha lenta e com carga), com a tensão ao vivo em gráfico e o laudo resumido no fim.
- * A tela fica acesa durante o teste (o motorista está fora do carro olhando o celular).
+ * Teste Guiado de Bateria, Partida e Alternador em 3 etapas (repouso, partida, alternador em marcha
+ * lenta e com carga), com a curva de tensão, o veredito e o histórico do carro. A tela fica acesa
+ * durante o teste (o motorista está fora do carro olhando o celular).
  */
 class TesteBateriaActivity : AppCompatActivity(), FerramentaManualObd {
 
@@ -53,10 +60,15 @@ class TesteBateriaActivity : AppCompatActivity(), FerramentaManualObd {
         binding.conteudo.aplicarInsetsDoSistema(topo = false)
         binding.toolbar.setNavigationOnClickListener { onBackPressedDispatcher.onBackPressed() }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        binding.graficoTensao.formatarValor = { _, v -> v.comoNumero(1) }
 
         binding.botaoAcao.setOnClickListener { viewModel.alternarCaptura() }
         binding.botaoPular.setOnClickListener { viewModel.pularEtapa() }
         binding.botaoRefazer.setOnClickListener { viewModel.reiniciar() }
+        binding.botaoOffsetMenos.setOnClickListener { viewModel.ajustarOffset(-1) }
+        binding.botaoOffsetMais.setOnClickListener { viewModel.ajustarOffset(1) }
+        // Clique (e não o ouvinte de mudança): o estado desenhado pela tela não volta como escolha.
+        binding.switchDiesel.setOnClickListener { viewModel.definirDiesel(binding.switchDiesel.isChecked) }
         binding.botaoCopiarLaudo.setOnClickListener {
             viewModel.ui.value.laudo?.let { TextoCompartilhavel.copiar(this, getString(R.string.bateria_laudo_assunto), it) }
         }
@@ -80,21 +92,33 @@ class TesteBateriaActivity : AppCompatActivity(), FerramentaManualObd {
         }
     }
 
+    override fun onStop() {
+        // Saiu da tela (não é giro): o polling volta ao normal.
+        if (!isChangingConfigurations) viewModel.sairDaTela()
+        super.onStop()
+    }
+
     private fun mostrar(ui: TesteBateriaUi) = with(binding) {
-        val etapa = ui.etapa
+        val teste = ui.teste
+        val etapa = teste.etapa
         textoEtapa.definirTexto(
             if (etapa == EtapaBateria.CONCLUIDO) getString(R.string.bateria_etapa_concluida) else getString(R.string.bateria_etapa_n, etapa.numero),
         )
         tituloEtapa.definirTexto(tituloEtapa(etapa))
         instrucaoEtapa.definirTexto(getString(instrucao(etapa)))
-        textoTensao.definirTexto(ui.tensao?.let { getString(R.string.bateria_tensao_ao_vivo, it.comoNumero(1)) } ?: getString(R.string.valor_indisponivel))
-        textoTaxa.definirTexto(getString(R.string.bateria_taxa, ui.amostrasPorSegundo.comoNumero(0)))
+        textoTensao.definirTexto(teste.tensao?.let { getString(R.string.bateria_tensao_ao_vivo, it.comoNumero(1)) } ?: getString(R.string.valor_indisponivel))
+        textoRpm.definirTexto(
+            when {
+                !teste.comRpm -> getString(R.string.bateria_sem_rpm)
+                teste.rpm == null -> getString(R.string.bateria_rpm_indisponivel)
+                else -> getString(R.string.bateria_rpm, teste.rpm.comoNumero(0))
+            },
+        )
+        mostrarCurva(teste.curva)
 
-        graficoTensao.definir(ui.pontos, referencias(etapa), ui.vale)
-
-        progressoCaptura.isInvisible = !ui.capturando
-        val progresso = ui.progresso
-        if (ui.capturando) {
+        progressoCaptura.isInvisible = !teste.capturando
+        val progresso = teste.progresso
+        if (teste.capturando) {
             if (progresso == null) {
                 if (!progressoCaptura.isIndeterminate) {
                     progressoCaptura.isVisible = false
@@ -106,45 +130,100 @@ class TesteBateriaActivity : AppCompatActivity(), FerramentaManualObd {
                 progressoCaptura.setProgressCompat((progresso * 100).toInt(), false)
             }
         }
-        val status = when {
-            !ui.capturando -> null
-            etapa == EtapaBateria.PARTIDA && ui.quedaDetectada ->
-                getString(R.string.bateria_partida_em_curso, ui.vale?.let { LaudoBateria.v(it) } ?: "—")
-            etapa == EtapaBateria.PARTIDA -> getString(R.string.bateria_aguardando_partida)
-            else -> getString(R.string.bateria_medindo)
-        }
-        val comResets = if (status != null && ui.lvResets > 0) status + "\n" + getString(R.string.bateria_lv_resets, ui.lvResets) else status
-        textoStatus.isVisible = comResets != null
-        textoStatus.definirTexto(comResets)
+        val status = status(teste)
+        textoStatus.isVisible = status != null
+        textoStatus.definirTexto(status)
 
         grupoAcoes.isVisible = etapa != EtapaBateria.CONCLUIDO
+        botaoAcao.isEnabled = ui.pronta
         botaoAcao.definirTexto(getString(when {
-            ui.capturando -> R.string.bateria_cancelar
+            teste.capturando -> R.string.bateria_cancelar
             etapa == EtapaBateria.PARTIDA -> R.string.bateria_iniciar_partida
             else -> R.string.bateria_medir
         }))
-        botaoPular.isEnabled = !ui.capturando
+        botaoPular.isEnabled = ui.pronta && !teste.capturando
 
-        mostrarResultados(ui)
+        switchDiesel.isChecked = teste.resumo.diesel
+        switchDiesel.isEnabled = ui.pronta
+        textoOffset.definirTexto(getString(R.string.bateria_offset_valor, LaudoBateria.offset(ui.offsetV)))
+        botaoOffsetMenos.isEnabled = ui.pronta && !teste.capturando && ui.offsetV > OffsetAdaptador.MINIMO
+        botaoOffsetMais.isEnabled = ui.pronta && !teste.capturando && ui.offsetV < OffsetAdaptador.MAXIMO
+
+        mostrarResultados(teste)
         cardLaudo.isVisible = ui.laudo != null
         if (ui.laudo != null) {
-            mostrarVeredito(vereditoBateria, R.string.bateria_veredito_bateria, ui.vereditoBateria)
-            mostrarVeredito(vereditoAlternador, R.string.bateria_veredito_alternador, ui.vereditoAlternador)
+            val r = teste.resumo
+            val bateria = LaudoBateria.vereditoBateria(r)
+            val alternador = LaudoBateria.vereditoAlternador(r)
+            colorir(vereditoBateria, getString(R.string.bateria_veredito_bateria, bateria.titulo), bateria.gravidade)
+            colorir(vereditoAlternador, getString(R.string.bateria_veredito_alternador, alternador.titulo), alternador.gravidade)
+            colorir(
+                vereditoRepouso, getString(R.string.bateria_veredito_repouso, LaudoBateria.linhaRepouso(r.repouso)),
+                r.repouso?.veredito?.gravidade,
+            )
+            colorir(
+                vereditoPartida, getString(R.string.bateria_veredito_partida, LaudoBateria.linhaPartida(r.partida)),
+                r.partida?.veredito?.gravidade,
+            )
             textoLaudo.definirTexto(ui.laudo)
         }
+
+        textoHistorico.definirTexto(
+            if (ui.historico.isEmpty()) {
+                getString(R.string.bateria_historico_vazio)
+            } else {
+                ui.historico.take(LINHAS_HISTORICO).joinToString("\n", transform = ::linhaHistorico)
+            },
+        )
     }
 
-    private fun mostrarResultados(ui: TesteBateriaUi) = with(binding) {
-        val r = ui.repouso
-        linha(resRepouso, r?.let { getString(R.string.bateria_res_repouso, LaudoBateria.v(it.tensao), LaudoBateria.rotulo(it.veredito)) },
-            r?.veredito, EtapaBateria.REPOUSO in ui.puladas, R.string.bateria_res_repouso_pendente, R.string.bateria_etapa1_titulo)
-        val p = ui.partida
-        linha(resPartida, p?.let { getString(R.string.bateria_res_partida, LaudoBateria.v(it.vMin), LaudoBateria.rotulo(it.veredito)) },
-            p?.veredito, EtapaBateria.PARTIDA in ui.puladas, R.string.bateria_res_partida_pendente, R.string.bateria_etapa2_titulo)
-        linha(resLenta, ui.lenta?.let { textoCarga(R.string.bateria_res_lenta, it) }, ui.lenta?.veredito,
-            EtapaBateria.ALTERNADOR_LENTA in ui.puladas, R.string.bateria_res_lenta_pendente, R.string.bateria_etapa3a_titulo)
-        linha(resCarga, ui.carga?.let { textoCarga(R.string.bateria_res_carga, it) }, ui.carga?.veredito,
-            EtapaBateria.ALTERNADOR_CARGA in ui.puladas, R.string.bateria_res_carga_pendente, R.string.bateria_etapa3b_titulo)
+    private var ultimoPontoCurva: PontoCurva? = null
+
+    private fun mostrarCurva(curva: List<PontoCurva>) {
+        if (curva.lastOrNull() == ultimoPontoCurva) return
+        ultimoPontoCurva = curva.lastOrNull()
+        val instantes = LongArray(curva.size) { curva[it].instanteMs }
+        val valores = DoubleArray(curva.size) { curva[it].volts ?: Double.NaN }
+        val fim = instantes.lastOrNull() ?: 0L
+        val inicio = instantes.firstOrNull() ?: 0L
+        binding.graficoTensao.mostrarAoVivo(
+            instantes,
+            listOf(GraficoSeriesView.Serie(getString(R.string.bateria_serie_tensao), valores, getColor(R.color.veredito_bom))),
+            JanelaReplay(inicio, maxOf(fim, inicio + JANELA_MINIMA_MS)),
+        )
+    }
+
+    private fun status(teste: EstadoTesteBateria): String? {
+        if (!teste.capturando) return null
+        val base = when {
+            teste.aviso != null -> getString(
+                when (teste.aviso) {
+                    AvisoCaptura.DESLIGUE_O_MOTOR -> R.string.bateria_aviso_desligue
+                    AvisoCaptura.LIGUE_O_MOTOR -> R.string.bateria_aviso_ligue
+                    AvisoCaptura.VOLTE_A_LENTA -> R.string.bateria_aviso_lenta
+                    AvisoCaptura.ACELERE_A_2000 -> R.string.bateria_aviso_acelere
+                },
+            )
+            teste.etapa == EtapaBateria.PARTIDA && teste.quedaDetectada ->
+                getString(R.string.bateria_partida_em_curso, teste.vale?.let(LaudoBateria::v) ?: "—")
+            teste.etapa == EtapaBateria.PARTIDA -> getString(R.string.bateria_aguardando_partida)
+            else -> getString(R.string.bateria_medindo)
+        }
+        return if (teste.lvResets > 0) base + "\n" + getString(R.string.bateria_lv_resets, teste.lvResets) else base
+    }
+
+    private fun mostrarResultados(teste: EstadoTesteBateria) = with(binding) {
+        val resumo = teste.resumo
+        val r = resumo.repouso
+        linha(resRepouso, r?.let { getString(R.string.bateria_res_repouso, LaudoBateria.linhaRepouso(it)) },
+            r?.veredito, EtapaBateria.REPOUSO in resumo.puladas, R.string.bateria_res_repouso_pendente, R.string.bateria_etapa1_titulo)
+        val p = resumo.partida
+        linha(resPartida, p?.let { getString(R.string.bateria_res_partida, LaudoBateria.linhaPartida(it)) },
+            p?.veredito, EtapaBateria.PARTIDA in resumo.puladas, R.string.bateria_res_partida_pendente, R.string.bateria_etapa2_titulo)
+        linha(resLenta, resumo.lenta?.let { textoCarga(R.string.bateria_res_lenta, it) }, resumo.lenta?.veredito,
+            EtapaBateria.ALTERNADOR_LENTA in resumo.puladas, R.string.bateria_res_lenta_pendente, R.string.bateria_etapa3a_titulo)
+        linha(resCarga, resumo.carga?.let { textoCarga(R.string.bateria_res_carga, it) }, resumo.carga?.veredito,
+            EtapaBateria.ALTERNADOR_CARGA in resumo.puladas, R.string.bateria_res_carga_pendente, R.string.bateria_etapa3b_titulo)
         avisoMotorLigado.isVisible = r?.motorPareceLigado == true
     }
 
@@ -156,9 +235,15 @@ class TesteBateriaActivity : AppCompatActivity(), FerramentaManualObd {
         view.setTextColor(veredito?.let { corDaGravidade(it.gravidade) } ?: getColor(R.color.texto_secundario))
     }
 
-    private fun mostrarVeredito(view: TextView, formato: Int, veredito: VereditoResumo?) {
-        view.definirTexto(getString(formato, veredito?.titulo ?: "—"))
-        view.setTextColor(veredito?.gravidade?.let(::corDaGravidade) ?: getColor(R.color.texto_secundario))
+    private fun linhaHistorico(t: RegistroTesteBateria): String {
+        val quando = FORMATO_HISTORICO.format(Instant.ofEpochMilli(t.quandoMs).atZone(ZoneId.systemDefault()))
+        fun v(volts: Double?) = volts?.let(LaudoBateria::v) ?: "—"
+        return getString(R.string.bateria_historico_linha, quando, v(t.repousoV), v(t.partidaMinV), v(t.cargaV ?: t.lentaV))
+    }
+
+    private fun colorir(view: TextView, texto: String, gravidade: Int?) {
+        view.definirTexto(texto)
+        view.setTextColor(gravidade?.let(::corDaGravidade) ?: getColor(R.color.texto_secundario))
     }
 
     private fun corDaGravidade(gravidade: Int): Int = ContextCompat.getColor(
@@ -169,26 +254,6 @@ class TesteBateriaActivity : AppCompatActivity(), FerramentaManualObd {
             else -> R.color.veredito_ruim
         },
     )
-
-    /** Limites da etapa no gráfico: verde = início da faixa boa, vermelho = início da faixa ruim. */
-    private fun referencias(etapa: EtapaBateria): List<ReferenciaTensao> {
-        val bom = getColor(R.color.veredito_bom)
-        val ruim = getColor(R.color.veredito_ruim)
-        return when (etapa) {
-            EtapaBateria.REPOUSO -> listOf(
-                ReferenciaTensao(ClassificadorBateria.REPOUSO_SAUDAVEL, bom),
-                ReferenciaTensao(ClassificadorBateria.REPOUSO_CRITICA, ruim),
-            )
-            EtapaBateria.PARTIDA -> listOf(
-                ReferenciaTensao(ClassificadorBateria.PARTIDA_OK, bom),
-                ReferenciaTensao(ClassificadorBateria.PARTIDA_FRACA, ruim),
-            )
-            else -> listOf(
-                ReferenciaTensao(ClassificadorBateria.ALTERNADOR_NORMAL_MIN, bom),
-                ReferenciaTensao(ClassificadorBateria.ALTERNADOR_NORMAL_MAX, bom),
-            )
-        }
-    }
 
     private fun tituloEtapa(etapa: EtapaBateria): String = getString(
         when (etapa) {
@@ -208,8 +273,11 @@ class TesteBateriaActivity : AppCompatActivity(), FerramentaManualObd {
         EtapaBateria.CONCLUIDO -> R.string.bateria_concluido_instrucao
     }
 
+    private var avisouSemConexao = false
+
     private fun avisarSemConexao(resId: Int) {
-        if (isFinishing) return
+        if (isFinishing || avisouSemConexao) return
+        avisouSemConexao = true
         MaterialAlertDialogBuilder(this)
             .setTitle(R.string.bateria_titulo)
             .setMessage(resId)
@@ -223,6 +291,10 @@ class TesteBateriaActivity : AppCompatActivity(), FerramentaManualObd {
     }
 
     companion object {
+        private const val JANELA_MINIMA_MS = 10_000L
+        private const val LINHAS_HISTORICO = 8
+        private val FORMATO_HISTORICO = DateTimeFormatter.ofPattern("dd/MM/yy HH:mm")
+
         fun intent(context: Context, veiculoId: Long): Intent =
             Intent(context, TesteBateriaActivity::class.java).putExtra(DiagnosticoActivity.EXTRA_VEICULO_ID, veiculoId)
     }

@@ -17,6 +17,8 @@ data class PrioridadePolling(
     val vigiados: List<String> = emptyList(),
     val ciclosPorVigiado: Int = 0,
     val urgentes: List<String> = emptyList(),
+    /** Partida do motor em teste: a ECU pode ficar muda alguns segundos sem a conexão ser encerrada. */
+    val toleraEcuMuda: Boolean = false,
 ) {
     companion object {
         /** RPM e, por último, a velocidade que alimenta o cronômetro. */
