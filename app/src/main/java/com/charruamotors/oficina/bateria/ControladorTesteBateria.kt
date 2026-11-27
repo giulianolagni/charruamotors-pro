@@ -28,6 +28,8 @@ data class EstadoTesteBateria(
     val comRpm: Boolean = true,
     val resumo: ResumoTesteBateria = ResumoTesteBateria(),
     val curva: List<PontoCurva> = emptyList(),
+    /** v2.11.1: o vale da partida na [curva]. */
+    val pontoVale: PontoCurva? = null,
 )
 
 /** O teste concluído nesta sessão (para o laudo PDF). */
@@ -226,6 +228,7 @@ class ControladorTesteBateria(
             comRpm = teste.comRpm,
             resumo = teste.resumo(),
             curva = teste.curva.toList(),
+            pontoVale = teste.pontoVale,
         )
     }
 

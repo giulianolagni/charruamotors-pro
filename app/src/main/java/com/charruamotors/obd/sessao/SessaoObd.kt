@@ -93,6 +93,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
+import kotlin.math.roundToLong
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -469,9 +470,29 @@ class SessaoObd(
 
     private fun registrarTempo(resultado: ResultadoTeste) {
         registrarEvento("Teste de aceleração ${resultado.modalidade.titulo}: ${resultado.tempoMs} ms")
+        ultimoTesteRegistrado = resultado.modalidade to relogioMonotonico()
+        gravarTempo(resultado.modalidade, resultado.tempoMs, resultado.velocidadeFinalKmh)
+    }
+
+    /** Modalidade e instante da última chegada da tela Testes de Aceleração. */
+    @Volatile private var ultimoTesteRegistrado: Pair<ModalidadeTeste, Long>? = null
+
+    /**
+     * v2.11.1: tempo do cronômetro automático (Cluster/HUD), para o mesmo histórico do carro. A
+     * arrancada que a tela Testes de Aceleração está medindo (ou acabou de gravar) não entra duas vezes.
+     */
+    fun registrarTempoAutomatico(modalidade: ModalidadeTeste, segundos: Double) {
+        val teste = testeAceleracao.estado.value
+        if (teste.ativo && teste.modalidade == modalidade) return
+        val ultimo = ultimoTesteRegistrado
+        if (ultimo != null && ultimo.first == modalidade && relogioMonotonico() - ultimo.second < JANELA_MESMA_ARRANCADA_MS) return
+        gravarTempo(modalidade, (segundos * 1000).roundToLong(), modalidade.alvoKmh ?: return)
+    }
+
+    private fun gravarTempo(modalidade: ModalidadeTeste, tempoMs: Long, velocidadeFinalKmh: Double) {
         // Tempo do simulador nunca entra no histórico do carro.
-        if (sessaoSimulada || veiculoAtual == null) return
-        val marca = MarcaDesempenho(resultado.modalidade, resultado.tempoMs, resultado.velocidadeFinalKmh, relogio())
+        if (sessaoSimulada || veiculoAtual == null || tempoMs <= 0) return
+        val marca = MarcaDesempenho(modalidade, tempoMs, velocidadeFinalKmh, relogio())
         runCatching { aoRegistrarTempo(veiculoIdSessao, marca) }
     }
 
@@ -1193,6 +1214,9 @@ class SessaoObd(
         private const val INTERVALO_MIL_MS = 30_000L
         private const val CONFIRMACAO_MIL_MS = 3_000L
         private const val INTERVALO_GRAVACAO_LITROS_MS = 60_000L
+
+        /** Chegadas da mesma modalidade neste intervalo são a mesma arrancada medida por dois cronômetros. */
+        private const val JANELA_MESMA_ARRANCADA_MS = 10_000L
         private val FORMATO_HORA_ALERTA = DateTimeFormatter.ofPattern("HH:mm:ss")
 
         /**

@@ -91,7 +91,7 @@ Campos: marca, modelo, ano, placa, cor, km atual, tipo de combustível e capacid
 
 Desde a v1.4, quatro abas na navegação inferior (`BottomNavigationView` + `ViewPager2` sem deslizar), cada uma um Fragment:
 
-- **Painel:** card de conexão inteligente (início rápido Bluetooth/Simulado ou barra compacta conectada) e os blocos escolhidos pelo usuário — Músicas, Navegação, Mostradores (1 a 12), gráfico ao vivo, computador de bordo, cronômetro 0–100, lista rápida de sensores e informações da ECU.
+- **Painel:** card de conexão inteligente (início rápido Bluetooth/Simulado ou barra compacta conectada) e os blocos escolhidos pelo usuário — Músicas, Navegação, Mostradores (1 a 12), gráfico ao vivo, computador de bordo, aceleração 0–100 (recorde e atalho para os testes), lista rápida de sensores e informações da ECU.
 - **Oficina:** cards em três seções — Diagnóstico (DTCs, Checkup, Falhas de Ignição, Injeção, Bateria e Sensores), Testes e Performance (Gráficos, Aceleração e Calibração de Consumo) e Engenharia (Varredura, Terminal e Atuadores).
 - **Manutenções:** histórico com edição e exclusão. O cadastro abre em BottomSheet: tipo de serviço, data, km, custo, oficina, descrição e lista dinâmica de peças trocadas (nome, quantidade e valor). No topo da lista aparece a previsão das próximas manutenções.
 - **Histórico:** abastecimentos (consumo médio, custo por km e CRUD em BottomSheet), sessões gravadas (um cartão por sessão, com Replay Gráfico, Log Técnico e Laudo PDF) e viagens.

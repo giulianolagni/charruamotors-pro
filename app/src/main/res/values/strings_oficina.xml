@@ -69,6 +69,10 @@
     <string name="bateria_veredito_partida">Partida: %1$s</string>
     <string name="bateria_motor_ligado">Acima de 13,2 V em repouso: o motor parece ligado. Refaça a etapa 1 com o motor desligado.</string>
     <string name="bateria_serie_tensao">Tensão (V)</string>
+    <string name="bateria_ref_partida">partida mín. %1$s</string>
+    <string name="bateria_ref_alternador_min">alternador mín. %1$s</string>
+    <string name="bateria_ref_alternador_max">alternador máx. %1$s</string>
+    <string name="bateria_ref_vale">vale %1$s</string>
     <string name="bateria_historico">Histórico deste veículo</string>
     <string name="bateria_historico_vazio">Nenhum teste salvo. Testes do Modo Simulado não são salvos.</string>
     <string name="bateria_historico_linha">%1$s · repouso %2$s · partida %3$s · alternador %4$s</string>

@@ -31,8 +31,6 @@ class RecordesDesempenho(private val perfis: GerenciadorPerfisCarro) {
 
     fun recordeDe(veiculoId: Long): RecordeDesempenho = if (veiculoId > 0) perfis.ler(veiculoId).recorde else RecordeDesempenho()
 
-    fun registrar(veiculoId: Long, t060: Double?, t0100: Double?) = perfis.registrarRecorde(veiculoId, t060, t0100)
-
     companion object {
         private const val ARQUIVO_LEGADO = "desempenho"
 

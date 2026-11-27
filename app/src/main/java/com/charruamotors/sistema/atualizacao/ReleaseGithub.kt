@@ -104,6 +104,24 @@ object InterpretadorReleaseGithub {
         return if (limpo.length <= maximo) limpo else limpo.take(maximo).trimEnd() + "…"
     }
 
+    /**
+     * v2.11.1: notas para a área rolável do diálogo de nova versão: o resumo de [resumirNotas] com
+     * marcadores `•`, links só com o texto e sem a linha "Full Changelog" gerada pelo GitHub.
+     * [alternativa] quando não sobra nada.
+     */
+    fun formatarNotas(notas: String, alternativa: String): String =
+        resumirNotas(notas, MAXIMO_NOTAS_DIALOGO)
+            .lines()
+            .filterNot { it.trimStart().startsWith("Full Changelog", ignoreCase = true) }
+            .joinToString("\n") { it.replace(REGEX_LINK, "$1").replace(REGEX_MARCADOR, "$1• ").replace("`", "") }
+            .replace(Regex("\n{3,}"), "\n\n")
+            .trim()
+            .ifEmpty { alternativa }
+
+    private const val MAXIMO_NOTAS_DIALOGO = 6_000
+    private val REGEX_LINK = Regex("""\[([^\]]+)]\([^)]*\)""")
+    private val REGEX_MARCADOR = Regex("""^(\s*)[-*+]\s+""")
+
     // ---------------------------------------------------------------- redirect da página (v2.3.1)
 
     /**

@@ -11,12 +11,8 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.charruamotors.CharruaMotorsApp
 import com.charruamotors.R
 import com.charruamotors.data.repository.DiagnosticoRepository
-import com.charruamotors.direcao.desempenho.FonteVelocidade
-import com.charruamotors.direcao.desempenho.SeletorVelocidade
 import com.charruamotors.domain.calculo.CalibracaoConsumo
 import com.charruamotors.domain.calculo.ComputadorBordo
-import com.charruamotors.domain.calculo.Cronometro0a100
-import com.charruamotors.domain.calculo.EstadoCronometro
 import com.charruamotors.domain.calculo.ParametrosMotor
 import com.charruamotors.domain.calculo.TelemetriaCalculada
 import com.charruamotors.domain.faixas.FaixasVeiculo
@@ -107,8 +103,6 @@ class ObdViewModel(
     private val veiculo: suspend () -> Veiculo?,
     private val salvarCsv: suspend (String, (Writer) -> Unit) -> ArquivoExportado,
     private val relogio: () -> Long = System::currentTimeMillis,
-    /** Fonte da velocidade do cronômetro 0–100 (Configurações): ECU ou GPS com fallback para a ECU. */
-    private val fonteCronometro: () -> FonteVelocidade = { FonteVelocidade.PADRAO },
     /** v2.6.0: calibração do consumo do perfil do veículo, relida quando muda. */
     private val calibracao: Flow<CalibracaoConsumo> = flowOf(CalibracaoConsumo()),
 ) : ViewModel() {
@@ -166,13 +160,6 @@ class ObdViewModel(
     private val _computador = MutableStateFlow(ComputadorBordoUi())
     /** Consumo instantâneo (MAF ou Speed-Density) e média da viagem. */
     val computador: StateFlow<ComputadorBordoUi> = _computador.asStateFlow()
-
-    private val cronometro0a100 = Cronometro0a100()
-
-    /** Fonte que alimentou a última leitura do cronômetro 0–100 (para detectar a troca no meio da arrancada). */
-    private var fonteCronometroAtual: FonteVelocidade? = null
-    private val _cronometro = MutableStateFlow(CronometroUi())
-    val cronometro: StateFlow<CronometroUi> = _cronometro.asStateFlow()
 
     private val janelaGrafico = JanelaTelemetria()
     private val _grafico = MutableStateFlow<List<PontoTelemetria>>(emptyList())
@@ -233,7 +220,6 @@ class ObdViewModel(
                     iniciarViagem()
                     _eventos.send(EventoObd.Mensagem(R.string.obd_conectado))
                 } else {
-                    if (cronometro0a100.armado) _cronometro.value = CronometroUi(cronometro0a100.desarmar(), cronometro0a100.melhorTempoMs)
                     // Conexão caiu durante a gravação: salva o que já foi coletado.
                     if (logger.gravando) pararLog()
                 }
@@ -374,7 +360,7 @@ class ObdViewModel(
         _computador.value = ComputadorBordoUi(motor = parametrosMotor)
     }
 
-    /** Computador de bordo, cronômetro 0–100 e gráfico, a cada instantâneo da telemetria. */
+    /** Computador de bordo e gráfico, a cada instantâneo da telemetria. */
     private fun processarTelemetria(dados: DadosObd, instanteMs: Long) {
         val velocidade = dados[Pids.VELOCIDADE]
         val consumo = TelemetriaCalculada.consumoInstantaneo(dados, parametrosMotor)
@@ -383,42 +369,7 @@ class ObdViewModel(
             viagem = computadorBordo.registrar(consumo, velocidade, instanteMs),
             motor = parametrosMotor,
         )
-        if (cronometro0a100.armado) {
-            val escolha = SeletorVelocidade.escolher(dados, fonteCronometro())
-            // GPS perdeu/recuperou o sinal no meio da arrancada: recomeça a tentativa (nunca mistura as fontes).
-            if (cronometro0a100.estado is EstadoCronometro.Medindo && SeletorVelocidade.mudouDeFonte(fonteCronometroAtual, escolha?.fonte)) {
-                cronometro0a100.armar(escolha?.kmh)
-            }
-            if (escolha != null) fonteCronometroAtual = escolha.fonte
-            _cronometro.value = CronometroUi(cronometro0a100.registrar(escolha?.kmh, instanteMs), cronometro0a100.melhorTempoMs, fonteCronometroAtual)
-        }
         _grafico.value = janelaGrafico.adicionar(PontoTelemetria(instanteMs, dados[Pids.RPM], dados[Pids.PRESSAO_COLETOR]))
-    }
-
-    // ------------------------------------------------------------------ cronômetro 0–100 km/h
-
-    /**
-     * Botão "Armar 0–100 km/h": arma (a contagem começa sozinha quando o carro sair do 0) ou
-     * cancela. No modo simulado, também dispara a arrancada de demonstração do [ObdClientFake].
-     */
-    fun alternarCronometro() {
-        if (cronometro0a100.armado) {
-            _cronometro.value = CronometroUi(cronometro0a100.desarmar(), cronometro0a100.melhorTempoMs)
-            return
-        }
-        if (estado.value !is EstadoConexaoObd.Conectado) {
-            _eventos.trySend(EventoObd.Mensagem(R.string.obd_cronometro_sem_conexao))
-            return
-        }
-        val fonte = fonteCronometro()
-        if (Pids.VELOCIDADE !in pidsSuportados.value && fonte != FonteVelocidade.GPS) {
-            _eventos.trySend(EventoObd.Mensagem(R.string.obd_cronometro_sem_velocidade))
-            return
-        }
-        val escolha = SeletorVelocidade.escolher(dados.value, fonte)
-        fonteCronometroAtual = escolha?.fonte
-        _cronometro.value = CronometroUi(cronometro0a100.armar(escolha?.kmh), cronometro0a100.melhorTempoMs, fonteCronometroAtual)
-        if (modo.value == ModoObd.SIMULADO) clienteSimulado?.simularArrancada()
     }
 
     /** Zera a média da viagem do computador de bordo. */
@@ -534,7 +485,6 @@ class ObdViewModel(
                     catalogoPids = app.catalogoPids,
                     veiculo = { app.veiculoRepository.buscarPorId(veiculoId) },
                     salvarCsv = { nome, escrever -> app.exportadorCsv.salvar(nome, escrever) },
-                    fonteCronometro = { app.preferenciasApp.config.value.fonteCronometroEfetiva },
                     calibracao = app.perfisCarro.alteracoes
                         .map { app.perfisCarro.ler(veiculoId).calibracaoConsumo }
                         .distinctUntilChanged(),

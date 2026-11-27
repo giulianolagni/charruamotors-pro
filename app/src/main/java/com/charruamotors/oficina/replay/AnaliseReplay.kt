@@ -84,6 +84,19 @@ object AnaliseReplay {
         return (estatistica.minimo - margem) to (estatistica.maximo + margem)
     }
 
+    /**
+     * Escala ampliada para os [extras] (linhas de referência e marcador) caberem no quadro, com uma folga
+     * no lado ampliado. Sem nada fora dela, devolve a própria [escala].
+     */
+    fun incluirNaEscala(escala: Pair<Double, Double>, extras: List<Double>): Pair<Double, Double> {
+        val finitos = extras.filter { it.isFinite() }
+        if (finitos.isEmpty()) return escala
+        val minimo = minOf(escala.first, finitos.min())
+        val maximo = maxOf(escala.second, finitos.max())
+        val folga = (maximo - minimo) * MARGEM_NORMALIZACAO
+        return (if (minimo < escala.first) minimo - folga else minimo) to (if (maximo > escala.second) maximo + folga else maximo)
+    }
+
     /** Valor normalizado em 0–1 na escala (mínimo, máximo); fora da escala é limitado às bordas. */
     fun normalizar(valor: Double, minimo: Double, maximo: Double): Double {
         if (maximo - minimo <= 1e-12) return 0.5

@@ -27,7 +27,7 @@ data class EstadoDesempenho(
     /** Tempo corrido desde a saída, durante [FaseDesempenho.MEDINDO]. */
     val decorrido: Double? = null,
 ) {
-    /** Texto único para o card do Cluster e da Oficina. */
+    /** Texto único do cronômetro no Cluster. */
     val texto: String
         get() = when (fase) {
             FaseDesempenho.AGUARDANDO_PARADA -> "Pronto — pare o veículo"
@@ -86,6 +86,8 @@ class CronometroDesempenho(
             return
         }
         val v = velocidadeKmh
+        // Mesmo filtro dos Testes de Aceleração: o `010D = FF` espúrio (ou um valor negativo) é como se não tivesse vindo.
+        if (v < 0.0 || v >= CronometroAceleracao.VELOCIDADE_ESPURIA_KMH) return
         if (_estado.value.fase == FaseDesempenho.MEDINDO) {
             medir(v, instanteMs)
         } else if (v <= 0.0) {

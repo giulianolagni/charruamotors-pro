@@ -24,7 +24,9 @@ import com.charruamotors.oficina.bateria.EtapaBateria
 import com.charruamotors.oficina.bateria.LaudoBateria
 import com.charruamotors.oficina.bateria.OffsetAdaptador
 import com.charruamotors.oficina.bateria.PontoCurva
+import com.charruamotors.oficina.bateria.ReferenciasBateria
 import com.charruamotors.oficina.bateria.RegistroTesteBateria
+import com.charruamotors.oficina.bateria.TipoReferenciaBateria
 import com.charruamotors.oficina.bateria.ResultadoCarga
 import com.charruamotors.oficina.bateria.Veredito
 import com.charruamotors.oficina.replay.JanelaReplay
@@ -115,6 +117,7 @@ class TesteBateriaActivity : AppCompatActivity(), FerramentaManualObd {
             },
         )
         mostrarCurva(teste.curva)
+        mostrarReferencias(teste)
 
         progressoCaptura.isInvisible = !teste.capturando
         val progresso = teste.progresso
@@ -191,6 +194,26 @@ class TesteBateriaActivity : AppCompatActivity(), FerramentaManualObd {
             listOf(GraficoSeriesView.Serie(getString(R.string.bateria_serie_tensao), valores, getColor(R.color.veredito_bom))),
             JanelaReplay(inicio, maxOf(fim, inicio + JANELA_MINIMA_MS)),
         )
+    }
+
+    /** Limiar da partida (conforme diesel/Otto), faixa do alternador e o marcador do vale capturado. */
+    private fun mostrarReferencias(teste: EstadoTesteBateria) {
+        binding.graficoTensao.referencias = ReferenciasBateria.de(teste.resumo.diesel).map {
+            val partida = it.tipo == TipoReferenciaBateria.PARTIDA_MINIMA
+            val texto = when (it.tipo) {
+                TipoReferenciaBateria.PARTIDA_MINIMA -> R.string.bateria_ref_partida
+                TipoReferenciaBateria.ALTERNADOR_MINIMO -> R.string.bateria_ref_alternador_min
+                TipoReferenciaBateria.ALTERNADOR_MAXIMO -> R.string.bateria_ref_alternador_max
+            }
+            val cor = getColor(if (partida) R.color.veredito_atencao else R.color.texto_secundario)
+            GraficoSeriesView.Referencia(it.volts, getString(texto, LaudoBateria.v(it.volts)), cor)
+        }
+        binding.graficoTensao.marcador = teste.pontoVale?.let { ponto ->
+            ponto.volts?.let { volts ->
+                val rotulo = getString(R.string.bateria_ref_vale, LaudoBateria.v(volts))
+                GraficoSeriesView.Marcador(ponto.instanteMs, volts, rotulo, getColor(R.color.veredito_ruim))
+            }
+        }
     }
 
     private fun status(teste: EstadoTesteBateria): String? {
