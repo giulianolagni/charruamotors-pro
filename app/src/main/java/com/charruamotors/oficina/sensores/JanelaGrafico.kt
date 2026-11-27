@@ -1,79 +1,80 @@
 package com.charruamotors.oficina.sensores
 
 import com.charruamotors.obd.pid.Pids
+import com.charruamotors.oficina.replay.AnaliseReplay
+import com.charruamotors.oficina.replay.EstatisticaSerie
+import com.charruamotors.oficina.replay.JanelaReplay
 
 /** Janela deslizante dos Gráficos em Tempo Real. */
 enum class JanelaTempo(val segundos: Int) {
     S30(30),
-    S60(60),
-    S120(120),
+    M2(120),
+    M5(300),
     ;
 
     val ms: Long get() = segundos * 1_000L
 
     companion object {
-        val PADRAO = S60
-    }
-}
-
-data class PontoGrafico(val tMs: Long, val valor: Double)
-
-/** Um sensor dentro da janela: os pontos (com falhas de leitura ausentes) e os extremos dela. */
-data class CanalGrafico(val comando: String, val pontos: List<PontoGrafico?>) {
-    private val validos = pontos.filterNotNull()
-
-    /** Valor da amostra mais nova da janela; null se ela veio sem este sensor. */
-    val atual: Double? = pontos.lastOrNull()?.valor
-    val minimo: Double? = validos.minOfOrNull { it.valor }
-
-    /** Maior valor dentro da janela. */
-    val pico: Double? = validos.maxOfOrNull { it.valor }
-
-    /** Escala própria do canal, com folga; um sinal constante fica no meio. */
-    fun escala(): ClosedFloatingPointRange<Double> {
-        val min = minimo ?: return 0.0..1.0
-        val max = pico ?: return 0.0..1.0
-        val folga = if (max > min) (max - min) * FOLGA else maxOf(kotlin.math.abs(max) * FOLGA, 1.0)
-        return (min - folga)..(max + folga)
-    }
-
-    private companion object {
-        const val FOLGA = 0.08
+        val PADRAO = M2
     }
 }
 
 /** Leitura de todos os canais num mesmo instante (o cursor de toque). */
 data class LeituraCursor(val tMs: Long, val valores: Map<String, Double?>)
 
-/** O que o gráfico desenha: a janela de tempo e os canais, todos sobre as mesmas amostras. */
-data class QuadroGrafico(val inicioMs: Long, val fimMs: Long, val canais: List<CanalGrafico>, private val tempos: List<Long>) {
+/**
+ * O que o gráfico ao vivo desenha: a [janela] de tempo e uma série por comando, todas alinhadas aos
+ * [instantes] (`NaN` = amostra sem aquele sensor). Mesmo formato do replay de CSV.
+ */
+class QuadroGrafico(
+    val janela: JanelaReplay,
+    val comandos: List<String>,
+    val instantes: LongArray,
+    val series: List<DoubleArray>,
+) {
+    val vazio: Boolean get() = instantes.isEmpty()
 
-    val vazio: Boolean get() = tempos.isEmpty()
+    /** Valor da amostra mais nova da janela; null se ela veio sem este sensor. */
+    fun atual(canal: Int): Double? = series[canal].lastOrNull()?.takeUnless { it.isNaN() }
 
-    /**
-     * Cursor na fração [fracao] (0 = borda esquerda, 1 = direita): os valores exatos de todos os
-     * canais na amostra mais próxima daquele instante. Null sem amostras.
-     */
-    fun cursor(fracao: Float): LeituraCursor? {
-        if (tempos.isEmpty()) return null
-        val alvo = inicioMs + ((fimMs - inicioMs) * fracao.coerceIn(0f, 1f).toDouble()).toLong()
-        val i = tempos.indices.minByOrNull { kotlin.math.abs(tempos[it] - alvo) } ?: return null
-        return LeituraCursor(tempos[i], canais.associate { it.comando to it.pontos[i]?.valor })
+    /** Mínimo / máximo / média do canal dentro da janela; null sem leituras. */
+    fun estatistica(canal: Int): EstatisticaSerie? = AnaliseReplay.estatisticas(series[canal], instantes.indices)
+
+    /** Os valores de todos os canais na amostra [indice]; null fora das amostras. */
+    fun leitura(indice: Int): LeituraCursor? {
+        val t = instantes.getOrNull(indice) ?: return null
+        return LeituraCursor(t, comandos.indices.associate { c -> comandos[c] to series[c][indice].takeUnless { it.isNaN() } })
     }
 }
 
-/** Recorta as amostras na janela. Puro (JVM). */
-object MontadorGrafico {
+/** Recorta o buffer da sessão na janela deslizante. Puro (JVM). */
+object JanelaDeslizante {
 
     /**
+     * @param amostras em ordem cronológica.
      * @param fimMs borda direita (a última amostra ao vivo, ou a do momento da pausa).
-     * @param desdeMs corte do "Zerar": nada anterior a ele aparece nem entra nos picos.
+     * @param desdeMs corte do "Zerar": nada anterior a ele aparece nem entra nas estatísticas.
      */
-    fun montar(amostras: List<Amostra>, comandos: List<String>, fimMs: Long, janela: JanelaTempo, desdeMs: Long = 0): QuadroGrafico {
+    fun recortar(amostras: List<Amostra>, comandos: List<String>, fimMs: Long, janela: JanelaTempo, desdeMs: Long = 0): QuadroGrafico {
         val inicio = fimMs - janela.ms
-        val dentro = amostras.filter { it.tMs >= inicio && it.tMs <= fimMs && it.tMs >= desdeMs }
-        val canais = comandos.map { c -> CanalGrafico(c, dentro.map { a -> a.valores[c]?.let { PontoGrafico(a.tMs, it) } }) }
-        return QuadroGrafico(inicio, fimMs, canais, dentro.map { it.tMs })
+        val corte = maxOf(inicio, desdeMs)
+        val de = primeiraEm(amostras, corte)
+        val ate = primeiraEm(amostras, fimMs + 1)
+        val n = (ate - de).coerceAtLeast(0)
+        val instantes = LongArray(n) { amostras[de + it].tMs }
+        val series = comandos.map { c -> DoubleArray(n) { amostras[de + it].valores[c] ?: Double.NaN } }
+        return QuadroGrafico(JanelaReplay(inicio, fimMs), comandos, instantes, series)
+    }
+
+    /** Busca binária: índice da primeira amostra com `tMs` ≥ [alvoMs]. */
+    private fun primeiraEm(amostras: List<Amostra>, alvoMs: Long): Int {
+        var de = 0
+        var ate = amostras.size
+        while (de < ate) {
+            val meio = (de + ate) ushr 1
+            if (amostras[meio].tMs < alvoMs) de = meio + 1 else ate = meio
+        }
+        return de
     }
 }
 

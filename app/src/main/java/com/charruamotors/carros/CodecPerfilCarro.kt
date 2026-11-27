@@ -5,6 +5,7 @@ import com.charruamotors.direcao.painel.ClusterPainel
 import com.charruamotors.direcao.painel.CodecPainel
 import com.charruamotors.direcao.painel.SensorPainel
 import com.charruamotors.domain.alertas.ConfigAlertas
+import com.charruamotors.oficina.sensores.PresetsGrafico
 
 /**
  * Chaves de um [PerfilCarro] dentro do escopo `carro.<id>.` (v2.3.0). O Painel/HUD usa as mesmas
@@ -28,6 +29,7 @@ object CodecPerfilCarro {
     const val RECORDE_060 = "recorde_060"
     const val RECORDE_0100 = "recorde_0100"
     const val ALERTAS = "alertas"
+    const val PRESETS_GRAFICOS = "presets_graficos"
 
     /** Bolinha do Cluster sem escolha (padrão/automático). */
     private const val BOLINHA_PADRAO = "-"
@@ -36,7 +38,7 @@ object CodecPerfilCarro {
     /** Chaves próprias do perfil (sem as do Painel). */
     val CHAVES_PERFIL = listOf(
         SCHEMA, CLUSTER, PERFIL_FAIXAS, PERFIL_CAMBIO, CAMADA, GATILHO_NOME, GATILHO_ENDERECO,
-        FAVORITOS_GRAFICOS, RECORDE_060, RECORDE_0100, ALERTAS,
+        FAVORITOS_GRAFICOS, RECORDE_060, RECORDE_0100, ALERTAS, PRESETS_GRAFICOS,
     )
 
     /** Campos do perfil (sem o Painel); null = chave removida. */
@@ -52,6 +54,7 @@ object CodecPerfilCarro {
         RECORDE_060 to p.recorde.melhor060?.toString(),
         RECORDE_0100 to p.recorde.melhor0100?.toString(),
         ALERTAS to p.alertas.codificar(),
+        PRESETS_GRAFICOS to PresetsGrafico.codificar(p.presetsGraficos),
     )
 
     /** Perfil completo (Painel + campos), pronto para o [com.charruamotors.sistema.preferencias.ArmazenamentoChaveValor.gravar]. */
@@ -73,6 +76,7 @@ object CodecPerfilCarro {
         favoritosGraficos = ler(FAVORITOS_GRAFICOS).orEmpty().split(SEPARADOR).map { it.trim() }.filter { it.isNotEmpty() }.distinct(),
         recorde = RecordeDesempenho(tempo(ler(RECORDE_060)), tempo(ler(RECORDE_0100))),
         alertas = ConfigAlertas.decodificar(ler(ALERTAS)),
+        presetsGraficos = PresetsGrafico.decodificar(ler(PRESETS_GRAFICOS)),
     )
 
     /** Sempre [ClusterPainel.BOLINHAS] posições; nomes desconhecidos viram o padrão. */

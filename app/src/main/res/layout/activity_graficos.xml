@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Oficina: Gráficos em Tempo Real (v2.3.1). -->
+<!-- Oficina: Gráficos em Tempo Real (v2.3.1; presets e janelas de até 5 min na v2.5.0). -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -51,22 +51,36 @@
                 android:layout_weight="1"
                 android:text="@string/graficos_30s" />
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/botao_60s"
+                android:id="@+id/botao_2min"
                 style="?attr/materialButtonOutlinedStyle"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="@string/graficos_60s" />
+                android:text="@string/graficos_2min" />
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/botao_120s"
+                android:id="@+id/botao_5min"
                 style="?attr/materialButtonOutlinedStyle"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="@string/graficos_120s" />
+                android:text="@string/graficos_5min" />
         </com.google.android.material.button.MaterialButtonToggleGroup>
 
-        <com.charruamotors.ui.oficina.sensores.GraficoOsciloscopioView
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:clipToPadding="false"
+            android:paddingHorizontal="@dimen/espaco_pequeno"
+            android:scrollbars="none">
+
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/grupo_presets"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:singleLine="true" />
+        </HorizontalScrollView>
+
+        <com.charruamotors.ui.componentes.GraficoSeriesView
             android:id="@+id/grafico"
             android:layout_width="match_parent"
             android:layout_height="0dp"

@@ -22,6 +22,12 @@ import com.charruamotors.obd.pid.Pids
  * (amostra e retenção): um PID consultado que não respondeu sai do instantâneo, para a UI
  * não exibir um valor velho como se fosse atual.
  *
+ * **Foco** (v2.5.0, [definirFoco]): com uma tela de inspeção aberta, a fila rápida fica só com o que
+ * está visível ou é essencial; os comandos que ela liberou vão para os sensores visíveis em todo
+ * ciclo (salvo os que exigem trocar o cabeçalho, [exigeCabecalho]); a vez da fila lenta roda os
+ * essenciais e o apoio e, 1 vez a cada [VEZES_POR_FUNDO], o restante, para o log e o Painel não
+ * pararem. Um ciclo com foco nunca envia mais comandos que o normal. A fila leve não muda.
+ *
  * Objeto puro e não thread-safe (cada fluxo de polling tem o seu), testável na JVM.
  */
 class EscalonadorPolling(
@@ -31,6 +37,10 @@ class EscalonadorPolling(
     /** Sensores de outro módulo (câmbio `7E1`): fila própria, em cadência mais leve que a lenta. */
     private val leves: Set<String> = emptySet(),
     private val ciclosPorLeve: Int = CICLOS_POR_LEVE,
+    /** Quantos comandos ao adaptador uma lista de PIDs rápidos custa (o Multi-PID em lote junta vários). */
+    private val custoDe: (List<String>) -> Int = { it.size },
+    /** PIDs que exigem um `ATSH` próprio (montadora): nunca ocupam os comandos livres de todo ciclo. */
+    private val exigeCabecalho: (String) -> Boolean = { false },
 ) {
     init {
         require(lentosPorVez >= 1) { "A fila lenta precisa andar ao menos 1 PID por vez" }
@@ -92,13 +102,74 @@ class EscalonadorPolling(
         atualizarSuportados(atuais, grupoAtual)
     }
 
+    /** Priorização em vigor (null = polling normal). */
+    private var foco: FocoPolling? = null
+    private val rodizioVisiveis = Rodizio()
+    private val rodizioPrioridade = Rodizio()
+    private val rodizioFundo = Rodizio()
+
+    /** Vezes da fila lenta já usadas com foco (decide quando o fundo anda). */
+    private var vezesComFoco = 0L
+
+    /** Liga, troca ou (null) desliga o foco; vale no próximo ciclo. */
+    fun definirFoco(novo: FocoPolling?) {
+        foco = novo
+    }
+
     /** Comandos do próximo ciclo: toda a fila rápida + a vez da fila lenta (1 a cada [ciclosPorLento]). */
     fun proximoCiclo(): List<String> {
-        val vezDaLenta = filaRapida.isEmpty() || ciclos % ciclosPorLento == 0L
-        val vezDaLeve = filaLeve.isNotEmpty() && ciclos % ciclosPorLeve == 0L
-        ciclos++
-        val base = if (vezDaLenta) filaRapida + proximosLentos() else filaRapida
+        val numero = ciclos++
+        val vezDaLeve = filaLeve.isNotEmpty() && numero % ciclosPorLeve == 0L
+        val base = foco?.let { cicloComFoco(it, numero) } ?: cicloNormal(numero)
         return if (vezDaLeve) base + filaLeve else base
+    }
+
+    private fun cicloNormal(numero: Long): List<String> {
+        val vezDaLenta = filaRapida.isEmpty() || numero % ciclosPorLento == 0L
+        return if (vezDaLenta) filaRapida + proximosLentos() else filaRapida
+    }
+
+    /** Ver o comentário da classe. Recalculado a cada ciclo: o foco muda com a rolagem da lista. */
+    private fun cicloComFoco(foco: FocoPolling, numero: Long): List<String> {
+        val urgentes = foco.visiveis + foco.essenciais
+        val rapidos = filaRapida.filter { it in urgentes }
+        val resto = (filaRapida - rapidos.toSet()) + filaLenta
+        val visiveis = foco.visiveis.mapTo(HashSet(), grupoAtual)
+        val essenciais = (foco.essenciais + foco.apoio).mapTo(HashSet(), grupoAtual)
+
+        val naTela = resto.filter { it in visiveis }
+        val prioridade = resto.filter { it !in visiveis && it in essenciais }
+        val fundo = resto.filter { it !in visiveis && it !in essenciais }
+
+        // Só os comandos que a fila rápida deixou de usar: o ciclo nunca fica mais longo que o normal.
+        val livres = (custoDe(filaRapida) - custoDe(rapidos)).coerceAtLeast(0)
+        val emTodoCiclo = if (livres > 0) naTela.filterNot(exigeCabecalho) else emptyList()
+        val naVez = prioridade + (naTela - emTodoCiclo.toSet())
+
+        val extras = rodizioVisiveis.proximos(emTodoCiclo, livres)
+        val ciclo = rapidos + extras
+        val vezDaLenta = ciclo.isEmpty() || numero % ciclosPorLento == 0L
+        if (!vezDaLenta) return ciclo
+        val usarFundo = fundo.isNotEmpty() && (naVez.isEmpty() || ++vezesComFoco % VEZES_POR_FUNDO == 0L)
+        val lentos = if (usarFundo) {
+            rodizioFundo.proximos(fundo, lentosPorVez)
+        } else {
+            rodizioPrioridade.proximos(naVez, lentosPorVez)
+        }
+        return ciclo + lentos
+    }
+
+    /** Rodízio circular sobre uma lista que pode mudar entre as chamadas. */
+    private class Rodizio {
+        private var posicao = 0
+
+        fun proximos(lista: List<String>, quantidade: Int): List<String> {
+            if (lista.isEmpty() || quantidade <= 0) return emptyList()
+            if (quantidade >= lista.size) return lista
+            val inicio = posicao % lista.size
+            posicao = (inicio + quantidade) % lista.size
+            return List(quantidade) { lista[(inicio + it) % lista.size] }
+        }
     }
 
     private fun proximosLentos(): List<String> {
@@ -147,5 +218,8 @@ class EscalonadorPolling(
 
         /** A fila leve (câmbio `7E1`, que exige trocar o cabeçalho) é lida 1 vez a cada tantos ciclos. */
         const val CICLOS_POR_LEVE = 4
+
+        /** Com foco, 1 a cada tantas vezes da fila lenta vai para os PIDs fora da tela. */
+        const val VEZES_POR_FUNDO = 4
     }
 }

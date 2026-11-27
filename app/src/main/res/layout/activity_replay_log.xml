@@ -167,7 +167,7 @@
                     app:singleLine="true" />
             </HorizontalScrollView>
 
-            <com.charruamotors.ui.componentes.LogReplayChartView
+            <com.charruamotors.ui.componentes.GraficoSeriesView
                 android:id="@+id/grafico_replay"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"

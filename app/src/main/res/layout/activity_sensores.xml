@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Oficina: Todos os Sensores (v2.3.1). -->
+<!-- Oficina: Todos os Sensores (v2.3.1; categorias e prioridade de polling na v2.5.0). -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -48,22 +48,38 @@
                 android:inputType="text" />
         </com.google.android.material.textfield.TextInputLayout>
 
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:clipToPadding="false"
+            android:paddingHorizontal="@dimen/margem_tela"
+            android:scrollbars="none">
+
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/grupo_categoria"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:selectionRequired="true"
+                app:singleLine="true"
+                app:singleSelection="true" />
+        </HorizontalScrollView>
+
         <com.google.android.material.button.MaterialButtonToggleGroup
             android:id="@+id/grupo_filtro"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="@dimen/margem_tela"
-            app:checkedButton="@+id/botao_ativos"
+            app:checkedButton="@+id/botao_suportados"
             app:selectionRequired="true"
             app:singleSelection="true">
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/botao_ativos"
+                android:id="@+id/botao_suportados"
                 style="?attr/materialButtonOutlinedStyle"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="@string/sensores_so_ativos" />
+                android:text="@string/sensores_suportados" />
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/botao_todos"
                 style="?attr/materialButtonOutlinedStyle"

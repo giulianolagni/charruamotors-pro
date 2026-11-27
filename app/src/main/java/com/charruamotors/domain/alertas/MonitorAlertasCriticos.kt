@@ -123,6 +123,17 @@ class MonitorAlertasCriticos(config: ConfigAlertas = ConfigAlertas()) {
             if (!nova.comunicacaoAtiva) semComunicacao = false
         }
 
+    /** v2.5.0: PIDs que as regras ligadas precisam continuar lendo com uma tela de inspeção aberta. */
+    val chavesVigiadas: Set<String>
+        @Synchronized get() = buildSet {
+            if (config.aguaAtiva) add(Pids.TEMPERATURA_MOTOR)
+            if (config.atfAtivo) addAll(Pids.COMANDOS_ATF)
+            if (config.tensaoAtiva) {
+                add(Pids.TENSAO_BATERIA)
+                add(Pids.RPM)
+            }
+        }
+
     /**
      * PIDs com um disparo em confirmação (água e tensão): o polling pode lê-los mais depressa até a
      * regra decidir.

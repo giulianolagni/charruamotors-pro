@@ -69,7 +69,7 @@
     <string name="logs_simulados_recolher">Toque para recolher os logs do Modo Simulado</string>
     <string name="replay_item_detalhe">%1$s · %2$s</string>
     <string name="replay_erro_ler">Não foi possível ler o CSV: %1$s</string>
-    <string name="replay_max_sensores">No máximo 3 sensores ao mesmo tempo. Desmarque um para trocar.</string>
+    <string name="replay_max_sensores">No máximo %1$d sensores ao mesmo tempo. Desmarque um para trocar.</string>
     <string name="replay_ver_tudo">Ver tudo</string>
     <string name="replay_voltar_lista">Outros logs</string>
     <string name="replay_dica_gestos">Toque: cursor · pinça: zoom · arrastar: navegar · toque longo e arrastar: mover o cursor · toque duplo: ver tudo</string>

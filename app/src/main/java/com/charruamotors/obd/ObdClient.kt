@@ -121,6 +121,12 @@ interface ObdClient {
      */
     fun definirPidsEmConfirmacao(comandos: Set<String>) = Unit
 
+    /**
+     * v2.5.0: prioriza no polling os sensores das telas de inspeção (null = polling normal). Ver
+     * [EscalonadorPolling]. Clientes sem fila (ou nos modos 21/22) ignoram.
+     */
+    fun definirFocoPolling(foco: FocoPolling?) = Unit
+
     /** Limpa os códigos de falha (modo 04). A UI deve sempre pedir confirmação antes. */
     suspend fun limparCodigosFalha(): Result<Unit>
 

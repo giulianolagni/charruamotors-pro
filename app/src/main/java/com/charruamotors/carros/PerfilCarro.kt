@@ -13,6 +13,7 @@ import com.charruamotors.domain.model.Veiculo
 import com.charruamotors.domain.perfis.CarregadorPerfis
 import com.charruamotors.domain.perfis.CatalogoPerfis
 import com.charruamotors.domain.perfis.PerfilCambio
+import com.charruamotors.oficina.sensores.PresetGrafico
 
 /**
  * Camada de comunicação preferida do veículo (v2.3.0). Não força nada que a ECU não aceite: o
@@ -56,8 +57,10 @@ data class PerfilCarro(
     /** Bluetooth do carro (multimídia) que dispara a conexão automática deste veículo; null = o global. */
     val gatilhoNome: String? = null,
     val gatilhoEndereco: String? = null,
-    /** Chaves dos sensores favoritos nos gráficos (preparado para as próximas versões). */
+    /** Comandos dos sensores que os Gráficos em Tempo Real abrem neste veículo. */
     val favoritosGraficos: List<String> = emptyList(),
+    /** v2.5.0: presets dos gráficos salvos pelo usuário neste veículo. */
+    val presetsGraficos: List<PresetGrafico> = emptyList(),
     /** Melhores 0–60 / 0–100 deste veículo. */
     val recorde: RecordeDesempenho = RecordeDesempenho(),
     /** v2.4.0: alertas sonoros e visuais (regras, limites, canal e volume) só deste veículo. */

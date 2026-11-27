@@ -27,6 +27,7 @@ import com.charruamotors.data.repository.VeiculoRepository
 import com.charruamotors.data.session.SessaoManager
 import com.charruamotors.direcao.desempenho.CronometroDesempenho
 import com.charruamotors.direcao.desempenho.RecordesDesempenho
+import com.charruamotors.direcao.hud.EssenciaisHud
 import com.charruamotors.direcao.hud.TelemetriaCompartilhada
 import com.charruamotors.domain.calculo.CentralAlertas
 import com.charruamotors.domain.alertas.ConfigAlertas
@@ -411,6 +412,9 @@ class CharruaMotorsApp : Application() {
             configAlertas = { id -> if (id > 0) perfisCarro.ler(id).alertas else ConfigAlertas() },
             tocarAlarme = { nivel, config -> alarmeSonoro.tocar(nivel, config) },
             pararAlarme = { alarmeSonoro.parar() },
+            essenciaisHud = {
+                if (telemetriaCompartilhada.hudAtivo.value) EssenciaisHud.comandos(preferenciasPainel.config.value.hud) else emptySet()
+            },
         ).also { sessao ->
             val escopo = escopoDoApp()
             // v2.4.0: limites editados valem na sessão em curso.

@@ -32,6 +32,7 @@ import com.charruamotors.domain.model.Veiculo
 import com.charruamotors.obd.DadosObd
 import com.charruamotors.obd.DispositivoObd
 import com.charruamotors.obd.DtcLido
+import com.charruamotors.obd.FocoPolling
 import com.charruamotors.obd.InfoConexao
 import com.charruamotors.obd.ModoObd
 import com.charruamotors.obd.ObdClient
@@ -49,6 +50,7 @@ import com.charruamotors.obd.log.LogsSessaoSalvos
 import com.charruamotors.obd.pid.CatalogoPids
 import com.charruamotors.obd.pid.DefinicaoPid
 import com.charruamotors.obd.pid.Pids
+import com.charruamotors.oficina.sensores.FocoSensores
 import com.charruamotors.oficina.sensores.HistoricoSessao
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -244,6 +246,8 @@ class SessaoObd(
     private val tocarAlarme: (NivelAlerta, ConfigAlertas) -> Unit = { _, _ -> },
     /** v2.4.0: cala o alarme que estiver tocando (botão Silenciar e fim da sessão). */
     private val pararAlarme: () -> Unit = {},
+    /** v2.5.0: sensores do HUD flutuante enquanto ele estiver na tela (vazio = HUD desligado). */
+    private val essenciaisHud: () -> Set<String> = { emptySet() },
 ) {
     private val _modo = MutableStateFlow(modoInicial)
     val modo: StateFlow<ModoObd> = _modo.asStateFlow()
@@ -345,6 +349,34 @@ class SessaoObd(
 
     /** v2.3.1: amostras recentes e mínimo/máximo da sessão (Todos os Sensores e Gráficos). Zera a cada sessão. */
     val historico = HistoricoSessao()
+
+    /** Sensores desenhados por cada tela de inspeção aberta (v2.5.0), pela instância da tela. */
+    private val sensoresPorTela = LinkedHashMap<Any, Set<String>>()
+
+    /**
+     * v2.5.0: a [tela] (Todos os Sensores, Gráficos) passa a desenhar [comandos]. Enquanto houver uma
+     * registrada, o polling prioriza esses sensores, o HUD e os alertas ([FocoSensores]). Chamar de
+     * novo a cada mudança (rolagem, seleção); [liberarSensoresVisiveis] ao sair da tela.
+     */
+    fun definirSensoresVisiveis(tela: Any, comandos: Collection<String>) {
+        val novos = comandos.toSet()
+        val mudou = synchronized(sensoresPorTela) { sensoresPorTela.put(tela, novos) != novos }
+        if (mudou) clienteDaSessao?.definirFocoPolling(focoPolling())
+    }
+
+    fun liberarSensoresVisiveis(tela: Any) {
+        val havia = synchronized(sensoresPorTela) { sensoresPorTela.remove(tela) != null }
+        if (havia) clienteDaSessao?.definirFocoPolling(focoPolling())
+    }
+
+    /** Priorização em vigor; null sem tela de inspeção aberta (polling normal). */
+    fun focoPolling(): FocoPolling? {
+        val visiveis = synchronized(sensoresPorTela) {
+            if (sensoresPorTela.isEmpty()) return null
+            sensoresPorTela.values.flatten().toSet()
+        }
+        return FocoSensores.montar(visiveis, monitorAlertas.chavesVigiadas, essenciaisHud(), pidsSuportados.value)
+    }
 
     /** Marca usada nos recursos da montadora na sessão em curso (ou na última); null no OBD2 Genérico. */
     val marcaMontadora: String? get() = marcaMontadoraAtual
@@ -631,6 +663,8 @@ class SessaoObd(
                     receberAmostra(dados, g)
                     publicarAlertas(monitorAlertas.processar(dados.valores, dados.frescos, relogio()))
                     cli.definirPidsEmConfirmacao(monitorAlertas.chavesEmConfirmacao)
+                    // Relido a cada amostra: o HUD e as regras de alerta mudam com a sessão em curso.
+                    cli.definirFocoPolling(focoPolling())
                 }
         }
         if (g != null && config().logCompletoTrafego) {
@@ -846,6 +880,7 @@ class SessaoObd(
         telemetria.publicar(null, conectado = false)
         pararAlarme()
         cli.definirPidsEmConfirmacao(emptySet())
+        cli.definirFocoPolling(null)
         // Regra opcional: a conexão caiu sozinha (nem o usuário nem o Bluetooth do carro pediram).
         val config = monitorAlertas.config
         if (conectou && motivoPedido == null && config.comunicacaoAtiva) {

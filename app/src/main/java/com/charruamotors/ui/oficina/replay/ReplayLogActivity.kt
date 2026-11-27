@@ -26,11 +26,12 @@ import com.charruamotors.R
 import com.charruamotors.databinding.ActivityReplayLogBinding
 import com.charruamotors.databinding.ItemArquivoLogBinding
 import com.charruamotors.databinding.ItemCabecalhoSimuladosBinding
+import com.charruamotors.oficina.replay.AnaliseReplay
 import com.charruamotors.oficina.replay.JanelaReplay
 import com.charruamotors.obd.log.DestinoLogs
 import com.charruamotors.obd.log.LinhaLog
 import com.charruamotors.obd.log.OrganizadorLogs
-import com.charruamotors.ui.componentes.LogReplayChartView
+import com.charruamotors.ui.componentes.GraficoSeriesView
 import com.charruamotors.ui.util.ArquivoExportado
 import com.charruamotors.ui.util.ExportadorCsv
 import com.charruamotors.ui.util.TextoCompartilhavel
@@ -49,7 +50,7 @@ import kotlin.math.abs
 /**
  * Ferramenta 2 — Visualizador Interno de Logs: lista os logs de `Downloads/CharruaOBD` — CSV do
  * Data Logger e da caixa-preta, e os relatórios `.txt` das sessões — ou abre outro CSV pelo
- * seletor do sistema. O CSV vira replay em [LogReplayChartView] com até 3 sensores, zoom por
+ * seletor do sistema. O CSV vira replay em [GraficoSeriesView] com até 4 colunas, zoom por
  * pinça, arraste, cursor com horário e valores e o resumo Mín/Máx/Média da janela visível; o
  * `.txt` abre num diálogo no topo (resumo da viagem primeiro). Toque longo compartilha o arquivo.
  * Não usa a conexão OBD2.
@@ -60,7 +61,7 @@ class ReplayLogActivity : AppCompatActivity() {
     private val viewModel: ReplayLogViewModel by viewModels { ReplayLogViewModel.Factory }
     private val adapter = ArquivoAdapter(aoAbrir = { viewModel.abrir(it) }, aoCompartilhar = ::compartilhar)
     private val coresSeries by lazy {
-        listOf(R.color.serie_1, R.color.serie_2, R.color.serie_3).map { ContextCompat.getColor(this, it) }
+        listOf(R.color.serie_1, R.color.serie_2, R.color.serie_3, R.color.serie_4).map { ContextCompat.getColor(this, it) }
     }
 
     private val abrirDocumento = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -96,12 +97,12 @@ class ReplayLogActivity : AppCompatActivity() {
         binding.botaoVerTudo.setOnClickListener {
             viewModel.log.value?.let { binding.graficoReplay.definirJanela(it.total) }
         }
-        binding.graficoReplay.ouvinte = object : LogReplayChartView.Ouvinte {
+        binding.graficoReplay.ouvinte = object : GraficoSeriesView.Ouvinte {
             override fun aoMudarJanela(janela: JanelaReplay) = viewModel.mudarJanela(janela)
             override fun aoMoverCursor(indice: Int?) = viewModel.moverCursor(indice)
         }
         binding.graficoReplay.formatarTempo = { formatoTempo.eixo(it) }
-        binding.graficoReplay.formatarValor = ::formatarValor
+        binding.graficoReplay.formatarValor = { _, v -> formatarValor(v) }
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -119,7 +120,7 @@ class ReplayLogActivity : AppCompatActivity() {
                     viewModel.eventos.collect { evento ->
                         when (evento) {
                             is EventoReplay.Erro -> mensagem(getString(R.string.replay_erro_ler, evento.detalhe))
-                            EventoReplay.MaximoSensores -> mensagem(getString(R.string.replay_max_sensores))
+                            EventoReplay.MaximoSensores -> mensagem(getString(R.string.replay_max_sensores, AnaliseReplay.MAX_SENSORES))
                             is EventoReplay.Texto -> mostrarTexto(evento.arquivo, evento.texto)
                         }
                     }
@@ -168,7 +169,7 @@ class ReplayLogActivity : AppCompatActivity() {
         )
         montarChips(aberto, selecionados)
         val series = selecionados.mapIndexed { i, coluna ->
-            LogReplayChartView.Serie(log.colunas[coluna].rotulo, log.series[coluna], coresSeries[i % coresSeries.size])
+            GraficoSeriesView.Serie(log.colunas[coluna].rotulo, log.series[coluna], coresSeries[i % coresSeries.size])
         }
         textoSemSensor.isVisible = series.isEmpty()
         graficoReplay.definirDados(
@@ -181,7 +182,7 @@ class ReplayLogActivity : AppCompatActivity() {
         )
     }
 
-    /** Um chip por sensor com leitura; os selecionados ficam marcados com a cor da série. */
+    /** Um chip por coluna com leitura; as selecionadas ficam marcadas com a cor da série. */
     private fun montarChips(aberto: LogAberto, selecionados: List<Int>) {
         val grupo = binding.grupoSensores
         grupo.removeAllViews()
@@ -196,7 +197,7 @@ class ReplayLogActivity : AppCompatActivity() {
                     chipStrokeWidth = 2 * resources.displayMetrics.density
                     chipStrokeColor = android.content.res.ColorStateList.valueOf(coresSeries[posicao % coresSeries.size])
                 }
-                // O estado marcado vem do ViewModel: o clique só pede a troca (o 4º sensor é recusado).
+                // O estado marcado vem do ViewModel: o clique só pede a troca (o 5º sensor é recusado).
                 setOnClickListener {
                     isChecked = posicao >= 0
                     viewModel.alternarSensor(coluna)

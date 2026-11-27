@@ -341,15 +341,17 @@ Toque em “Novo abastecimento” para começar.</string>
 
     <!-- v2.3.1: Pacote de Oficina -->
     <string name="oficina_card_sensores">Todos os Sensores</string>
-    <string name="oficina_card_sensores_desc">Inspeção rápida: tudo o que a ECU responde, com mínimo/máximo, busca e o atalho + Painel</string>
+    <string name="oficina_card_sensores_desc">Tudo o que o carro suporta, com busca, categorias, mínimo/máximo da sessão e o atalho + Painel</string>
     <string name="oficina_card_graficos">Gráficos em Tempo Real</string>
-    <string name="oficina_card_graficos_desc">Osciloscópio ao vivo de 1 a 4 sensores, com pausa e cursor de leitura</string>
+    <string name="oficina_card_graficos_desc">Ao vivo de 1 a 4 sensores (30 s a 5 min), com presets, pausa e cursor de leitura</string>
     <string name="sensores_titulo">Todos os Sensores</string>
     <string name="sensores_busca">Buscar por nome ou PID</string>
-    <string name="sensores_so_ativos">Só ativos</string>
+    <string name="sensores_suportados">Suportados</string>
     <string name="sensores_todos">Todos do perfil</string>
+    <string name="sensores_categoria_todas">Todas</string>
+    <string name="sensores_categoria_fixados">★ Fixados</string>
     <string name="sensores_resumo">%1$d na lista · %2$d responderam nesta sessão</string>
-    <string name="sensores_vazio">Nenhum sensor para mostrar. Ajuste a busca ou aguarde as primeiras leituras.</string>
+    <string name="sensores_vazio">Nenhum sensor para mostrar. Ajuste a busca ou a categoria, ou aguarde a detecção dos sensores.</string>
     <string name="sensores_extremos">Mín %1$s · Máx %2$s</string>
     <string name="sensores_fixar_no_painel">Fixar %1$s no Painel</string>
     <string name="sensores_tirar_do_painel">Tirar %1$s do Painel</string>
@@ -360,8 +362,8 @@ Toque em “Novo abastecimento” para começar.</string>
     <string name="sensores_ultimo_mostrador">O Painel precisa de pelo menos um mostrador</string>
     <string name="graficos_titulo">Gráficos em Tempo Real</string>
     <string name="graficos_30s">30 s</string>
-    <string name="graficos_60s">60 s</string>
-    <string name="graficos_120s">120 s</string>
+    <string name="graficos_2min">2 min</string>
+    <string name="graficos_5min">5 min</string>
     <string name="graficos_pausar">Pausar</string>
     <string name="graficos_retomar">Retomar</string>
     <string name="graficos_zerar">Zerar</string>
@@ -371,7 +373,19 @@ Toque em “Novo abastecimento” para começar.</string>
     <string name="graficos_limite">O gráfico mostra até %1$d sensores</string>
     <string name="graficos_sem_dados">Aguardando leituras desta sessão…</string>
     <string name="graficos_dica_cursor">Arraste o dedo no gráfico para ler os valores</string>
-    <string name="graficos_cursor">Cursor: %1$s s antes do fim da janela</string>
-    <string name="graficos_legenda">● %1$s: %2$s %3$s · pico %4$s</string>
+    <string name="graficos_agora">agora</string>
+    <string name="graficos_grafico_descricao">Gráfico ao vivo com %1$d sensores</string>
+    <string name="graficos_salvar_preset">+ Salvar preset</string>
+    <string name="graficos_nome_preset">Nome do preset</string>
+    <string name="graficos_nome_padrao">Meu preset %1$d</string>
+    <string name="graficos_salvar">Salvar</string>
+    <string name="graficos_preset_salvo">Preset salvo neste veículo</string>
+    <string name="graficos_preset_recusado">Informe um nome (o limite é de %1$d presets por veículo)</string>
+    <string name="graficos_preset_sem_veiculo">Selecione um veículo para salvar presets</string>
+    <string name="graficos_apagar_preset">Apagar o preset “%1$s”?</string>
+    <string name="graficos_apagar">Apagar</string>
+    <string name="graficos_preset_indisponivel">Este carro não tem os sensores do preset</string>
+    <string name="graficos_cursor">Cursor em %1$s (%2$s s antes do fim)</string>
+    <string name="graficos_legenda">● %1$s: %2$s %3$s · mín %4$s · máx %5$s</string>
     <string name="graficos_legenda_cursor">● %1$s: %2$s %3$s</string>
 </resources>

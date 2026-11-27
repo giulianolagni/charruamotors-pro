@@ -54,7 +54,9 @@ object MontadorListaSensores {
     /**
      * @param definicoes sensores do perfil da sessão (os repetidos por comando são ignorados).
      * @param filtro busca por nome ou PID, sem diferenciar maiúsculas nem acentos.
-     * @param soAtivos só os que responderam na sessão; false = todos os do perfil.
+     * @param soAtivos só os que responderam na sessão; false = todas as [definicoes].
+     * @param categoria null = todas as categorias.
+     * @param soFixados só os fixados no Painel do veículo.
      */
     fun montar(
         definicoes: List<DefinicaoPid>,
@@ -64,10 +66,14 @@ object MontadorListaSensores {
         painel: ConfigPainel,
         filtro: String = "",
         soAtivos: Boolean = true,
+        categoria: CategoriaSensor? = null,
+        soFixados: Boolean = false,
     ): List<LinhaSensor> {
         val busca = normalizar(filtro)
         return definicoes.distinctBy { it.comando }
             .filter { !soAtivos || it.comando in estatisticas }
+            .filter { categoria == null || categoria in CategoriaSensor.de(it) }
+            .filter { !soFixados || painel.fixadoNoPainel(it.comando) }
             .filter { d -> busca.isEmpty() || listOf(d.nome, d.comando, d.rotuloComando).any { busca in normalizar(it) } }
             .map { d ->
                 val extremos = estatisticas[d.comando]?.takeIf { d.rotulos.isEmpty() }
