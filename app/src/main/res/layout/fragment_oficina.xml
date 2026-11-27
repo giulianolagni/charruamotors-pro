@@ -90,6 +90,10 @@
             layout="@layout/item_card_oficina" />
 
         <include
+            android:id="@+id/card_injecao"
+            layout="@layout/item_card_oficina" />
+
+        <include
             android:id="@+id/card_falhas"
             layout="@layout/item_card_oficina" />
 

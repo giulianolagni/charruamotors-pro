@@ -611,6 +611,8 @@ class ObdClientFake(
             Pids.TEMPERATURA_MOTOR to temperatura.roundToInt().toDouble(),
             Pids.STFT to random.nextDouble(-4.0, 4.0).arredondar(1), // correção rápida em torno de 0
             Pids.LTFT to (2.3 + random.nextDouble(-0.2, 0.2)).arredondar(1), // adaptação estável
+            Pids.STFT_B2 to random.nextDouble(-4.0, 4.0).arredondar(1),
+            Pids.LTFT_B2 to (1.6 + random.nextDouble(-0.2, 0.2)).arredondar(1),
             "010A" to (PRESSAO_LINHA_COMBUSTIVEL + random.nextDouble(-9.0, 9.0)).roundToInt().toDouble(),
             Pids.PRESSAO_COLETOR to map.roundToInt().toDouble(),
             Pids.RPM to rpm.roundToInt().toDouble(),
@@ -620,6 +622,8 @@ class ObdClientFake(
             Pids.MAF to maf.arredondar(2),
             Pids.BORBOLETA to borboleta.arredondar(1),
             "0114" to sonda.arredondar(3),
+            // Pós-catalisador: estável com o catalisador bom.
+            Pids.SONDA_LAMBDA_POS to (0.62 + random.nextDouble(-0.03, 0.03)).arredondar(3),
             "011F" to segundosMotorLigado.roundToInt().toDouble(),
             "0121" to kmComLuzAcesa.roundToInt().toDouble(),
             "0123" to (4000.0 + carga * 90.0 + random.nextDouble(-150.0, 150.0)).roundToInt().toDouble(),
@@ -720,8 +724,8 @@ class ObdClientFake(
 
         /** PIDs que a "ECU" simulada suporta: todos os do catálogo padrão (`pids_padrao.json`). */
         val COMANDOS_SIMULADOS: Set<String> = setOf(
-            "0104", "0105", "0106", "0107", "010A", "010B", "010C", "010D", "010E", "010F",
-            "0110", "0111", "0114", "011F", "0121", "0123", "0124", "012F", "0130", "0131", "0133", "0134", "013C",
+            "0104", "0105", "0106", "0107", "0108", "0109", "010A", "010B", "010C", "010D", "010E", "010F",
+            "0110", "0111", "0114", "0115", "011F", "0121", "0123", "0124", "012F", "0130", "0131", "0133", "0134", "013C",
             "0142", "0144", "0145", "0146", "0149", "014A", "014D", "014E", "0152", "015C", "015E", "ATRV",
         )
 
@@ -783,6 +787,11 @@ class ObdClientFake(
                         Pids.VELOCIDADE to 62.0,
                         Pids.TEMPERATURA_MOTOR to 97.0,
                         Pids.CARGA_MOTOR to 78.4,
+                        Pids.STFT to 9.4,
+                        Pids.LTFT to 7.8,
+                        Pids.PRESSAO_COLETOR to 82.0,
+                        Pids.MAF to 38.5,
+                        Pids.TENSAO_ECU to 13.9,
                     ),
                 )
             }

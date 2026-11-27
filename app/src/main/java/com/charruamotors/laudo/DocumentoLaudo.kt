@@ -43,6 +43,10 @@ object MontadorLaudo {
             diagnostico(d.diagnostico)
             resumo(d.resumo)
             d.testeBateria?.let { testeBateria(it) }
+            if (d.injecao.isNotEmpty()) {
+                add(BlocoLaudo.Secao("Diagnóstico de injeção"))
+                d.injecao.forEach { (rotulo, texto) -> add(BlocoLaudo.Campo(rotulo, texto)) }
+            }
             alertas(d.alertas)
             d.observacoes.preenchido()?.let {
                 add(BlocoLaudo.Secao("Observações do técnico"))

@@ -139,6 +139,11 @@
             android:name=".ui.oficina.checkup.CheckupObdActivity"
             android:exported="false"
             android:parentActivityName=".ui.diagnostico.DiagnosticoActivity" />
+        <!-- v2.9.0: Diagnóstico de Injeção -->
+        <activity
+            android:name=".ui.oficina.injecao.InjecaoActivity"
+            android:exported="false"
+            android:parentActivityName=".ui.diagnostico.DiagnosticoActivity" />
         <!-- v2.3.1: Todos os Sensores e Gráficos em Tempo Real -->
         <activity
             android:name=".ui.oficina.sensores.SensoresActivity"

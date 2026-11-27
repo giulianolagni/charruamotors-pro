@@ -14,6 +14,7 @@ import com.charruamotors.obd.EstadoMonitor
 import com.charruamotors.obd.FreezeFrame
 import com.charruamotors.obd.StatusProntidao
 import com.charruamotors.obd.log.RelatorioSessaoTxt
+import com.charruamotors.oficina.injecao.TextosInjecao
 import com.charruamotors.ui.diagnostico.obd.DtcExibicao
 import com.charruamotors.ui.diagnostico.obd.ResultadoDiagnostico
 import kotlinx.coroutines.Dispatchers
@@ -52,6 +53,7 @@ class LaudoSessaoAtual(private val app: CharruaMotorsApp) {
             alertas = sessao.alertasDisparados(),
             observacoes = observacoes,
             testeBateria = sessao.testeBateria.resultadoDaSessao?.let { LaudoDaSessao.testeBateria(it.resumo) },
+            injecao = sessao.injecao.resumo()?.let(TextosInjecao::linhasDoLaudo).orEmpty(),
         )
         return arquivo.gerar(dados.copy(veiculo = identificar(veiculoId, dados.veiculo)))
     }

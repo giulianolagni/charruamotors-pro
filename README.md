@@ -228,6 +228,19 @@ polling não muda: a tela usa uma sessão manual só com `ATRV`, sem RPM. A curv
 - Os testes concluídos ficam no histórico do veículo (`GerenciadorPerfisCarro`); o Modo Simulado não grava. O
   teste da sessão entra no Laudo Técnico em PDF.
 
+### Diagnóstico de Injeção (`InjecaoActivity`, v2.9.0)
+
+- **Fuel trims** por banco (`0106`–`0109`): Trim Total (`STFT + LTFT`), médias em marcha lenta (RPM < 1.100 e
+  < 5 km/h) e em carga (RPM ≥ 1.800 ou carga > 45 %), com a água a partir de 70 °C; normal ±8 %, atenção até
+  ±15 %, crítico acima disso, e uma dica comparando os dois regimes.
+- **Sondas O2** no `GraficoSeriesView`: pré-catalisador (`0124`/`0134`, senão `0114`) e pós (`0115`). Com a água
+  a partir de 75 °C e janela de ~30 s: espelhamento do catalisador, sonda travada ou λ fora de faixa. A
+  heurística não se aplica a diesel.
+- **Freeze Frame** (Modo 02) legível, também pelo Diagnóstico de Erros.
+- Com a tela aberta, o foco do `EscalonadorPolling` prioriza só os PIDs suportados, sem alongar o ciclo. Nos
+  modos 21/22 nada é pedido e os cartões mostram "Não suportado neste veículo".
+- O resumo da sessão entra no Laudo Técnico em PDF; nada é gravado no histórico.
+
 ### 2. Visualizador de Logs CSV (`ReplayLogActivity`)
 
 - Lista os `.csv` de `Downloads/CharruaOBD`: no Android 10+ pelo `MediaStore`, que mostra os logs criados

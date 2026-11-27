@@ -21,6 +21,7 @@ import com.charruamotors.ui.diagnostico.DiagnosticoActivity
 import com.charruamotors.ui.diagnostico.obd.DiagnosticoDtcAdapter
 import com.charruamotors.ui.diagnostico.obd.ResultadoDiagnostico
 import com.charruamotors.ui.laudo.LaudoUi
+import com.charruamotors.ui.oficina.injecao.InjecaoActivity
 import com.charruamotors.ui.util.aplicarInsetsDoSistema
 import com.charruamotors.ui.util.comoDecimal
 import com.charruamotors.ui.util.comoMilhar
@@ -54,6 +55,7 @@ class DiagnosticoErrosActivity : AppCompatActivity(), FerramentaManualObd {
         binding.botaoLerCodigos.setOnClickListener { viewModel.lerCodigos() }
         binding.botaoLimparCodigos.setOnClickListener { confirmarLimpeza() }
         binding.botaoGerarLaudo.setOnClickListener { LaudoUi.pedirObservacoes(this, viewModel::gerarLaudo) }
+        binding.botaoFreezeCompleto.setOnClickListener { startActivity(InjecaoActivity.intent(this, freezeFrame = true)) }
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {

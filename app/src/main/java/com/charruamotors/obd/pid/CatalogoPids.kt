@@ -277,6 +277,8 @@ object Pids {
     const val TEMPERATURA_MOTOR = "0105"
     const val STFT = "0106"
     const val LTFT = "0107"
+    const val STFT_B2 = "0108"
+    const val LTFT_B2 = "0109"
     const val PRESSAO_COLETOR = "010B"
     const val RPM = "010C"
     const val VELOCIDADE = "010D"
@@ -285,6 +287,8 @@ object Pids {
     const val BORBOLETA = "0111"
     const val AVANCO_IGNICAO = "010E"
     const val SONDA_LAMBDA_TENSAO = "0114"
+    /** Sonda pós-catalisador (B1S2), tensão. */
+    const val SONDA_LAMBDA_POS = "0115"
     const val PRESSAO_RAIL = "0123"
     /** Sonda lambda de banda larga B1S1: λ medido (pelo modo tensão `0124` ou corrente `0134`). */
     const val LAMBDA_BANDA_LARGA = "0124"
@@ -332,5 +336,10 @@ object Pids {
         if (consumoPorMaf) CANDIDATOS_FILA_RAPIDA + MAF else CANDIDATOS_FILA_RAPIDA
 
     /** Sensores congelados no Freeze Frame (modo 02), no momento em que a falha foi registrada. */
-    val FREEZE_FRAME: List<String> = listOf(RPM, VELOCIDADE, TEMPERATURA_MOTOR, CARGA_MOTOR)
+    val FREEZE_FRAME: List<String> = listOf(
+        RPM, VELOCIDADE, TEMPERATURA_MOTOR, CARGA_MOTOR, STFT, LTFT, STFT_B2, LTFT_B2, PRESSAO_COLETOR, MAF, TENSAO_ECU,
+    )
+
+    /** Os básicos são pedidos sempre; os demais, só se a ECU os suporta no modo 01. */
+    val FREEZE_FRAME_BASICOS: Set<String> = setOf(RPM, VELOCIDADE, TEMPERATURA_MOTOR, CARGA_MOTOR)
 }

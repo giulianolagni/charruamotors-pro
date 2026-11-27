@@ -106,6 +106,7 @@ internal class SimuladorCruze(private val random: Random) {
             Pids.MAF to arred(maf, 2),
             Pids.BORBOLETA to arred(borboleta, 1),
             Pids.SONDA_LAMBDA_TENSAO to arred(sondaPos, 3),
+            Pids.SONDA_LAMBDA_POS to arred(sondaPos, 3),
             "011F" to segundosMotorLigado.roundToInt().toDouble(),
             "0121" to kmComLuzAcesa.roundToInt().toDouble(),
             Pids.PRESSAO_RAIL to (railBar * 100.0).roundToInt().toDouble(), // kPa
@@ -183,7 +184,7 @@ internal class SimuladorCruze(private val random: Random) {
 
         /** PIDs que a ECU simulada do Cruze suporta (sem 010A, 0134 e 015E, como num LE2). */
         val COMANDOS: Set<String> = setOf(
-            "0104", "0105", "0106", "0107", "010B", "010C", "010D", "010E", "010F", "0110", "0111", "0114",
+            "0104", "0105", "0106", "0107", "010B", "010C", "010D", "010E", "010F", "0110", "0111", "0114", "0115",
             "011F", "0121", "0123", "0124", "012F", "0130", "0131", "0133", "013C", "0142", "0144", "0145",
             "0146", "0149", "014A", "014D", "014E", "0152", "015C", "ATRV",
         )

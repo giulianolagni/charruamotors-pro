@@ -16,7 +16,7 @@ enum class CategoriaSensor(val titulo: String) {
 
     companion object {
         private val COMBUSTIVEL_OBD = setOf(
-            "0106", "0107", "010A", "0114", Pids.PRESSAO_RAIL, "0124", "012F", "0134", "0144",
+            "0106", "0107", "0108", "0109", "010A", "0114", "0115", Pids.PRESSAO_RAIL, "0124", "012F", "0134", "0144",
             Pids.PERCENTUAL_ETANOL, Pids.CONSUMO_ECU, Pids.RELACAO_AF_REAL,
         )
         private val ADMISSAO_OBD = setOf(Pids.PRESSAO_COLETOR, Pids.TEMPERATURA_AR_ADMISSAO, Pids.MAF, Pids.BORBOLETA, "0133", "0145")
@@ -35,7 +35,7 @@ enum class CategoriaSensor(val titulo: String) {
                 if (c in COMBUSTIVEL_OBD || (!padrao && ("INJ" in c || "RAIL" in c))) add(COMBUSTIVEL)
                 if (c in ADMISSAO_OBD || (!padrao && ("TURBO" in c || "BARO" in c))) add(ADMISSAO)
                 if (!padrao && (c == AlavancaGmTcm.CHAVE_POSICAO || TERMOS_TRANSMISSAO.any { it in c })) add(TRANSMISSAO)
-                if (definicao.unidade == "V" && c != Pids.SONDA_LAMBDA_TENSAO) add(ELETRICA)
+                if (definicao.unidade == "V" && c != Pids.SONDA_LAMBDA_TENSAO && c != Pids.SONDA_LAMBDA_POS) add(ELETRICA)
             }
             return categorias.ifEmpty { setOf(MOTOR) }
         }

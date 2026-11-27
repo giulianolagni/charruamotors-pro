@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Diagnóstico de Injeção: fuel trims por banco, sondas O2 (S1 x S2) e Freeze Frame (modo 02). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?android:colorBackground"
+    android:orientation="vertical"
+    tools:context=".ui.oficina.injecao.InjecaoActivity">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/appbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?attr/colorPrimary">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            style="@style/Widget.CharruaMotors.Toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:theme="@style/ThemeOverlay.Material3.Dark.ActionBar"
+            app:navigationContentDescription="@string/voltar"
+            app:navigationIcon="?attr/homeAsUpIndicator"
+            app:title="@string/injecao_titulo" />
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <ScrollView
+        android:id="@+id/conteudo"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="@dimen/margem_tela">
+
+            <TextView
+                android:id="@+id/texto_sem_conexao"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/oficina_requer_conexao_injecao"
+                android:textAppearance="?attr/textAppearanceBodyMedium"
+                android:textColor="@color/veredito_atencao"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/grupo_leituras"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/texto_regime"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textAppearance="?attr/textAppearanceLabelLarge"
+                tools:text="Regime: Marcha lenta · água 88 °C" />
+
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.Material3.CardView.Outlined"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/espaco_medio"
+                app:cardCornerRadius="@dimen/raio_card">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="@dimen/espaco_medio">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/injecao_banco1"
+                        android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+                    <TextView
+                        android:id="@+id/texto_banco1"
+                        style="@style/OficinaLinhaResultado"
+                        tools:text="Trim total: +4,7 %" />
+
+                    <TextView
+                        android:id="@+id/dica_banco1"
+                        style="@style/OficinaLinhaResultado"
+                        tools:text="Mistura dentro do esperado." />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.Material3.CardView.Outlined"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/espaco_medio"
+                app:cardCornerRadius="@dimen/raio_card">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="@dimen/espaco_medio">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/injecao_banco2"
+                        android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+                    <TextView
+                        android:id="@+id/texto_banco2"
+                        style="@style/OficinaLinhaResultado"
+                        tools:text="@string/injecao_nao_suportado" />
+
+                    <TextView
+                        android:id="@+id/dica_banco2"
+                        style="@style/OficinaLinhaResultado" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/espaco_pequeno"
+                android:text="@string/injecao_faixas"
+                android:textAppearance="?attr/textAppearanceBodySmall"
+                android:textColor="@color/texto_secundario" />
+
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.Material3.CardView.Outlined"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/espaco_medio"
+                app:cardCornerRadius="@dimen/raio_card">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="@dimen/espaco_medio">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/injecao_sondas"
+                        android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+                    <TextView
+                        android:id="@+id/texto_sondas_valores"
+                        style="@style/OficinaLinhaResultado"
+                        tools:text="S1 (0114): 0,72 V · S2 (0115): 0,63 V" />
+
+                    <LinearLayout
+                        android:id="@+id/grupo_sondas"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <com.charruamotors.ui.componentes.GraficoSeriesView
+                            android:id="@+id/grafico_sondas"
+                            android:layout_width="match_parent"
+                            android:layout_height="@dimen/altura_grafico_tensao"
+                            android:layout_marginTop="@dimen/espaco_pequeno" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/injecao_legenda"
+                            android:textAppearance="?attr/textAppearanceBodySmall"
+                            android:textColor="@color/texto_secundario" />
+
+                        <TextView
+                            android:id="@+id/texto_sondas_diagnostico"
+                            style="@style/OficinaLinhaResultado"
+                            tools:text="S1: Oscilando normalmente" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            </LinearLayout>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_freeze_frame"
+                style="@style/Widget.Material3.CardView.Outlined"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/espaco_medio"
+                app:cardCornerRadius="@dimen/raio_card">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="@dimen/espaco_medio">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/obd_ff_titulo"
+                        android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/obd_ff_subtitulo"
+                        android:textAppearance="?attr/textAppearanceBodySmall"
+                        android:textColor="@color/texto_secundario" />
+
+                    <TextView
+                        android:id="@+id/texto_ff_estado"
+                        style="@style/OficinaLinhaResultado"
+                        tools:text="@string/injecao_ff_vazio" />
+
+                    <TextView
+                        android:id="@+id/texto_ff_dtc"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/espaco_pequeno"
+                        android:textAppearance="?attr/textAppearanceTitleMedium"
+                        android:textColor="@color/erro"
+                        android:visibility="gone"
+                        tools:text="P0171 · Mistura pobre" />
+
+                    <TextView
+                        android:id="@+id/texto_ff_valores"
+                        style="@style/OficinaLinhaResultado"
+                        android:visibility="gone"
+                        tools:text="Rotação: 2350 rpm" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/botao_recarregar_ff"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/espaco_pequeno"
+                        android:text="@string/injecao_ff_recarregar" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

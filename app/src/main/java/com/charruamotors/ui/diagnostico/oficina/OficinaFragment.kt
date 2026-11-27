@@ -37,6 +37,7 @@ import com.charruamotors.ui.oficina.bateria.TesteBateriaActivity
 import com.charruamotors.ui.oficina.checkup.CheckupObdActivity
 import com.charruamotors.ui.oficina.checkup.FerramentaCheckup
 import com.charruamotors.ui.oficina.falhas.DiagnosticoErrosActivity
+import com.charruamotors.ui.oficina.injecao.InjecaoActivity
 import com.charruamotors.ui.oficina.sensores.GraficosActivity
 import com.charruamotors.ui.oficina.sensores.SensoresActivity
 import com.charruamotors.ui.oficina.terminal.TerminalObdActivity
@@ -74,6 +75,7 @@ class OficinaFragment : Fragment() {
             preencher(cardViagem, R.string.oficina_card_viagem, R.string.oficina_card_viagem_desc, R.drawable.ic_historico, R.color.status_ok)
             preencher(cardCalibracao, R.string.oficina_card_calibracao, R.string.oficina_card_calibracao_desc, R.drawable.ic_posto, R.color.azul_primario)
             preencher(cardBateria, R.string.oficina_card_bateria, R.string.oficina_card_bateria_desc, R.drawable.ic_bateria, R.color.veredito_bom)
+            preencher(cardInjecao, R.string.oficina_card_injecao, R.string.oficina_card_injecao_desc, R.drawable.ic_grafico, R.color.dtc_confirmado)
             preencher(cardFalhas, R.string.oficina_card_falhas, R.string.oficina_card_falhas_desc, R.drawable.ic_falha, R.color.dtc_confirmado)
             preencher(cardCheckup, R.string.oficina_card_checkup, R.string.oficina_card_checkup_desc, R.drawable.ic_checklist, R.color.status_ok)
             preencher(cardMisfire, R.string.oficina_card_misfire, R.string.oficina_card_misfire_desc, R.drawable.ic_falha, R.color.veredito_atencao)
@@ -88,6 +90,7 @@ class OficinaFragment : Fragment() {
             cardViagem.root.setOnClickListener { startActivity(EstatisticasViagemActivity.intent(requireContext())) }
             cardCalibracao.root.setOnClickListener { startActivity(CalibracaoConsumoActivity.intent(requireContext(), veiculoId)) }
             cardBateria.root.setOnClickListener { abrirConectada { TesteBateriaActivity.intent(requireContext(), veiculoId) } }
+            cardInjecao.root.setOnClickListener { abrirConectada { InjecaoActivity.intent(requireContext()) } }
             // O DTC abre sempre: a tela mostra o estado e só habilita ler/apagar com o scanner ligado.
             cardFalhas.root.setOnClickListener { startActivity(DiagnosticoErrosActivity.intent(requireContext(), veiculoId)) }
             cardCheckup.root.setOnClickListener {
@@ -139,7 +142,7 @@ class OficinaFragment : Fragment() {
         textoConexao.definirTexto(getString(if (conectado) R.string.oficina_conectado else R.string.oficina_desconectado))
         val cor = if (conectado) R.color.status_ok else R.color.status_espera
         pontoConexao.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), cor))
-        listOf(cardSensores, cardGraficos, cardAceleracao, cardBateria, cardCheckup, cardMisfire, cardVarredura, cardTerminal, cardAtuadores).forEach { card ->
+        listOf(cardSensores, cardGraficos, cardAceleracao, cardBateria, cardInjecao, cardCheckup, cardMisfire, cardVarredura, cardTerminal, cardAtuadores).forEach { card ->
             card.textoRequisito.isVisible = !conectado
             card.root.alpha = if (conectado) 1f else ALFA_INDISPONIVEL
         }

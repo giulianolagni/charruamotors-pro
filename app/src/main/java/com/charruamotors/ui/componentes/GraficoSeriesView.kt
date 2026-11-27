@@ -38,8 +38,11 @@ class GraficoSeriesView @JvmOverloads constructor(
     defStyleAttr: Int = 0,
 ) : View(context, attrs, defStyleAttr) {
 
-    /** Uma curva: [valores] alinhados aos instantes do gráfico. */
-    class Serie(val rotulo: String, val valores: DoubleArray, val cor: Int)
+    /**
+     * Uma curva: [valores] alinhados aos instantes do gráfico. [escalaFixa] (mínimo, máximo) substitui a
+     * escala pelo trecho visível, para curvas que precisam ser comparadas entre si.
+     */
+    class Serie(val rotulo: String, val valores: DoubleArray, val cor: Int, val escalaFixa: Pair<Double, Double>? = null)
 
     interface Ouvinte {
         fun aoMudarJanela(janela: JanelaReplay)
@@ -300,7 +303,7 @@ class GraficoSeriesView @JvmOverloads constructor(
         canvas.save()
         canvas.clipRect(esquerda, topo - pincelCurva.strokeWidth, direita, base + pincelCurva.strokeWidth)
         val escalas = series.map { serie ->
-            AnaliseReplay.estatisticas(serie.valores, faixa)?.let(AnaliseReplay::escala)
+            serie.escalaFixa ?: AnaliseReplay.estatisticas(serie.valores, faixa)?.let(AnaliseReplay::escala)
         }
         series.forEachIndexed { s, serie ->
             val (minimo, maximo) = escalas[s] ?: return@forEachIndexed
