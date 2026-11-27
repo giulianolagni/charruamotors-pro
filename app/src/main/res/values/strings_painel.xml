@@ -69,6 +69,9 @@
     <string name="oficina_desconectado">Scanner desconectado · toque para conectar no Painel</string>
     <string name="oficina_requer_scanner">Requer o scanner conectado</string>
     <string name="oficina_ir_painel">Ir ao Painel</string>
+    <string name="oficina_secao_diagnostico">Diagnóstico</string>
+    <string name="oficina_secao_testes">Testes e Performance</string>
+    <string name="oficina_secao_engenharia">Engenharia</string>
     <string name="oficina_card_bateria">🔋 Teste de Bateria</string>
     <string name="oficina_card_bateria_desc">Guiado e com diagnóstico: repouso, partida e alternador, com laudo para compartilhar.</string>
     <string name="oficina_card_falhas">🔍 Diagnóstico de Erros (DTCs)</string>
@@ -88,7 +91,7 @@
 
     <!-- Aba Histórico -->
     <string name="historico_abastecimentos">Abastecimentos</string>
-    <string name="historico_logs">Logs</string>
+    <string name="historico_sessoes">Sessões</string>
     <string name="historico_viagens">Viagens</string>
     <string name="historico_limpar_logs">Limpar logs</string>
     <string name="historico_limpar_titulo">Limpar logs</string>
@@ -96,21 +99,31 @@
     <string name="historico_limpar_todos">Todos os logs salvos (%1$d arquivos)</string>
     <string name="historico_limpar_vazio">Não há logs para apagar.</string>
     <string name="historico_limpar_confirmar">Apagar</string>
-    <string name="historico_acao_compartilhar">Compartilhar</string>
-    <string name="historico_acao_apagar">Apagar</string>
-    <string name="historico_apagar_titulo">Apagar este log?</string>
-    <string name="historico_apagar_mensagem">%1$s será apagado do aparelho e deixa de alimentar o aprendizado do Modo Simulado.</string>
+    <string name="historico_apagar_titulo">Apagar esta sessão?</string>
+    <string name="historico_apagar_mensagem">%1$s\n\nOs arquivos serão apagados do aparelho e deixam de alimentar o aprendizado do Modo Simulado.</string>
     <string name="historico_apagado_ok">%1$d arquivo(s) apagado(s)</string>
     <string name="historico_apagado_falhas">%1$d apagado(s); %2$d não puderam ser apagados</string>
-    <string name="historico_logs_titulo">Logs salvos</string>
-    <string name="historico_logs_titulo_qtd">Logs salvos (%1$d)</string>
-    <string name="historico_logs_dica">CSV do Data Logger e da caixa-preta em Downloads/CharruaOBD. Toque para o replay no gráfico; toque longo para compartilhar ou apagar. O Modo Simulado não grava logs.</string>
-    <string name="historico_logs_vazio">Nenhum log CSV salvo ainda. Grave pelo Painel (Gravar Log CSV) ou ative os logs automáticos da caixa-preta.</string>
-    <string name="historico_abrir_visualizador">Visualizador</string>
-    <string name="historico_viagens_titulo">Diário de viagens</string>
-    <string name="historico_viagens_titulo_qtd">Diário de viagens (%1$d)</string>
-    <string name="historico_viagens_dica">O relatório .txt de cada sessão da caixa-preta (resumo da viagem, falhas e comunicação) e as leituras salvas no Painel.</string>
-    <string name="historico_viagens_vazio">Nenhuma viagem registrada ainda: os relatórios aparecem ao fim de cada sessão com os logs automáticos ligados.</string>
+    <string name="historico_sessoes_titulo">Sessões gravadas</string>
+    <string name="historico_sessoes_titulo_qtd">Sessões gravadas (%1$d)</string>
+    <string name="historico_sessoes_dica">Logs em Downloads/CharruaOBD, um cartão por sessão. Toque longo para compartilhar ou apagar. O Modo Simulado não grava logs.</string>
+    <string name="historico_sessoes_vazio">Nenhuma sessão gravada ainda. Ative os logs automáticos da caixa-preta, grave pelo Painel (Gravar Log CSV) ou toque em Abrir CSV externo.</string>
+    <string name="historico_abrir_csv">Abrir CSV externo</string>
+    <string name="historico_atualizar">Atualizar lista</string>
+    <string name="historico_badge_csv">CSV · %1$s</string>
+    <string name="historico_badge_txt">TXT · %1$s</string>
+    <string name="historico_acao_replay">Replay Gráfico</string>
+    <string name="historico_acao_log_tecnico">Log Técnico</string>
+    <string name="historico_acao_laudo">Laudo PDF</string>
+    <string name="historico_acao_mais">Mais…</string>
+    <string name="historico_acao_compartilhar_csv">Compartilhar CSV</string>
+    <string name="historico_acao_compartilhar_txt">Compartilhar log técnico (TXT)</string>
+    <string name="historico_acao_apagar_sessao">Apagar sessão</string>
+    <string name="historico_erro_ler">Não foi possível ler o arquivo: %1$s</string>
+    <string name="historico_viagem_atual">Viagem atual ou última</string>
+    <string name="historico_viagem_media">média %1$d km/h</string>
+    <string name="historico_viagem_detalhes">Estatísticas completas</string>
+    <string name="historico_viagens_anteriores">As viagens anteriores ficam gravadas em Sessões, com o relatório e o gráfico de cada uma.</string>
+    <string name="historico_ver_sessoes">Ver sessões gravadas</string>
 
     <!-- Terminal didático -->
     <string name="terminal_ajuda_titulo">O que dá para fazer aqui</string>
@@ -140,9 +153,6 @@
     <string name="config_sistema_metrico_descricao">km/h, °C, kPa ou bar e km/L em todo o app e no HUD.</string>
     <string name="config_sistema_imperial_descricao">mph, °F, psi e MPG (galão americano) em todo o app e no HUD.</string>
     <string name="config_unidade_imperial">No sistema imperial a pressão é sempre em psi. Os logs continuam em kPa.</string>
-
-    <string name="desempenho_titulo">⏱ 0–100 km/h</string>
-    <string name="desempenho_dica">Dispara sozinho ao sair do lugar. Toque para zerar.</string>
 
     <!-- Velocidade GPS (v2.0) -->
     <string name="config_secao_gps">Velocidade GPS</string>

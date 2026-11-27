@@ -481,12 +481,13 @@ class SessaoObd(
     /**
      * A tela de Diagnóstico de Injeção está visível: o polling prioriza os PIDs que o carro suporta
      * (nunca nos modos 21/22). Chamar de novo se os suportados mudarem; [fecharInjecao] ao sair.
+     * [extras]: o que a tela também desenha (os bicos da 1KD-FTV), para o foco não o deixar no fundo.
      */
-    fun abrirInjecao(tela: Any) {
+    fun abrirInjecao(tela: Any, extras: Collection<String> = emptyList()) {
         val cli = cliente
         val suporte = SuporteInjecao.de(cli.pidsSuportados.value, cli.infoConexao.value.modo)
         injecao.abrir(suporte, combustivelAtual == TipoCombustivel.DIESEL)
-        definirSensoresVisiveis(tela, suporte.comandos)
+        definirSensoresVisiveis(tela, suporte.comandos + extras)
     }
 
     fun fecharInjecao(tela: Any) {

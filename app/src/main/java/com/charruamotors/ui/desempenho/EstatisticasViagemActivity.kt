@@ -24,7 +24,7 @@ import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-/** v2.6.0: Oficina → Estatísticas da Viagem (sessão OBD em curso ou a última), sempre em unidades métricas. */
+/** v2.6.0: Histórico → Viagens → Estatísticas completas (sessão OBD em curso ou a última), sempre em unidades métricas. */
 class EstatisticasViagemActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityEstatisticasViagemBinding

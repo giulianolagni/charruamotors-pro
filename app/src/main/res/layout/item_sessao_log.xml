@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Uma sessão gravada na aba Histórico: veículo, data, o que existe (CSV/TXT) e as ações. -->
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    style="@style/Widget.Material3.CardView.Outlined"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="@dimen/espaco_pequeno"
+    android:clickable="true"
+    android:focusable="true"
+    app:cardCornerRadius="@dimen/raio_card">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="@dimen/espaco_medio">
+
+        <TextView
+            android:id="@+id/texto_titulo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAppearance="?attr/textAppearanceTitleMedium"
+            tools:text="Toyota Hilux SW4" />
+
+        <TextView
+            android:id="@+id/texto_data"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:textColor="@color/texto_secundario"
+            tools:text="20/11/2026 às 14:30" />
+
+        <com.google.android.material.chip.ChipGroup
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/espaco_minimo"
+            app:chipSpacingHorizontal="@dimen/espaco_pequeno">
+
+            <TextView
+                android:id="@+id/badge_csv"
+                style="@style/BadgeLog"
+                tools:text="CSV · 1,2 MB" />
+
+            <TextView
+                android:id="@+id/badge_txt"
+                style="@style/BadgeLog"
+                tools:text="TXT · 48 kB" />
+
+            <TextView
+                android:id="@+id/badge_simulado"
+                style="@style/BadgeLog"
+                android:background="@drawable/bg_badge_simulado"
+                android:text="@string/log_badge_simulado"
+                android:textColor="@color/laranja_destaque"
+                android:visibility="gone" />
+        </com.google.android.material.chip.ChipGroup>
+
+        <com.google.android.material.chip.ChipGroup
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/espaco_minimo"
+            app:chipSpacingHorizontal="@dimen/espaco_minimo">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/botao_replay"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/historico_acao_replay" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/botao_log_tecnico"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/historico_acao_log_tecnico" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/botao_laudo"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/historico_acao_laudo" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/botao_mais"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/historico_acao_mais" />
+        </com.google.android.material.chip.ChipGroup>
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

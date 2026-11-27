@@ -18,19 +18,11 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.charruamotors.CharruaMotorsApp
 import com.charruamotors.R
 import com.charruamotors.databinding.FragmentOficinaBinding
-import com.charruamotors.databinding.ItemBicoInjetorBinding
 import com.charruamotors.databinding.ItemCardOficinaBinding
-import com.charruamotors.direcao.desempenho.FonteVelocidade
-import com.charruamotors.direcao.painel.SensorPainel
-import com.charruamotors.obd.DadosObd
-import com.charruamotors.oficina.bicos.AvaliacaoBicos
-import com.charruamotors.oficina.bicos.SituacaoBico
-import com.charruamotors.sistema.unidades.ConversorUnidades
 import com.charruamotors.domain.model.EstadoConexaoObd
-import com.charruamotors.ui.diagnostico.DiagnosticoActivity
 import com.charruamotors.ui.desempenho.CalibracaoConsumoActivity
-import com.charruamotors.ui.desempenho.EstatisticasViagemActivity
 import com.charruamotors.ui.desempenho.TesteAceleracaoActivity
+import com.charruamotors.ui.diagnostico.DiagnosticoActivity
 import com.charruamotors.ui.diagnostico.DiagnosticoPagerAdapter
 import com.charruamotors.ui.oficina.atuadores.TesteAtuadoresActivity
 import com.charruamotors.ui.oficina.bateria.TesteBateriaActivity
@@ -43,15 +35,15 @@ import com.charruamotors.ui.oficina.sensores.SensoresActivity
 import com.charruamotors.ui.oficina.terminal.TerminalObdActivity
 import com.charruamotors.ui.util.definirTexto
 import com.google.android.material.snackbar.Snackbar
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 /**
- * Aba Oficina: as ferramentas de diagnóstico em cards grandes e ilustrados — Teste de Bateria
- * (guiado, com laudo), Diagnóstico de Erros (ler e apagar DTCs), Checkup OBD2 / Prontidão e Falhas
- * de Ignição (Modo 06) sob demanda (v2.2.9), Varredura de PIDs (busca de
- * sensores extras), Terminal ELM327 e Teste de Atuadores (UDS 2F, v2.1). Todas usam o scanner conectado no Painel; bateria, varredura
- * e terminal abrem uma sessão manual que pausa o polling até voltar.
+ * Aba Oficina: as ferramentas principais em cards grandes e ilustrados, em três seções —
+ * **Diagnóstico** (DTCs, Checkup/Prontidão, Falhas de Ignição, Injeção, Bateria e Sensores),
+ * **Testes e Performance** (Gráficos, Testes de Aceleração e Calibração de Consumo) e **Engenharia**
+ * (Varredura de PIDs, Terminal ELM327 e Teste de Atuadores). Todas usam o scanner conectado no
+ * Painel; bateria, varredura e terminal abrem uma sessão manual que pausa o polling até voltar.
+ * Estatísticas de viagem ficam no Histórico e os bicos injetores no Diagnóstico de Injeção (v2.10.0).
  */
 class OficinaFragment : Fragment() {
 
@@ -72,7 +64,6 @@ class OficinaFragment : Fragment() {
             preencher(cardSensores, R.string.oficina_card_sensores, R.string.oficina_card_sensores_desc, R.drawable.ic_checklist, R.color.azul_primario)
             preencher(cardGraficos, R.string.oficina_card_graficos, R.string.oficina_card_graficos_desc, R.drawable.ic_grafico, R.color.terminal_card)
             preencher(cardAceleracao, R.string.oficina_card_aceleracao, R.string.oficina_card_aceleracao_desc, R.drawable.ic_cronometro, R.color.veredito_atencao)
-            preencher(cardViagem, R.string.oficina_card_viagem, R.string.oficina_card_viagem_desc, R.drawable.ic_historico, R.color.status_ok)
             preencher(cardCalibracao, R.string.oficina_card_calibracao, R.string.oficina_card_calibracao_desc, R.drawable.ic_posto, R.color.azul_primario)
             preencher(cardBateria, R.string.oficina_card_bateria, R.string.oficina_card_bateria_desc, R.drawable.ic_bateria, R.color.veredito_bom)
             preencher(cardInjecao, R.string.oficina_card_injecao, R.string.oficina_card_injecao_desc, R.drawable.ic_grafico, R.color.dtc_confirmado)
@@ -86,8 +77,7 @@ class OficinaFragment : Fragment() {
             cardSensores.root.setOnClickListener { abrirConectada { SensoresActivity.intent(requireContext()) } }
             cardGraficos.root.setOnClickListener { abrirConectada { GraficosActivity.intent(requireContext()) } }
             cardAceleracao.root.setOnClickListener { abrirConectada { TesteAceleracaoActivity.intent(requireContext()) } }
-            // Viagem e calibração abrem sempre: a última viagem continua visível depois de desconectar.
-            cardViagem.root.setOnClickListener { startActivity(EstatisticasViagemActivity.intent(requireContext())) }
+            // A calibração abre sempre: não depende do scanner.
             cardCalibracao.root.setOnClickListener { startActivity(CalibracaoConsumoActivity.intent(requireContext(), veiculoId)) }
             cardBateria.root.setOnClickListener { abrirConectada { TesteBateriaActivity.intent(requireContext(), veiculoId) } }
             cardInjecao.root.setOnClickListener { abrirConectada { InjecaoActivity.intent(requireContext()) } }
@@ -107,24 +97,10 @@ class OficinaFragment : Fragment() {
             }
             cardAtuadores.root.setOnClickListener { abrirConectada { TesteAtuadoresActivity.intent(requireContext(), veiculoId) } }
             faixaConexao.setOnClickListener { irParaPainel() }
-            cardDesempenho.root.setOnClickListener { app.telemetriaCompartilhada.cronometro.reiniciar() }
         }
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                launch { app.sessaoObd.estado.collect(::mostrarConexao) }
-                launch { app.sessaoObd.dados.collect { mostrarBicos(it) } }
-                launch {
-                    combine(
-                        app.telemetriaCompartilhada.cronometro.estado,
-                        app.telemetriaCompartilhada.fonteCronometroAtiva,
-                        app.recordesDesempenho.recordes,
-                    ) { e, fonte, _ -> e to fonte }
-                        .collect { (e, fonte) ->
-                            binding.cardDesempenho.textoDesempenhoEstado.text =
-                                if (fonte == FonteVelocidade.GPS) "${e.texto} · via GPS" else e.texto
-                            binding.cardDesempenho.textoDesempenhoRecorde.text = app.recordesDesempenho.recordeDe(app.chaveRecorde()).texto
-                        }
-                }
+                app.sessaoObd.estado.collect(::mostrarConexao)
             }
         }
     }
@@ -146,29 +122,6 @@ class OficinaFragment : Fragment() {
             card.textoRequisito.isVisible = !conectado
             card.root.alpha = if (conectado) 1f else ALFA_INDISPONIVEL
         }
-    }
-
-    /** Os 4 cilindros lado a lado: correção em mm³/st com a cor da situação (verde dentro de ±3,0). */
-    private fun mostrarBicos(dados: DadosObd?) {
-        val bicos = listOf(binding.bico1, binding.bico2, binding.bico3, binding.bico4)
-        val sensores = listOf(SensorPainel.BICO_1, SensorPainel.BICO_2, SensorPainel.BICO_3, SensorPainel.BICO_4)
-        bicos.forEachIndexed { i, bico ->
-            val valor = sensores[i].ler(dados)
-            preencherBico(bico, i + 1, sensores[i].texto(valor, ConversorUnidades.PADRAO), AvaliacaoBicos.avaliar(valor))
-        }
-    }
-
-    private fun preencherBico(bico: ItemBicoInjetorBinding, numero: Int, valor: String, situacao: SituacaoBico) {
-        val cor = when (situacao) {
-            SituacaoBico.OK -> R.color.status_ok
-            SituacaoBico.ATENCAO -> R.color.veredito_atencao
-            SituacaoBico.FORA -> R.color.veredito_ruim
-            SituacaoBico.SEM_LEITURA -> R.color.status_espera
-        }
-        bico.textoNome.text = "#$numero"
-        bico.textoValor.text = if (situacao == SituacaoBico.SEM_LEITURA) SensorPainel.NAO_DISPONIVEL else valor
-        bico.textoSituacao.text = situacao.texto
-        bico.textoSituacao.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), cor))
     }
 
     private fun abrirConectada(intent: () -> Intent) {

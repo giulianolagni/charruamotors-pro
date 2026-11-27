@@ -58,6 +58,28 @@
         <item name="android:textAppearance">?attr/textAppearanceBodyMedium</item>
     </style>
 
+    <!-- Histórico: selo do que a sessão tem (CSV, TXT, SIMULADO). -->
+    <style name="BadgeLog">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">@drawable/bg_badge_log</item>
+        <item name="android:paddingStart">6dp</item>
+        <item name="android:paddingEnd">6dp</item>
+        <item name="android:paddingTop">1dp</item>
+        <item name="android:paddingBottom">1dp</item>
+        <item name="android:textAppearance">?attr/textAppearanceLabelSmall</item>
+    </style>
+
+    <!-- Aba Oficina: título de cada seção de ferramentas. -->
+    <style name="OficinaTituloSecao">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">@dimen/espaco_grande</item>
+        <item name="android:textAppearance">?attr/textAppearanceTitleMedium</item>
+        <item name="android:textColor">?attr/colorPrimary</item>
+        <item name="android:accessibilityHeading">true</item>
+    </style>
+
     <style name="HudRotulo">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>

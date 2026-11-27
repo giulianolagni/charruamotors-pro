@@ -76,12 +76,8 @@
     <string name="config_secao_offset">Teste de bateria · ajuste do adaptador</string>
     <string name="config_offset_sem_veiculo">Cadastre ou selecione um veículo para ajustar.</string>
 
-    <!-- Ferramenta 2: Visualizador de Logs CSV (Replay) -->
-    <string name="replay_titulo">Visualizador de Logs</string>
-    <string name="replay_lista_titulo">Logs em Downloads/CharruaOBD</string>
-    <string name="replay_lista_vazia">Nenhum log encontrado. Conecte ao scanner com os logs automáticos ligados, grave um no Painel (Gravar Log CSV) ou toque em Abrir outro CSV.</string>
-    <string name="replay_abrir_outro">Abrir outro CSV</string>
-    <string name="replay_atualizar">Atualizar lista</string>
+    <!-- Ferramenta 2: Replay Gráfico de log CSV (a lista de sessões fica na aba Histórico) -->
+    <string name="replay_titulo">Replay Gráfico</string>
     <string name="log_badge_simulado">SIMULADO</string>
     <plurals name="logs_simulados_titulo">
         <item quantity="one">Simulados (%1$d arquivo)</item>
@@ -89,11 +85,9 @@
     </plurals>
     <string name="logs_simulados_expandir">Toque para mostrar os logs do Modo Simulado</string>
     <string name="logs_simulados_recolher">Toque para recolher os logs do Modo Simulado</string>
-    <string name="replay_item_detalhe">%1$s · %2$s</string>
     <string name="replay_erro_ler">Não foi possível ler o CSV: %1$s</string>
     <string name="replay_max_sensores">No máximo %1$d sensores ao mesmo tempo. Desmarque um para trocar.</string>
     <string name="replay_ver_tudo">Ver tudo</string>
-    <string name="replay_voltar_lista">Outros logs</string>
     <string name="replay_dica_gestos">Toque: cursor · pinça: zoom · arrastar: navegar · toque longo e arrastar: mover o cursor · toque duplo: ver tudo</string>
     <string name="replay_info_log">%1$s amostras · %2$d sensores · %3$s</string>
     <string name="replay_janela">Janela %1$s – %2$s (%3$s)</string>

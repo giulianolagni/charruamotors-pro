@@ -18,7 +18,14 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.charruamotors.CharruaMotorsApp
 import com.charruamotors.R
 import com.charruamotors.databinding.ActivityInjecaoBinding
+import com.charruamotors.databinding.ItemBicoInjetorBinding
+import com.charruamotors.direcao.painel.SensorPainel
 import com.charruamotors.domain.model.EstadoConexaoObd
+import com.charruamotors.obd.DadosObd
+import com.charruamotors.oficina.bicos.AvaliacaoBicos
+import com.charruamotors.oficina.bicos.SituacaoBico
+import com.charruamotors.sistema.unidades.ConversorUnidades
+import android.content.res.ColorStateList
 import com.charruamotors.oficina.injecao.EstadoInjecao
 import com.charruamotors.oficina.injecao.LeituraBanco
 import com.charruamotors.oficina.injecao.PontoSondas
@@ -31,6 +38,8 @@ import com.charruamotors.ui.util.aplicarInsetsDoSistema
 import com.charruamotors.ui.util.comoNumero
 import com.charruamotors.ui.util.definirTexto
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
@@ -65,14 +74,21 @@ class InjecaoActivity : AppCompatActivity() {
                 val sessao = app.sessaoObd
                 // Registra o foco ao abrir e de novo quando o que o carro suporta muda.
                 launch {
-                    combine(sessao.pidsSuportados, sessao.infoConexao, sessao.estado) { _, _, estado -> estado }.collect { estado ->
+                    combine(sessao.pidsSuportados, sessao.infoConexao, sessao.estado, viewModel.bicosDisponiveis) { _, _, estado, bicos ->
+                        estado to bicos
+                    }.collect { (estado, bicos) ->
                         val conectado = estado is EstadoConexaoObd.Conectado
                         // Sem conexão não se sabe o que o carro suporta: ficam as últimas leituras (ou nada).
-                        if (conectado) sessao.abrirInjecao(this@InjecaoActivity)
+                        if (conectado) {
+                            sessao.abrirInjecao(this@InjecaoActivity, if (bicos) AvaliacaoBicos.CHAVES else emptyList())
+                        }
                         binding.textoSemConexao.isVisible = !conectado
                         binding.grupoLeituras.isVisible = conectado || sessao.injecao.resumo() != null
+                        binding.cardBicos.isVisible = bicos
                     }
                 }
+                launch { sessao.estadoSessao.map { it.veiculoId }.distinctUntilChanged().collect { viewModel.reavaliarBicos() } }
+                launch { sessao.dados.collect(::mostrarBicos) }
                 launch { sessao.injecao.estado.collect(::mostrar) }
                 launch { combine(viewModel.freezeFrame, app.preferenciasApp.config) { ff, _ -> ff }.collect(::mostrarFreezeFrame) }
             }
@@ -144,6 +160,29 @@ class InjecaoActivity : AppCompatActivity() {
         )
         valores.setTextColor(cor(leitura.total?.let { com.charruamotors.oficina.injecao.AnaliseMistura.classificar(it).gravidade }))
         dica.definirTexto(leitura.dica)
+    }
+
+    /** Os 4 cilindros lado a lado: correção em mm³/st com a cor da situação (verde dentro de ±3,0). */
+    private fun mostrarBicos(dados: DadosObd?) {
+        val bicos = listOf(binding.bico1, binding.bico2, binding.bico3, binding.bico4)
+        val sensores = listOf(SensorPainel.BICO_1, SensorPainel.BICO_2, SensorPainel.BICO_3, SensorPainel.BICO_4)
+        bicos.forEachIndexed { i, bico ->
+            val valor = sensores[i].ler(dados)
+            preencherBico(bico, i + 1, sensores[i].texto(valor, ConversorUnidades.PADRAO), AvaliacaoBicos.avaliar(valor))
+        }
+    }
+
+    private fun preencherBico(bico: ItemBicoInjetorBinding, numero: Int, valor: String, situacao: SituacaoBico) {
+        val fundo = when (situacao) {
+            SituacaoBico.OK -> R.color.status_ok
+            SituacaoBico.ATENCAO -> R.color.veredito_atencao
+            SituacaoBico.FORA -> R.color.veredito_ruim
+            SituacaoBico.SEM_LEITURA -> R.color.status_espera
+        }
+        bico.textoNome.text = "#$numero"
+        bico.textoValor.definirTexto(if (situacao == SituacaoBico.SEM_LEITURA) SensorPainel.NAO_DISPONIVEL else valor)
+        bico.textoSituacao.definirTexto(situacao.texto)
+        bico.textoSituacao.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(this, fundo))
     }
 
     private fun mostrarCurva(estado: EstadoInjecao) {
