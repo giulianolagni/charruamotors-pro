@@ -4,6 +4,8 @@ import com.charruamotors.domain.calculo.EstatisticasPercurso
 import com.charruamotors.domain.calculo.FiltroVelocidadeEspuria
 import com.charruamotors.obd.ModoObd
 import com.charruamotors.obd.pid.Pids
+import com.charruamotors.oficina.bateria.LaudoBateria
+import com.charruamotors.oficina.bateria.ResumoTesteBateria
 import com.charruamotors.oficina.sensores.MinMax
 
 /** Partes do laudo da sessão em curso. Puro (JVM). */
@@ -12,6 +14,15 @@ object LaudoDaSessao {
     /** Só o scanner Bluetooth conectado produz um laudo de dados reais. */
     fun origem(modo: ModoObd, conectado: Boolean): OrigemLaudo =
         if (conectado && modo == ModoObd.BLUETOOTH) OrigemLaudo.CONEXAO_REAL else OrigemLaudo.SIMULADO
+
+    /** v2.8.0: o teste de bateria concluído, para a seção própria do laudo. */
+    fun testeBateria(r: ResumoTesteBateria) = TesteBateriaLaudo(
+        repouso = LaudoBateria.linhaRepouso(r.repouso),
+        partida = LaudoBateria.linhaPartida(r.partida),
+        alternador = LaudoBateria.linhaAlternador(r),
+        veredito = "Bateria ${LaudoBateria.vereditoBateria(r).titulo} · alternador ${LaudoBateria.vereditoAlternador(r).titulo}",
+        condicoes = "motor ${if (r.diesel) "diesel" else "gasolina/flex"} · leitura pela porta OBD2 com ajuste de ${LaudoBateria.offset(r.offsetV)}",
+    )
 
     /** [extremos] da sessão inteira por comando e as estatísticas da [viagem] em curso. */
     fun resumo(extremos: Map<String, MinMax>, viagem: EstatisticasPercurso): ResumoTecnicoLaudo {

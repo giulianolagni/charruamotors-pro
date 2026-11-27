@@ -43,6 +43,28 @@ internal class SimuladorBateria(
         lvResetEmitido = false
     }
 
+    /**
+     * v2.8.0: tensão e RPM da fase para a telemetria simulada (sem `LV RESET`); null = sem fase.
+     */
+    fun leituraTelemetria(): Pair<Double, Double>? {
+        val t = (relogioMs() - inicioFaseMs).toDouble()
+        val (volts, rpm) = when (fase ?: return null) {
+            FaseBateriaSimulada.REPOUSO -> 12.5 + ruido(0.03) to 0.0
+            FaseBateriaSimulada.PARTIDA -> {
+                lvResetEmitido = true
+                val rpm = when {
+                    t < INICIO_PARTIDA_MS -> 0.0
+                    t < FIM_ARRANQUE_MS -> 220.0
+                    else -> 850.0
+                }
+                (curvaPartida(t) ?: VALE) to rpm
+            }
+            FaseBateriaSimulada.MARCHA_LENTA -> 14.2 + ruido(0.06) to 820.0 + ruido(20.0)
+            FaseBateriaSimulada.CARGA -> 14.12 + ruido(0.08) to 2_050.0 + ruido(60.0)
+        }
+        return (volts * 10).roundToInt() / 10.0 to rpm.roundToInt().toDouble()
+    }
+
     /** Resposta crua ao `ATRV` (`12.5V\r\r`), ou `LV RESET` uma vez no vale da partida. */
     fun responderAtrv(): String {
         val t = (relogioMs() - inicioFaseMs).toDouble()

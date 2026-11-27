@@ -5,6 +5,8 @@ import com.charruamotors.direcao.desempenho.HistoricoDesempenho
 import com.charruamotors.direcao.desempenho.MarcaDesempenho
 import com.charruamotors.direcao.desempenho.ModalidadeTeste
 import com.charruamotors.direcao.desempenho.RecordeDesempenho
+import com.charruamotors.oficina.bateria.HistoricoBateria
+import com.charruamotors.oficina.bateria.RegistroTesteBateria
 import com.charruamotors.sistema.preferencias.ArmazenamentoChaveValor
 import com.charruamotors.sistema.preferencias.ArmazenamentoComPrefixo
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -95,6 +97,9 @@ class GerenciadorPerfisCarro(private val armazenamento: ArmazenamentoChaveValor)
             gatilhoEndereco = null,
             historicoDesempenho = HistoricoDesempenho(),
             litrosTanque = 0.0,
+            // v2.8.0: o ajuste do adaptador é do chicote de cada carro, e o histórico é da bateria dele.
+            offsetTensaoV = 0.0,
+            historicoBateria = HistoricoBateria(),
             calibracaoConsumo = base.calibracaoConsumo.copy(ajustePercentual = 0.0),
         )
         salvar(copia)
@@ -114,6 +119,12 @@ class GerenciadorPerfisCarro(private val armazenamento: ArmazenamentoChaveValor)
                 ),
             )
         }
+    }
+
+    /** v2.8.0: guarda um teste de bateria concluído no histórico do veículo. */
+    fun registrarTesteBateria(veiculoId: Long, registro: RegistroTesteBateria) {
+        if (veiculoId <= 0) return
+        atualizar(veiculoId) { it.copy(historicoBateria = it.historicoBateria.com(registro)) }
     }
 
     /**

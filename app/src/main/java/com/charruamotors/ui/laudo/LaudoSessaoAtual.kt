@@ -51,6 +51,7 @@ class LaudoSessaoAtual(private val app: CharruaMotorsApp) {
             resumo = LaudoDaSessao.resumo(sessao.historico.estatisticas(), sessao.viagem.value.estatisticas),
             alertas = sessao.alertasDisparados(),
             observacoes = observacoes,
+            testeBateria = sessao.testeBateria.resultadoDaSessao?.let { LaudoDaSessao.testeBateria(it.resumo) },
         )
         return arquivo.gerar(dados.copy(veiculo = identificar(veiculoId, dados.veiculo)))
     }

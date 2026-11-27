@@ -182,7 +182,10 @@ class Elm327BluetoothClient(
         focoPolling = foco
     }
 
-    /** v2.6.0: polling prioritário do teste de aceleração; null = polling normal. */
+    @Volatile override var reiniciosDoAdaptador: Int = 0
+        private set
+
+    /** v2.6.0: polling prioritário do teste de aceleração (v2.8.0: e do teste de bateria); null = polling normal. */
     @Volatile private var prioridadePolling: PrioridadePolling? = null
 
     override fun definirPrioridadePolling(prioridade: PrioridadePolling?) {
@@ -471,7 +474,8 @@ class Elm327BluetoothClient(
                 focoPolling?.takeIf { modoServico == null }?.let { it.copy(essenciais = it.essenciais + confirmar) },
             )
             // v2.6.0: idem para o teste de aceleração; nos modos 21/22 ele usa o polling de sempre.
-            escalonador.definirPrioridade(prioridadePolling?.takeIf { modoServico == null }?.copy(urgentes = confirmar))
+            val prioridade = prioridadePolling?.takeIf { modoServico == null }?.copy(urgentes = confirmar)
+            escalonador.definirPrioridade(prioridade)
             val ciclo = try {
                 cicloForaDaSessaoManual { lerChaves(escalonador.proximoCiclo()) } ?: continue
             } catch (e: CancellationException) {
@@ -483,7 +487,9 @@ class Elm327BluetoothClient(
                 break
             }
             ciclosSemEcu = if (ciclo.semRespostaDaEcu) ciclosSemEcu + 1 else 0
-            if (ciclosSemEcu >= MAX_CICLOS_SEM_ECU) {
+            // v2.8.0: na partida em teste a ECU pode ficar sem energia por alguns segundos.
+            val limite = if (prioridade?.toleraEcuMuda == true) MAX_CICLOS_SEM_ECU_PARTIDA else MAX_CICLOS_SEM_ECU
+            if (ciclosSemEcu >= limite) {
                 perderConexao(sessao, mensagemEcuMuda(ciclo.ultimoErro))
                 break
             }
@@ -2202,6 +2208,7 @@ class Elm327BluetoothClient(
             }
             if (!comando.startsWith("ATZ") && !comando.startsWith("ATI") && ObdParser.adaptadorReiniciou(resposta)) {
                 registro.evento("O adaptador reiniciou sozinho (queda de tensão na partida?); reaplicando a configuração")
+                reiniciosDoAdaptador++
                 cabecalhoAtivo = null // o reset volta ao cabeçalho funcional
                 filtroRecepcaoAtivo = null // e ao filtro de recepção padrão
                 timeoutAdaptadorAtivo = null // e ao ATST padrão (o próximo comando à ECU reaplica o curto)
@@ -2544,6 +2551,9 @@ class Elm327BluetoothClient(
 
         /** Ciclos seguidos sem nenhuma resposta da ECU (só NO DATA/CAN ERROR) até encerrar a sessão. */
         const val MAX_CICLOS_SEM_ECU = 8
+
+        /** Tolerância com [PrioridadePolling.toleraEcuMuda] (teste de partida): ciclos curtos, de 2 comandos. */
+        const val MAX_CICLOS_SEM_ECU_PARTIDA = 80
 
         /** Respiro mínimo entre ciclos, para comandos de DTC/VIN conseguirem o mutex. */
         private const val INTERVALO_MINIMO_ENTRE_CICLOS_MS = 10L

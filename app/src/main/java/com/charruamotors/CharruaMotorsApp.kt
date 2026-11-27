@@ -419,6 +419,7 @@ class CharruaMotorsApp : Application() {
             calibracaoConsumo = { id -> if (id > 0) perfisCarro.ler(id).calibracaoConsumo else CalibracaoConsumo() },
             aoAcumularLitros = perfisCarro::acumularLitrosTanque,
             aoRegistrarTempo = perfisCarro::registrarTempo,
+            aoRegistrarTesteBateria = perfisCarro::registrarTesteBateria,
         ).also { sessao ->
             val escopo = escopoDoApp()
             // v2.4.0: limites editados valem na sessão em curso (v2.6.0: a calibração do consumo também).

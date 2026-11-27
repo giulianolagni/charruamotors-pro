@@ -302,7 +302,11 @@ class ObdClientFake(
             escalonador.definirPrioridade(prioridadePolling)
             val chaves = escalonador.proximoCiclo()
             val leitura = proximaLeitura(passoMs / 1000.0)
-            val lidos = leitura.filterKeys { it in chaves }
+            // v2.8.0: durante o teste de bateria, tensão e RPM seguem o roteiro da fase.
+            val roteiro = bateria.leituraTelemetria()?.let { (volts, rpm) ->
+                mapOf(Pids.TENSAO_BATERIA to volts, Pids.RPM to rpm)
+            }
+            val lidos = (if (roteiro == null) leitura else leitura + roteiro).filterKeys { it in chaves }
             emit(DadosObd(escalonador.consolidar(chaves, lidos), frescos = lidos.keys.toSet()))
             delay(passoMs)
         }

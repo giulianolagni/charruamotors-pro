@@ -233,7 +233,7 @@ class SessaoManualTest {
         val obd = fake()
         obd.conectar(dispositivo)
         obd.iniciarSessaoManual()
-        val teste = TesteBateria()
+        val teste = TesteBateria().apply { comRpm = false }
 
         suspend fun capturar(fase: FaseBateriaSimulada) {
             obd.simularBateria(fase)
@@ -253,11 +253,12 @@ class SessaoManualTest {
         capturar(FaseBateriaSimulada.CARGA)
 
         assertTrue(teste.concluido)
-        assertEquals(VereditoRepouso.SAUDAVEL, teste.resultadoRepouso!!.veredito)
+        assertEquals(VereditoRepouso.BOM, teste.resultadoRepouso!!.veredito)
         assertEquals(12.5, teste.resultadoRepouso!!.tensao, 0.05)
+        // O roteiro traz um LV RESET no vale: a partida não é confiável.
         val partida = teste.resultadoPartida!!
-        assertEquals(VereditoPartida.OK, partida.veredito)
-        assertEquals(10.3, partida.vMin, 0.11)
+        assertEquals(VereditoPartida.INCONCLUSIVO, partida.veredito)
+        assertEquals(10.3, partida.vMin!!, 0.11)
         assertEquals(1, partida.lvResets)
         assertTrue(partida.motorPegou)
         assertEquals(VereditoAlternador.NORMAL, teste.resultadoLenta!!.veredito)

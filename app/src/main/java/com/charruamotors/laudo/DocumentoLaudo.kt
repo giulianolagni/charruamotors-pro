@@ -42,6 +42,7 @@ object MontadorLaudo {
             veiculo(d.veiculo)
             diagnostico(d.diagnostico)
             resumo(d.resumo)
+            d.testeBateria?.let { testeBateria(it) }
             alertas(d.alertas)
             d.observacoes.preenchido()?.let {
                 add(BlocoLaudo.Secao("Observações do técnico"))
@@ -136,6 +137,15 @@ object MontadorLaudo {
         viagem("Velocidade média", r.velocidadeMediaKmh?.takeIf { it > 0 }?.let { "${numero(it, 1)} km/h" })
         viagem("Combustível estimado", r.litros?.takeIf { it > 0 }?.let { "${numero(it, 2)} L" })
         viagem("Consumo médio", r.kmPorLitro?.let { "${numero(it, 1)} km/L" })
+    }
+
+    private fun MutableList<BlocoLaudo>.testeBateria(t: TesteBateriaLaudo) {
+        add(BlocoLaudo.Secao("Teste de bateria e alternador"))
+        add(BlocoLaudo.Campo("Repouso", t.repouso))
+        add(BlocoLaudo.Campo("Mínimo na partida", t.partida))
+        add(BlocoLaudo.Campo("Alternador", t.alternador))
+        add(BlocoLaudo.Campo("Veredito", t.veredito))
+        add(BlocoLaudo.Campo("Condições", t.condicoes))
     }
 
     private fun MutableList<BlocoLaudo>.alertas(alertas: List<String>?) {

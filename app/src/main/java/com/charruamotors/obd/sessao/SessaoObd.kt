@@ -42,6 +42,10 @@ import com.charruamotors.obd.DadosObd
 import com.charruamotors.obd.DispositivoObd
 import com.charruamotors.obd.DtcLido
 import com.charruamotors.obd.FocoPolling
+import com.charruamotors.oficina.bateria.ControladorTesteBateria
+import com.charruamotors.oficina.bateria.LaudoBateria
+import com.charruamotors.oficina.bateria.RegistroTesteBateria
+import com.charruamotors.oficina.bateria.TesteDaSessao
 import com.charruamotors.obd.InfoConexao
 import com.charruamotors.obd.ModoObd
 import com.charruamotors.obd.ObdClient
@@ -284,6 +288,8 @@ class SessaoObd(
     private val aoRegistrarTempo: (veiculoId: Long, marca: MarcaDesempenho) -> Unit = { _, _ -> },
     /** Relógio que não salta (cronômetro e integração da viagem). */
     private val relogioMonotonico: () -> Long = { System.nanoTime() / 1_000_000 },
+    /** v2.8.0: teste de bateria concluído numa sessão **real** de `veiculoId`. */
+    private val aoRegistrarTesteBateria: (veiculoId: Long, registro: RegistroTesteBateria) -> Unit = { _, _ -> },
 ) {
     private val _modo = MutableStateFlow(modoInicial)
     val modo: StateFlow<ModoObd> = _modo.asStateFlow()
@@ -385,6 +391,7 @@ class SessaoObd(
                 }
                 // Garante a volta do polling normal mesmo se as amostras pararem de chegar.
                 testeAceleracao.tique()
+                testeBateria.tique()
                 publicarAlertas(monitorAlertas.avaliar(relogio()))
             }
         }
@@ -419,9 +426,41 @@ class SessaoObd(
     fun armarTeste(modalidade: ModalidadeTeste): Boolean {
         val cli = clienteDaSessao ?: return false
         if (_sessao.value.fase != FaseSessao.Conectada || cli.sessaoManualAtiva.value) return false
+        testeBateria.cancelar()
         testeAceleracao.armar(modalidade)
         registrarEvento("Teste de aceleração armado: ${modalidade.titulo}")
         return true
+    }
+
+    // ------------------------------------------------------------------ teste de bateria (v2.8.0)
+
+    /**
+     * Teste Guiado de Bateria, Partida e Alternador. No OBD2 padrão, capturando, o polling lê RPM e
+     * tensão; nos modos 21/22 a tela entrega o `ATRV`. Para capturar, use [iniciarCapturaBateria].
+     */
+    val testeBateria = ControladorTesteBateria(
+        aplicarPrioridade = { clienteDaSessao?.definirPrioridadePolling(it) },
+        relogioMs = relogioMonotonico,
+        suportados = { clienteDaSessao?.pidsSuportados?.value.orEmpty() },
+        vigiados = { monitorAlertas.chavesVigiadas },
+        reiniciosDoAdaptador = { clienteDaSessao?.reiniciosDoAdaptador ?: 0 },
+        aoConcluir = ::registrarTesteBateria,
+    )
+
+    /** False sem sessão conectada. Um teste de aceleração armado é cancelado (o polling é um só). */
+    fun iniciarCapturaBateria(): Boolean {
+        if (clienteDaSessao == null || _sessao.value.fase != FaseSessao.Conectada) return false
+        testeAceleracao.cancelar()
+        testeBateria.iniciarCaptura()
+        return true
+    }
+
+    private fun registrarTesteBateria(teste: TesteDaSessao) {
+        registrarEvento("Teste de bateria concluído: bateria ${LaudoBateria.vereditoBateria(teste.resumo).titulo}, " +
+            "alternador ${LaudoBateria.vereditoAlternador(teste.resumo).titulo}")
+        // Medição do simulador nunca entra no histórico do carro.
+        if (sessaoSimulada || veiculoAtual == null || teste.veiculoId != veiculoIdSessao) return
+        runCatching { aoRegistrarTesteBateria(veiculoIdSessao, RegistroTesteBateria.de(teste.resumo, relogio())) }
     }
 
     private fun registrarTempo(resultado: ResultadoTeste) {
@@ -744,6 +783,7 @@ class SessaoObd(
             estimadorCambio.reiniciar()
             combustivelAtual = veiculo?.combustivel
             testeAceleracao.selecionar(testeAceleracao.estado.value.modalidade)
+            testeBateria.novaSessao(if (veiculo != null) veiculoId else 0)
             iniciarViagem(veiculo)
             // A750F (alavanca no 7E1) e GM têm estimador próprio; os demais automáticos usam as razões do perfil.
             estimadorPerfil = veiculo?.cambio?.takeIf { it.estimaMarcha && it.mapaAlavanca == null }?.let(::EstimadorMarchaPerfil)
@@ -857,6 +897,7 @@ class SessaoObd(
         }
         // O instantâneo da ECU: só ele sabe quais leituras são frescas.
         testeAceleracao.amostrar(daEcu)
+        testeBateria.amostrar(daEcu)
         registrarNaViagem(dados)
         historico.registrar(dados.valores, relogio())
         _dados.value = dados
@@ -1017,6 +1058,8 @@ class SessaoObd(
 
     private suspend fun encerrar(cli: ObdClient, g: GravadorLogsSessao?, conectou: Boolean, motivo: String) {
         _sessao.update { it.copy(fase = FaseSessao.Encerrando) }
+        // Antes de desligar: a partida em captura vira Inconclusivo.
+        testeBateria.perderComunicacao()
         if (cli.estado.value.ocupado) runCatching { withContext(io) { cli.desconectar() } }
         testeAceleracao.cancelar(MotivoCancelamento.DESCONECTADO)
         cli.definirPrioridadePolling(null)
