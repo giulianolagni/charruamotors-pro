@@ -22,6 +22,7 @@ import com.charruamotors.ui.diagnostico.obd.DtcExibicao
 import com.charruamotors.ui.diagnostico.obd.ResultadoDiagnostico
 import com.charruamotors.ui.laudo.LaudoGerado
 import com.charruamotors.ui.laudo.LaudoSessaoAtual
+import com.charruamotors.ui.laudo.OpcoesLaudo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
@@ -99,7 +100,7 @@ class DiagnosticoErrosViewModel(
      * Laudo PDF da sessão em curso: lê as falhas (se ainda não lidas nesta conexão) e a prontidão
      * (`0101`), tira o instantâneo e gera o arquivo em segundo plano.
      */
-    fun gerarLaudo(observacoes: String) = executar {
+    fun gerarLaudo(opcoes: OpcoesLaudo) = executar {
         if (_diagnostico.value == null) lerDiagnostico(anunciar = false)
         val diagnostico = _diagnostico.value
         val prontidao = cliente.lerStatusMil()
@@ -110,7 +111,7 @@ class DiagnosticoErrosViewModel(
         // Falha na leitura dos códigos: a mensagem já foi enviada por lerDiagnostico.
         if (diagnostico == null) return@executar
         try {
-            _eventos.send(EventoFalhas.Laudo(laudos.gerar(diagnostico, prontidao, observacoes)))
+            _eventos.send(EventoFalhas.Laudo(laudos.gerar(diagnostico, prontidao, opcoes)))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

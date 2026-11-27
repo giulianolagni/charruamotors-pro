@@ -577,6 +577,22 @@ Três telas (Aceleração e Calibração na aba **Oficina**; Estatísticas em **
 
 ---
 
+## Manutenção preventiva (v2.11)
+
+No topo da aba **Manutenções**, por carro (perfil isolado):
+
+- **Itens** com presets (óleo, filtros, ATF, correias, pastilhas ou personalizado): km e data da última troca,
+  intervalo em km e/ou meses e observação. **Registrar troca agora** usa o odômetro e a data de hoje e guarda
+  a troca no histórico.
+- **Odômetro** editável, que soma a distância das viagens OBD2 reais (nunca a do Modo Simulado). Uma km nova no
+  cadastro (abastecimento, serviço ou edição) passa a ser a referência.
+- **Em dia / Próximo** (até 10% do intervalo em km ou 30 dias) **/ Vencido**, o que vencer primeiro. Só um selo
+  na aba e no cartão, sem alarme sonoro.
+- Os itens, o odômetro, o histórico e o nome da oficina e do técnico vão no backup `.json`; o laudo PDF pode
+  incluir no fim os itens vencidos ou próximos.
+
+---
+
 ## Laudo Técnico em PDF (v2.7)
 
 O botão **Gerar Laudo PDF** fica em **Oficina → Diagnóstico de Erros** (sessão em curso, com o scanner conectado) e em **Histórico → Sessões** (logs salvos, combinando o `.txt` e o `.csv` da sessão). O arquivo A4, com quantas páginas forem necessárias, é gerado com `android.graphics.pdf.PdfDocument` e aberto no compartilhamento do Android (WhatsApp, e-mail) ou no leitor de PDF.

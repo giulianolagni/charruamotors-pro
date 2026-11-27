@@ -18,6 +18,8 @@ import com.charruamotors.obd.log.RelatorioSessaoTxt
 import com.charruamotors.ui.diagnostico.DiagnosticoActivity
 import com.charruamotors.ui.laudo.ArquivoLaudoPdf
 import com.charruamotors.ui.laudo.GeradorLaudoLog
+import com.charruamotors.ui.laudo.OpcoesLaudo
+import com.charruamotors.ui.laudo.PendenciasManutencao
 import com.charruamotors.ui.laudo.ResultadoLaudoLog
 import com.charruamotors.ui.oficina.replay.ArquivoLogCsv
 import com.charruamotors.ui.oficina.replay.RepositorioLogsCsv
@@ -106,13 +108,15 @@ class HistoricoViewModel(
     }
 
     /** Laudo PDF da sessão, combinando o `.txt` e o `.csv` que ela tiver. */
-    fun gerarLaudo(sessao: SessaoSalva, observacoes: String) {
+    fun gerarLaudo(sessao: SessaoSalva, opcoes: OpcoesLaudo) {
         if (gerandoLaudo) return
         gerandoLaudo = true
         viewModelScope.launch {
             _carregando.value = true
             try {
-                val resultado = geradorLaudo.gerar(observacoes) { repositorio.dadosDoLaudo(sessao.csv, sessao.txt, it) }
+                val resultado = geradorLaudo.gerar(opcoes, sessao.arquivos.first().nome) {
+                    repositorio.dadosDoLaudo(sessao.csv, sessao.txt, it)
+                }
                 _eventos.send(EventoHistorico.Laudo(resultado))
             } finally {
                 gerandoLaudo = false
@@ -161,7 +165,7 @@ class HistoricoViewModel(
                     app.diagnosticoRepository,
                     app.indiceLogsReais,
                     app.aprendizLogs,
-                    GeradorLaudoLog(ArquivoLaudoPdf(app), app.preferenciasApp),
+                    GeradorLaudoLog(ArquivoLaudoPdf(app), app.preferenciasApp, PendenciasManutencao(app)),
                 ) { id -> app.veiculoRepository.buscarPorId(id)?.let { RelatorioSessaoTxt.trechoArquivo("${it.marca} ${it.modelo}".trim()) } }
             }
         }

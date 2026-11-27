@@ -4,7 +4,6 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.core.view.isVisible
 import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -15,8 +14,10 @@ import androidx.recyclerview.widget.ConcatAdapter
 import com.charruamotors.R
 import com.charruamotors.databinding.FragmentManutencoesBinding
 import com.charruamotors.domain.calculo.ProximaManutencao
+import com.charruamotors.domain.manutencao.ItemManutencao
 import com.charruamotors.domain.model.ManutencaoComPecas
 import com.charruamotors.ui.diagnostico.DiagnosticoActivity
+import com.charruamotors.ui.util.comoMilhar
 import com.charruamotors.ui.util.comoTexto
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
@@ -36,6 +37,37 @@ class ManutencoesFragment : Fragment() {
         aoExcluir = ::confirmarExclusao,
     )
 
+    private val adapterPlano = PlanoManutencaoAdapter(
+        aoCorrigirOdometro = {
+            viewModel.resumo.value?.let { DialogosPreventiva.corrigirOdometro(requireContext(), it.odometroKm, viewModel::corrigirOdometro) }
+        },
+        aoAdicionar = {
+            DialogosPreventiva.escolherPreset(requireContext()) { preset ->
+                viewModel.resumo.value?.let { editarItem(DialogosPreventiva.novoItem(preset, it.odometroKm)) }
+            }
+        },
+        aoEditar = ::editarItem,
+        aoRegistrarTroca = ::registrarTroca,
+        aoVerHistorico = { viewModel.resumo.value?.let { DialogosPreventiva.historico(requireContext(), it.trocas) } },
+    )
+
+    private fun editarItem(item: ItemManutencao) = DialogosPreventiva.editarItem(
+        requireContext(),
+        childFragmentManager,
+        item,
+        aoSalvar = viewModel::salvarItem,
+        aoExcluir = { viewModel.removerItem(item.id) },
+    )
+
+    private fun registrarTroca(item: ItemManutencao) {
+        val km = viewModel.resumo.value?.odometroKm ?: return
+        val pergunta = getString(R.string.preventiva_registrar_confirmar, item.nome, km.comoMilhar())
+        DialogosPreventiva.confirmar(requireContext(), pergunta) {
+            viewModel.registrarTroca(item.id)
+            Snackbar.make(binding.root, R.string.preventiva_registrada, Snackbar.LENGTH_SHORT).show()
+        }
+    }
+
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentManutencoesBinding.inflate(inflater, container, false)
         return binding.root
@@ -43,7 +75,7 @@ class ManutencoesFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        binding.listaManutencoes.adapter = ConcatAdapter(adapterProximas, adapterLista)
+        binding.listaManutencoes.adapter = ConcatAdapter(adapterPlano, adapterProximas, adapterLista)
         binding.botaoNovaManutencao.setOnClickListener { abrirFormulario(0L) }
 
         viewLifecycleOwner.lifecycleScope.launch {
@@ -55,9 +87,15 @@ class ManutencoesFragment : Fragment() {
     }
 
     private fun mostrarResumo(resumo: ResumoManutencoes) {
+        adapterPlano.mostrar(resumo)
         adapterLista.submitList(resumo.itens)
         adapterProximas.texto = textoProximas(resumo.proximas)
-        binding.textoListaVazia.isVisible = resumo.itens.isEmpty()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // As datas andam: reavalia a situação mesmo sem nada ter mudado.
+        viewModel.resumo.value?.let { viewModel.reavaliar() }
     }
 
     /** Uma linha por tipo com previsão (a mais urgente primeiro); null quando não há previsão. */

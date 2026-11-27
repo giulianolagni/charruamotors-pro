@@ -67,7 +67,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -106,6 +108,13 @@ class CharruaMotorsApp : Application() {
         val favorito = preferenciasAutoConexao.config.value.veiculoId
         if (perfisCarro.veiculoAtivo.value <= 0 && favorito > 0) perfisCarro.ativar(favorito)
         val escopo = escopoDoApp()
+        escopo.launch {
+            // v2.11.0: cadastro com km nova (ou perfil novo/restaurado) vira a referência do odômetro. A
+            // lista é relida do banco a cada aviso, para um backup recém-restaurado não ver a antiga.
+            merge(veiculoRepository.observarTodos(), perfisCarro.alteracoes).collect {
+                veiculoRepository.observarTodos().first().forEach { perfisCarro.sincronizarOdometro(it.id, it.kmAtual) }
+            }
+        }
         escopo.launch {
             // Favorito trocado em Configurações, no Assistente, no login ou na estrela: vira o carro ativo.
             preferenciasAutoConexao.config.map { it.veiculoId to it.veiculoDescricao }.distinctUntilChanged()
@@ -418,6 +427,7 @@ class CharruaMotorsApp : Application() {
             },
             calibracaoConsumo = { id -> if (id > 0) perfisCarro.ler(id).calibracaoConsumo else CalibracaoConsumo() },
             aoAcumularLitros = perfisCarro::acumularLitrosTanque,
+            aoPercorrer = perfisCarro::acumularQuilometros,
             aoRegistrarTempo = perfisCarro::registrarTempo,
             aoRegistrarTesteBateria = perfisCarro::registrarTesteBateria,
         ).also { sessao ->

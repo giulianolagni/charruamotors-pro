@@ -3,6 +3,8 @@ package com.charruamotors.carros
 import com.charruamotors.direcao.desempenho.HistoricoDesempenho
 import com.charruamotors.direcao.desempenho.RecordeDesempenho
 import com.charruamotors.domain.calculo.CalibracaoConsumo
+import com.charruamotors.domain.manutencao.Odometro
+import com.charruamotors.domain.manutencao.PlanoManutencao
 import com.charruamotors.direcao.painel.ClusterPainel
 import com.charruamotors.direcao.painel.CodecPainel
 import com.charruamotors.direcao.painel.SensorPainel
@@ -39,6 +41,8 @@ object CodecPerfilCarro {
     const val LITROS_TANQUE = "litros_tanque"
     const val OFFSET_TENSAO = "offset_tensao"
     const val HISTORICO_BATERIA = "historico_bateria"
+    const val PLANO_MANUTENCAO = "plano_manutencao"
+    const val ODOMETRO = "odometro"
 
     /** Bolinha do Cluster sem escolha (padrão/automático). */
     private const val BOLINHA_PADRAO = "-"
@@ -49,6 +53,7 @@ object CodecPerfilCarro {
         SCHEMA, CLUSTER, PERFIL_FAIXAS, PERFIL_CAMBIO, CAMADA, GATILHO_NOME, GATILHO_ENDERECO,
         FAVORITOS_GRAFICOS, RECORDE_060, RECORDE_0100, ALERTAS, PRESETS_GRAFICOS,
         CALIBRACAO_CONSUMO, HISTORICO_DESEMPENHO, LITROS_TANQUE, OFFSET_TENSAO, HISTORICO_BATERIA,
+        PLANO_MANUTENCAO, ODOMETRO,
     )
 
     /** Campos do perfil (sem o Painel); null = chave removida. */
@@ -70,6 +75,8 @@ object CodecPerfilCarro {
         LITROS_TANQUE to p.litrosTanque.takeIf { it > 0 }?.toString(),
         OFFSET_TENSAO to p.offsetTensaoV.takeIf { it != 0.0 }?.toString(),
         HISTORICO_BATERIA to p.historicoBateria.codificar(),
+        PLANO_MANUTENCAO to p.planoManutencao.codificar(),
+        ODOMETRO to p.odometro?.codificar(),
     )
 
     /** Perfil completo (Painel + campos), pronto para o [com.charruamotors.sistema.preferencias.ArmazenamentoChaveValor.gravar]. */
@@ -97,6 +104,8 @@ object CodecPerfilCarro {
         litrosTanque = ler(LITROS_TANQUE)?.toDoubleOrNull()?.takeIf { it.isFinite() && it > 0.0 } ?: 0.0,
         offsetTensaoV = OffsetAdaptador.limitar(ler(OFFSET_TENSAO)?.toDoubleOrNull() ?: 0.0),
         historicoBateria = HistoricoBateria.decodificar(ler(HISTORICO_BATERIA)),
+        planoManutencao = PlanoManutencao.decodificar(ler(PLANO_MANUTENCAO)),
+        odometro = Odometro.decodificar(ler(ODOMETRO)),
     )
 
     /** Sempre [ClusterPainel.BOLINHAS] posições; nomes desconhecidos viram o padrão. */

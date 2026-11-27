@@ -15,6 +15,8 @@ import com.charruamotors.oficina.replay.JanelaReplay
 import com.charruamotors.oficina.replay.LogCsv
 import com.charruamotors.ui.laudo.ArquivoLaudoPdf
 import com.charruamotors.ui.laudo.GeradorLaudoLog
+import com.charruamotors.ui.laudo.OpcoesLaudo
+import com.charruamotors.ui.laudo.PendenciasManutencao
 import com.charruamotors.ui.laudo.ResultadoLaudoLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -63,14 +65,14 @@ class ReplayLogViewModel(
 
     private var gerandoLaudo = false
 
-    /** Laudo PDF do log aberto (e do relatório `.txt` da mesma sessão), com as [observacoes]. */
-    fun gerarLaudo(uri: Uri, nome: String, observacoes: String) {
+    /** Laudo PDF do log aberto (e do relatório `.txt` da mesma sessão). */
+    fun gerarLaudo(uri: Uri, nome: String, opcoes: OpcoesLaudo) {
         if (gerandoLaudo) return
         gerandoLaudo = true
         viewModelScope.launch {
             _carregando.value = true
             try {
-                val resultado = geradorLaudo.gerar(observacoes) { repositorio.dadosDoLaudo(uri, nome, it) }
+                val resultado = geradorLaudo.gerar(opcoes, nome) { repositorio.dadosDoLaudo(uri, nome, it) }
                 _eventos.send(EventoReplay.Laudo(resultado))
             } finally {
                 gerandoLaudo = false
@@ -175,7 +177,8 @@ class ReplayLogViewModel(
         val Factory = viewModelFactory {
             initializer {
                 val app = this[APPLICATION_KEY] as CharruaMotorsApp
-                ReplayLogViewModel(RepositorioLogsCsv(app), GeradorLaudoLog(ArquivoLaudoPdf(app), app.preferenciasApp))
+                val gerador = GeradorLaudoLog(ArquivoLaudoPdf(app), app.preferenciasApp, PendenciasManutencao(app))
+                ReplayLogViewModel(RepositorioLogsCsv(app), gerador)
             }
         }
     }

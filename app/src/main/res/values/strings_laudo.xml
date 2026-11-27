@@ -9,6 +9,7 @@
     <string name="laudo_observacoes_titulo">Observações do técnico</string>
     <string name="laudo_observacoes_dica">Opcional: serviço feito, recomendações…</string>
     <string name="laudo_confirmar">Gerar</string>
+    <string name="laudo_incluir_manutencao">Incluir manutenções vencidas ou próximas</string>
     <string name="laudo_compartilhar_titulo">Enviar laudo</string>
     <string name="laudo_pronto">Laudo gerado</string>
     <string name="laudo_abrir">Abrir</string>

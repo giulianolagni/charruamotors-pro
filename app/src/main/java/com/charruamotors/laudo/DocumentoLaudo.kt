@@ -52,6 +52,10 @@ object MontadorLaudo {
                 add(BlocoLaudo.Secao("Observações do técnico"))
                 add(BlocoLaudo.Paragrafo(it))
             }
+            if (d.manutencao.isNotEmpty()) {
+                add(BlocoLaudo.Secao("Manutenção preventiva (situação na emissão)"))
+                d.manutencao.forEach { (item, situacao) -> add(BlocoLaudo.Campo(item, situacao)) }
+            }
         },
     )
 

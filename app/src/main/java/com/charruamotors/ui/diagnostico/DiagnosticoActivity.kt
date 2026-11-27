@@ -17,7 +17,11 @@ import androidx.viewpager2.widget.ViewPager2
 import com.charruamotors.CharruaMotorsApp
 import com.charruamotors.R
 import com.charruamotors.databinding.ActivityDiagnosticoBinding
+import com.charruamotors.domain.manutencao.Odometro
 import com.charruamotors.domain.model.Veiculo
+import com.charruamotors.ui.diagnostico.manutencoes.cor
+import androidx.core.content.ContextCompat
+import java.time.LocalDate
 import com.charruamotors.ui.carros.PerfisCarroUi
 import com.charruamotors.ui.dashboard.DashboardActivity
 import com.charruamotors.ui.navegacao.MenuLateralGlobal
@@ -128,6 +132,10 @@ class DiagnosticoActivity : AppCompatActivity() {
                         .collect { veiculo -> if (veiculo != null) mostrarVeiculo(veiculo) }
                 }
                 launch {
+                    combine(viewModel.veiculo, app.perfisCarro.alteracoes, app.perfisCarro.odometros) { v, _, _ -> v }
+                        .collect { veiculo -> if (veiculo != null) mostrarBadgeManutencao(veiculo) }
+                }
+                launch {
                     // Outro carro selecionado fora daqui (Configurações → veículo padrão, Bluetooth do
                     // carro, Meus Carros): as abas trocam para ele, sem misturar perfis.
                     app.perfisCarro.veiculoAtivo.collect { ativo ->
@@ -144,6 +152,22 @@ class DiagnosticoActivity : AppCompatActivity() {
         binding.textoVeiculoToolbar.text = veiculo.descricao
         binding.textoPlacaToolbar.text = getString(R.string.veiculo_toolbar_tag, tag, veiculo.placaFormatada)
         binding.seletorVeiculo.contentDescription = "${veiculo.descricao}, $tag. ${getString(R.string.veiculo_seletor_descricao)}"
+    }
+
+    /** Aviso discreto (sem som) na aba Manutenções: quantos itens estão vencidos ou próximos. */
+    private fun mostrarBadgeManutencao(veiculo: Veiculo) {
+        val perfil = app.perfisCarro.ler(veiculo.id)
+        val pendencias = perfil.planoManutencao.pendencias(Odometro.atual(perfil.odometro, veiculo.kmAtual), LocalDate.now())
+        if (pendencias.isEmpty()) {
+            binding.navegacao.removeBadge(R.id.aba_manutencoes)
+            return
+        }
+        val pior = pendencias.maxOf { it.situacao.status }
+        with(binding.navegacao.getOrCreateBadge(R.id.aba_manutencoes)) {
+            number = pendencias.size
+            backgroundColor = ContextCompat.getColor(this@DiagnosticoActivity, pior.cor)
+            badgeTextColor = ContextCompat.getColor(this@DiagnosticoActivity, android.R.color.white)
+        }
     }
 
     /** Toque no nome do veículo: troca rápida (★ = favorito) ou Meus Veículos para gerenciar. */

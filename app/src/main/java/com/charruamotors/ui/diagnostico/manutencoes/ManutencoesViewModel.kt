@@ -8,6 +8,11 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.charruamotors.CharruaMotorsApp
+import com.charruamotors.carros.GerenciadorPerfisCarro
+import com.charruamotors.domain.manutencao.ItemComSituacao
+import com.charruamotors.domain.manutencao.ItemManutencao
+import com.charruamotors.domain.manutencao.Odometro
+import com.charruamotors.domain.manutencao.RegistroTroca
 import com.charruamotors.data.repository.ManutencaoRepository
 import com.charruamotors.data.repository.VeiculoRepository
 import com.charruamotors.domain.calculo.CalculosVeiculo
@@ -37,10 +42,16 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
-/** Dados da aba: histórico e previsão das próximas manutenções (calculada no domínio, não na UI). */
+/**
+ * Dados da aba: serviços registrados, previsão das próximas manutenções (calculada no domínio, não
+ * na UI) e a preventiva do carro (v2.11.0).
+ */
 data class ResumoManutencoes(
     val itens: List<ManutencaoComPecas>,
     val proximas: List<ProximaManutencao>,
+    val odometroKm: Int = 0,
+    val preventiva: List<ItemComSituacao> = emptyList(),
+    val trocas: List<RegistroTroca> = emptyList(),
 )
 
 /** Eventos de uso único enviados para a UI. */
@@ -62,22 +73,55 @@ data class DadosFormularioManutencao(
 class ManutencoesViewModel(
     private val repository: ManutencaoRepository,
     veiculoRepository: VeiculoRepository,
+    private val perfis: GerenciadorPerfisCarro,
     savedStateHandle: SavedStateHandle,
     private val hoje: () -> LocalDate = { LocalDate.now() },
 ) : ViewModel() {
 
     val veiculoId: Long = savedStateHandle.get<Long>(DiagnosticoActivity.EXTRA_VEICULO_ID) ?: 0L
 
-    /** Histórico + próximas manutenções; recalculado quando muda a lista ou a km do veículo. */
+    /** Km do cadastro no último resumo (a referência do odômetro). */
+    private var kmCadastro = 0
+
+    private val reavaliacoes = MutableStateFlow(0)
+
+    /** A data de hoje pode ter mudado (a tela voltou): recalcula as situações. */
+    fun reavaliar() {
+        reavaliacoes.value++
+    }
+
+    /** Recalculado quando muda a lista, a km do veículo, o perfil do carro ou o odômetro das viagens. */
     val resumo: StateFlow<ResumoManutencoes?> = combine(
         repository.observarPorVeiculo(veiculoId),
         veiculoRepository.observarPorId(veiculoId),
-    ) { itens, veiculo ->
-        val proximas = veiculo?.let { v ->
-            CalculosVeiculo.proximasManutencoes(itens.map { it.manutencao }, v.kmAtual, hoje())
-        }.orEmpty()
-        ResumoManutencoes(itens, proximas)
+        perfis.alteracoes,
+        perfis.odometros,
+        reavaliacoes,
+    ) { itens, veiculo, _, _, _ ->
+        if (veiculo == null) return@combine ResumoManutencoes(itens, emptyList())
+        kmCadastro = veiculo.kmAtual
+        val perfil = perfis.ler(veiculoId)
+        val odometro = Odometro.atual(perfil.odometro, veiculo.kmAtual)
+        ResumoManutencoes(
+            itens = itens,
+            proximas = CalculosVeiculo.proximasManutencoes(itens.map { it.manutencao }, odometro, hoje()),
+            odometroKm = odometro,
+            preventiva = perfil.planoManutencao.avaliar(odometro, hoje()),
+            trocas = perfil.planoManutencao.historico,
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initialValue = null)
+
+    fun salvarItem(item: ItemManutencao) {
+        perfis.atualizar(veiculoId) { it.copy(planoManutencao = it.planoManutencao.com(item)) }
+    }
+
+    fun removerItem(id: Long) {
+        perfis.atualizar(veiculoId) { it.copy(planoManutencao = it.planoManutencao.sem(id)) }
+    }
+
+    fun registrarTroca(id: Long) = perfis.registrarTroca(veiculoId, id, kmCadastro, hoje())
+
+    fun corrigirOdometro(km: Int) = perfis.definirOdometro(veiculoId, kmCadastro, km)
 
     private val _erros = MutableStateFlow<Map<CampoManutencao, ErroValidacao>>(emptyMap())
     val erros: StateFlow<Map<CampoManutencao, ErroValidacao>> = _erros.asStateFlow()
@@ -162,7 +206,7 @@ class ManutencoesViewModel(
         val Factory = viewModelFactory {
             initializer {
                 val app = this[APPLICATION_KEY] as CharruaMotorsApp
-                ManutencoesViewModel(app.manutencaoRepository, app.veiculoRepository, createSavedStateHandle())
+                ManutencoesViewModel(app.manutencaoRepository, app.veiculoRepository, app.perfisCarro, createSavedStateHandle())
             }
         }
     }
