@@ -19,6 +19,7 @@ import com.charruamotors.R
 import com.charruamotors.databinding.ActivityDashboardBinding
 import com.charruamotors.domain.model.Veiculo
 import com.charruamotors.ui.alertas.ConfigAlertasActivity
+import com.charruamotors.ui.desempenho.CalibracaoConsumoActivity
 import com.charruamotors.ui.carros.PerfisCarroUi
 import com.charruamotors.ui.diagnostico.DiagnosticoActivity
 import com.charruamotors.ui.navegacao.MenuLateralGlobal
@@ -126,6 +127,7 @@ class DashboardActivity : AppCompatActivity() {
                     R.id.acao_carro_perfil -> PerfisCarroUi.editarPerfilTecnico(this@DashboardActivity, veiculo)
                     R.id.acao_carro_duplicar -> startActivity(VeiculoFormActivity.intentDuplicar(this@DashboardActivity, veiculo.id))
                     R.id.acao_carro_alertas -> startActivity(ConfigAlertasActivity.intent(this@DashboardActivity, veiculo.id))
+                    R.id.acao_carro_calibracao -> startActivity(CalibracaoConsumoActivity.intent(this@DashboardActivity, veiculo.id))
                     R.id.acao_carro_mapeamento -> PerfisCarroUi.iniciarMapeamento(this@DashboardActivity, veiculo)
                     else -> return@setOnMenuItemClickListener false
                 }

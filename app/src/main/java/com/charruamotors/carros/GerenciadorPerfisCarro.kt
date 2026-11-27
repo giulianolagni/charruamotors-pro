@@ -1,6 +1,9 @@
 package com.charruamotors.carros
 
 import android.content.Context
+import com.charruamotors.direcao.desempenho.HistoricoDesempenho
+import com.charruamotors.direcao.desempenho.MarcaDesempenho
+import com.charruamotors.direcao.desempenho.ModalidadeTeste
 import com.charruamotors.direcao.desempenho.RecordeDesempenho
 import com.charruamotors.sistema.preferencias.ArmazenamentoChaveValor
 import com.charruamotors.sistema.preferencias.ArmazenamentoComPrefixo
@@ -79,13 +82,50 @@ class GerenciadorPerfisCarro(private val armazenamento: ArmazenamentoChaveValor)
 
     /**
      * "Duplicar" em Meus Carros: o novo veículo nasce com o Painel, HUD, Cluster e o perfil técnico
-     * da [origem]; recordes e o Bluetooth do carro não vêm junto (são de cada carro físico).
+     * da [origem]; recordes, tempos, o Bluetooth do carro, o contador do tanque e o ajuste pela
+     * bomba não vêm junto (são de cada carro físico).
      */
     @Synchronized
     fun duplicar(origem: Long, destino: Long): PerfilCarro {
-        val copia = ler(origem).copy(veiculoId = destino, recorde = RecordeDesempenho(), gatilhoNome = null, gatilhoEndereco = null)
+        val base = ler(origem)
+        val copia = base.copy(
+            veiculoId = destino,
+            recorde = RecordeDesempenho(),
+            gatilhoNome = null,
+            gatilhoEndereco = null,
+            historicoDesempenho = HistoricoDesempenho(),
+            litrosTanque = 0.0,
+            calibracaoConsumo = base.calibracaoConsumo.copy(ajustePercentual = 0.0),
+        )
         salvar(copia)
         return copia
+    }
+
+    /** v2.6.0: guarda um teste concluído no histórico (e no recorde 0–60 / 0–100) do veículo. */
+    fun registrarTempo(veiculoId: Long, marca: MarcaDesempenho) {
+        if (veiculoId <= 0) return
+        val segundos = kotlin.math.round(marca.tempoMs / 10.0) / 100.0
+        atualizar(veiculoId) {
+            it.copy(
+                historicoDesempenho = it.historicoDesempenho.com(marca),
+                recorde = it.recorde.com(
+                    segundos.takeIf { marca.modalidade == ModalidadeTeste.V0_60 },
+                    segundos.takeIf { marca.modalidade == ModalidadeTeste.V0_100 },
+                ),
+            )
+        }
+    }
+
+    /**
+     * v2.6.0: soma ao contador do tanque. Grava só essa chave e não conta como alteração do perfil
+     * (a sessão chama isto a cada minuto, e as telas não precisam se redesenhar).
+     */
+    @Synchronized
+    fun acumularLitrosTanque(veiculoId: Long, litros: Double) {
+        if (veiculoId <= 0 || !litros.isFinite() || litros <= 0) return
+        if (!existe(veiculoId)) salvar(PerfilCarro(veiculoId))
+        val total = ler(veiculoId).litrosTanque + litros
+        escopo(veiculoId).gravar(mapOf(CodecPerfilCarro.LITROS_TANQUE to total.toString()))
     }
 
     /** Recorde 0–60 / 0–100 (só melhora) do veículo da sessão. */

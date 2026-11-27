@@ -103,6 +103,14 @@ class ObdClientFake(
         focoPolling = foco
     }
 
+    /** v2.6.0: polling prioritário em vigor (visível aos testes). */
+    @Volatile var prioridadePolling: PrioridadePolling? = null
+        private set
+
+    override fun definirPrioridadePolling(prioridade: PrioridadePolling?) {
+        prioridadePolling = prioridade
+    }
+
     private val ecu = EcuSimulada(random)
     private val cruze = SimuladorCruze(random)
 
@@ -188,6 +196,7 @@ class ObdClientFake(
 
     @Volatile private var faseArrancada = FaseArrancada.NENHUMA
     private var segundosNaFase = 0.0
+    @Volatile private var fimArrancada = VELOCIDADE_FIM_ARRANCADA
 
     /** A arrancada simulada está em andamento? */
     val arrancadaEmAndamento: Boolean get() = faseArrancada != FaseArrancada.NENHUMA
@@ -221,6 +230,7 @@ class ObdClientFake(
         temperaturaOleo = 30.0
         segundosMotorLigado = 0.0
         faseArrancada = FaseArrancada.NENHUMA
+        prioridadePolling = null
         estendidosAtivos = emptySet()
         for (at in listOf("ATE0", "ATL0", "ATS0", "ATH0", "ATSP0")) registro.comando(at, "OK\r\r", 25)
         registro.comando("0100", "SEARCHING...\r4100BE3FB813\r\r", 1_350)
@@ -289,6 +299,7 @@ class ObdClientFake(
             }
             escalonador.atualizarSuportados(_pidsSuportados.value)
             escalonador.definirFoco(focoPolling)
+            escalonador.definirPrioridade(prioridadePolling)
             val chaves = escalonador.proximoCiclo()
             val leitura = proximaLeitura(passoMs / 1000.0)
             val lidos = leitura.filterKeys { it in chaves }
@@ -314,9 +325,11 @@ class ObdClientFake(
     /**
      * Demonstração do cronômetro 0–100 km/h: o "motorista" para o carro, espera
      * ~[SEGUNDOS_PARADO_ARRANCADA] s e acelera com tudo (0–100 em ~12 s, como um 1.6 aspirado)
-     * até passar de [VELOCIDADE_FIM_ARRANCADA] km/h; depois volta ao trânsito normal.
+     * até passar de [velocidadeFinal] km/h (v2.6.0: os testes de 80–120 e 400 m vão mais longe);
+     * depois volta ao trânsito normal.
      */
-    fun simularArrancada() {
+    fun simularArrancada(velocidadeFinal: Double = VELOCIDADE_FIM_ARRANCADA) {
+        fimArrancada = velocidadeFinal
         faseArrancada = FaseArrancada.PARANDO
         segundosNaFase = 0.0
     }
@@ -525,7 +538,7 @@ class ObdClientFake(
                 // Aceleração cai com a velocidade (arrasto + marchas mais longas): ~11 → 6 km/h/s.
                 val aceleracao = (11.0 - velocidade * 0.05).coerceAtLeast(3.0) + random.nextDouble(-0.3, 0.3)
                 velocidade += aceleracao * dt
-                if (velocidade >= VELOCIDADE_FIM_ARRANCADA) {
+                if (velocidade >= fimArrancada) {
                     velocidadeAlvo = 60.0
                     mudarFase(FaseArrancada.NENHUMA)
                 }

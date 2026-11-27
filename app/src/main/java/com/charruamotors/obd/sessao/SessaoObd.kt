@@ -2,7 +2,16 @@ package com.charruamotors.obd.sessao
 
 import com.charruamotors.domain.calculo.AlavancaGmTcm
 import com.charruamotors.carros.PerfilCarro
+import com.charruamotors.direcao.desempenho.ControladorTesteAceleracao
+import com.charruamotors.direcao.desempenho.MarcaDesempenho
+import com.charruamotors.direcao.desempenho.ModalidadeTeste
+import com.charruamotors.direcao.desempenho.MotivoCancelamento
+import com.charruamotors.direcao.desempenho.ResultadoTeste
 import com.charruamotors.direcao.hud.TelemetriaCompartilhada
+import com.charruamotors.domain.calculo.AcumuladorPercurso
+import com.charruamotors.domain.calculo.CalibracaoConsumo
+import com.charruamotors.domain.calculo.EstatisticasPercurso
+import com.charruamotors.domain.calculo.TelemetriaCalculada
 import com.charruamotors.domain.alertas.AvaliacaoAlertas
 import com.charruamotors.domain.alertas.ConfigAlertas
 import com.charruamotors.domain.alertas.EstadoAlertas
@@ -99,6 +108,8 @@ data class VeiculoSessao(
     /** Faixas mínimas/máximas esperadas (perfil do catálogo ou genéricas do cadastro), para o relatório. */
     val faixas: FaixasVeiculo? = null,
     val ano: Int? = null,
+    /** v2.6.0: calibração do consumo do perfil isolado, por cima do cadastro. */
+    val calibracaoPerfil: CalibracaoConsumo = CalibracaoConsumo(),
     /** Onde o cadastro caiu na cascata de perfis (exato → genérico → OBD2 padrão); null = não resolvido. */
     val resolucao: ResolucaoPerfil? = null,
     /** Limites do cadastro (água, ATF, alternador), reaplicados se a sessão trocar o perfil genérico (v2.2.2). */
@@ -117,6 +128,10 @@ data class VeiculoSessao(
     val cambio: PerfilCambio?
         get() = cambioEscolhido ?: resolucao?.takeIf { !it.generico }?.preset?.perfilCambio
 
+    /** Parâmetros dos cálculos de consumo (relatório da sessão e estatísticas da viagem). */
+    fun parametrosMotor(calibracao: CalibracaoConsumo = calibracaoPerfil): ParametrosMotor =
+        calibracao.parametros(modelo, combustivel, calibracaoConsumo)
+
     companion object {
         /** Veículo do cadastro com o [perfil] isolado dele (v2.3.0: faixas, câmbio e camada escolhidos). */
         fun de(v: Veiculo, perfil: PerfilCarro = PerfilCarro(v.id)): VeiculoSessao {
@@ -132,6 +147,7 @@ data class VeiculoSessao(
                 calibracaoConsumo = v.calibracaoConsumo,
                 faixas = resolucao.faixas,
                 ano = v.ano,
+                calibracaoPerfil = perfil.calibracaoConsumo,
                 resolucao = resolucao,
                 limites = LimitesProtecao.deVeiculo(v),
                 marcaMontadora = perfil.marcaMontadora(v.marca),
@@ -156,6 +172,16 @@ sealed interface FaseSessao {
     /** Fechando a conexão e salvando os logs. */
     data object Encerrando : FaseSessao
 }
+
+/** v2.6.0: a viagem da sessão em curso (ou da última), para a tela de estatísticas. */
+data class ViagemSessao(
+    val estatisticas: EstatisticasPercurso = EstatisticasPercurso(),
+    /** R$ por litro da calibração do carro; null = sem custo estimado. */
+    val precoLitro: Double? = null,
+    /** Nome curto do veículo da viagem; null = sem veículo. */
+    val veiculo: String? = null,
+    val simulada: Boolean = false,
+)
 
 data class EstadoSessao(
     val fase: FaseSessao = FaseSessao.Inativa,
@@ -248,6 +274,14 @@ class SessaoObd(
     private val pararAlarme: () -> Unit = {},
     /** v2.5.0: sensores do HUD flutuante enquanto ele estiver na tela (vazio = HUD desligado). */
     private val essenciaisHud: () -> Set<String> = { emptySet() },
+    /** v2.6.0: calibração do consumo do perfil isolado de `veiculoId`. */
+    private val calibracaoConsumo: (veiculoId: Long) -> CalibracaoConsumo = { CalibracaoConsumo() },
+    /** v2.6.0: litros estimados numa sessão **real** de `veiculoId`, para o contador do tanque. */
+    private val aoAcumularLitros: (veiculoId: Long, litros: Double) -> Unit = { _, _ -> },
+    /** v2.6.0: teste de aceleração concluído numa sessão **real** de `veiculoId`. */
+    private val aoRegistrarTempo: (veiculoId: Long, marca: MarcaDesempenho) -> Unit = { _, _ -> },
+    /** Relógio que não salta (cronômetro e integração da viagem). */
+    private val relogioMonotonico: () -> Long = { System.nanoTime() / 1_000_000 },
 ) {
     private val _modo = MutableStateFlow(modoInicial)
     val modo: StateFlow<ModoObd> = _modo.asStateFlow()
@@ -330,7 +364,12 @@ class SessaoObd(
         launch {
             while (true) {
                 delay(INTERVALO_ALERTAS_MS)
-                if (cli.sessaoManualAtiva.value) monitorAlertas.pausarComunicacao(relogio())
+                if (cli.sessaoManualAtiva.value) {
+                    monitorAlertas.pausarComunicacao(relogio())
+                    testeAceleracao.cancelar(MotivoCancelamento.FERRAMENTA_MANUAL)
+                }
+                // Garante a volta do polling normal mesmo se as amostras pararem de chegar.
+                testeAceleracao.tique()
                 publicarAlertas(monitorAlertas.avaliar(relogio()))
             }
         }
@@ -345,6 +384,101 @@ class SessaoObd(
                 delay(if (monitorAlertas.dtcEmConfirmacao) CONFIRMACAO_MIL_MS else INTERVALO_MIL_MS)
             }
         }
+    }
+
+    // ------------------------------------------------------------------ testes de aceleração (v2.6.0)
+
+    /**
+     * Cronômetro da tela Testes de Aceleração. Armado ou medindo, o polling lê só velocidade e RPM
+     * ([com.charruamotors.obd.PrioridadePolling]); concluído ou cancelado, volta ao normal. Os modos
+     * 21/22 ignoram a prioridade. Para armar, use [armarTeste].
+     */
+    val testeAceleracao = ControladorTesteAceleracao(
+        aplicarPrioridade = { clienteDaSessao?.definirPrioridadePolling(it) },
+        relogioMs = relogioMonotonico,
+        vigiados = { monitorAlertas.chavesVigiadas },
+        aoConcluir = ::registrarTempo,
+    )
+
+    /** False sem sessão conectada ou com uma ferramenta manual usando o scanner. */
+    fun armarTeste(modalidade: ModalidadeTeste): Boolean {
+        val cli = clienteDaSessao ?: return false
+        if (_sessao.value.fase != FaseSessao.Conectada || cli.sessaoManualAtiva.value) return false
+        testeAceleracao.armar(modalidade)
+        registrarEvento("Teste de aceleração armado: ${modalidade.titulo}")
+        return true
+    }
+
+    private fun registrarTempo(resultado: ResultadoTeste) {
+        registrarEvento("Teste de aceleração ${resultado.modalidade.titulo}: ${resultado.tempoMs} ms")
+        // Tempo do simulador nunca entra no histórico do carro.
+        if (sessaoSimulada || veiculoAtual == null) return
+        val marca = MarcaDesempenho(resultado.modalidade, resultado.tempoMs, resultado.velocidadeFinalKmh, relogio())
+        runCatching { aoRegistrarTempo(veiculoIdSessao, marca) }
+    }
+
+    // ------------------------------------------------------------------ viagem (v2.6.0)
+
+    private val travaViagem = Any()
+    private val percurso = AcumuladorPercurso()
+    private var motorViagem = ParametrosMotor()
+    private var litrosPendentes = 0.0
+    private var ultimaGravacaoLitrosMs = 0L
+
+    private val _viagem = MutableStateFlow(ViagemSessao())
+
+    /** Estatísticas da viagem; zeram a cada conexão ou em [zerarViagem] e seguem depois de desconectar. */
+    val viagem: StateFlow<ViagemSessao> = _viagem.asStateFlow()
+
+    fun zerarViagem(): Unit = synchronized(travaViagem) {
+        percurso.zerar()
+        _viagem.update { it.copy(estatisticas = percurso.estatisticas) }
+    }
+
+    /** A calibração do carro mudou: motor e preço valem na hora, para o que for rodado daqui em diante. */
+    fun recarregarCalibracaoConsumo() {
+        val veiculo = veiculoAtual ?: return
+        val calibracao = calibracaoConsumo(veiculoIdSessao)
+        synchronized(travaViagem) {
+            motorViagem = veiculo.parametrosMotor(calibracao)
+            _viagem.update { it.copy(precoLitro = calibracao.precoLitro) }
+        }
+    }
+
+    /** Entrega os litros ainda não gravados no contador do tanque (antes de lê-lo ou zerá-lo). */
+    fun descarregarLitrosTanque() {
+        val (veiculoId, litros) = synchronized(travaViagem) {
+            val pendente = veiculoIdSessao to litrosPendentes
+            litrosPendentes = 0.0
+            ultimaGravacaoLitrosMs = relogioMonotonico()
+            pendente
+        }
+        // Fora da trava: gravar o perfil avisa quem o observa, e um deles volta aqui (recarregar a calibração).
+        if (litros > 0 && veiculoId > 0) runCatching { aoAcumularLitros(veiculoId, litros) }
+    }
+
+    private fun iniciarViagem(veiculo: VeiculoSessao?) {
+        val calibracao = veiculo?.let { calibracaoConsumo(veiculoIdSessao) }
+        synchronized(travaViagem) {
+            percurso.zerar()
+            motorViagem = veiculo?.parametrosMotor(calibracao ?: veiculo.calibracaoPerfil) ?: ParametrosMotor()
+            litrosPendentes = 0.0
+            ultimaGravacaoLitrosMs = relogioMonotonico()
+            _viagem.value = ViagemSessao(precoLitro = calibracao?.precoLitro, veiculo = veiculo?.nomeCurto, simulada = sessaoSimulada)
+        }
+    }
+
+    private fun registrarNaViagem(dados: DadosObd) {
+        val gravar = synchronized(travaViagem) {
+            val agora = relogioMonotonico()
+            val consumo = TelemetriaCalculada.consumoInstantaneo(dados, motorViagem)
+            val antes = percurso.estatisticas.litros
+            val estatisticas = percurso.registrar(dados[Pids.VELOCIDADE], dados[Pids.RPM], consumo?.litrosPorHora, agora)
+            _viagem.update { it.copy(estatisticas = estatisticas) }
+            if (!sessaoSimulada && veiculoAtual != null) litrosPendentes += estatisticas.litros - antes
+            agora - ultimaGravacaoLitrosMs >= INTERVALO_GRAVACAO_LITROS_MS
+        }
+        if (gravar) descarregarLitrosTanque()
     }
 
     /** v2.3.1: amostras recentes e mínimo/máximo da sessão (Todos os Sensores e Gráficos). Zera a cada sessão. */
@@ -593,6 +727,8 @@ class SessaoObd(
             _cambioAtivo.value = veiculo?.cambio
             estimadorCambio.reiniciar()
             combustivelAtual = veiculo?.combustivel
+            testeAceleracao.selecionar(testeAceleracao.estado.value.modalidade)
+            iniciarViagem(veiculo)
             // A750F (alavanca no 7E1) e GM têm estimador próprio; os demais automáticos usam as razões do perfil.
             estimadorPerfil = veiculo?.cambio?.takeIf { it.estimaMarcha && it.mapaAlavanca == null }?.let(::EstimadorMarchaPerfil)
             if (sessaoSimulada && cli is ObdClientFake) {
@@ -703,6 +839,9 @@ class SessaoObd(
             porPerfil != null -> porPerfil.aplicar(base)
             else -> estimadorCambio.aplicar(base)
         }
+        // O instantâneo da ECU: só ele sabe quais leituras são frescas.
+        testeAceleracao.amostrar(daEcu)
+        registrarNaViagem(dados)
         historico.registrar(dados.valores, relogio())
         _dados.value = dados
         _amostras.tryEmit(dados)
@@ -863,6 +1002,9 @@ class SessaoObd(
     private suspend fun encerrar(cli: ObdClient, g: GravadorLogsSessao?, conectou: Boolean, motivo: String) {
         _sessao.update { it.copy(fase = FaseSessao.Encerrando) }
         if (cli.estado.value.ocupado) runCatching { withContext(io) { cli.desconectar() } }
+        testeAceleracao.cancelar(MotivoCancelamento.DESCONECTADO)
+        cli.definirPrioridadePolling(null)
+        runCatching { withContext(io) { descarregarLitrosTanque() } }
         _dados.value = null
         _perfil.value = null
         _vin.value = null
@@ -925,7 +1067,7 @@ class SessaoObd(
             scanner = "${dispositivo.nome} (${dispositivo.endereco})",
             inicioMs = inicioMs,
             simulado = simulado,
-            motor = veiculo?.let { ParametrosMotor.deVeiculo(it.modelo, it.combustivel, it.calibracaoConsumo) },
+            motor = veiculo?.parametrosMotor(),
             faixas = veiculo?.faixas,
         )
         return GravadorLogsSessao(destinoLogs, cabecalho, pastaTemporaria, zona, logBruto = logBruto)
@@ -950,6 +1092,7 @@ class SessaoObd(
         private const val PRIMEIRA_LEITURA_MIL_MS = 8_000L
         private const val INTERVALO_MIL_MS = 30_000L
         private const val CONFIRMACAO_MIL_MS = 3_000L
+        private const val INTERVALO_GRAVACAO_LITROS_MS = 60_000L
 
         /**
          * Mescla os valores calculados pelo app ao instantâneo: a relação A/F real

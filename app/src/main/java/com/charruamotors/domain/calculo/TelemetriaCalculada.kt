@@ -78,6 +78,11 @@ data class ParametrosMotor(
     val tipoCombustivel: TipoCombustivel = TipoCombustivel.FLEX,
     /** Calibração do veículo: multiplica o consumo estimado (1,0 = padrão do combustível). */
     val calibracao: Double = 1.0,
+    /**
+     * v2.6.0: diesel sem MAF e sem `015E` estimado pelo MAP. Só com a eficiência volumétrica
+     * informada na calibração do carro (no diesel a massa de ar diz pouco sobre o combustível).
+     */
+    val estimarDieselPorMap: Boolean = false,
 ) {
     init {
         require(calibracao in CALIBRACAO_MIN..CALIBRACAO_MAX) { "Calibração do consumo fora da faixa: $calibracao" }
@@ -169,9 +174,19 @@ object TelemetriaCalculada {
                 litrosPorHora = litrosPorHoraDaMassaAr(maf, dados, motor)
                 metodo = MetodoConsumo.MAF
             } else {
-                // Sem MAF, só o consumo que a própria ECU informa (o Speed-Density não vale no diesel).
-                litrosPorHora = dados[Pids.CONSUMO_ECU] ?: return null
-                metodo = MetodoConsumo.SENSOR_ECU
+                // Sem MAF, o consumo que a própria ECU informa; o Speed-Density no diesel só com a calibração do carro.
+                val daEcu = dados[Pids.CONSUMO_ECU]
+                if (daEcu != null) {
+                    litrosPorHora = daEcu
+                    metodo = MetodoConsumo.SENSOR_ECU
+                } else {
+                    if (!motor.estimarDieselPorMap) return null
+                    val massaAr = massaArSpeedDensity(
+                        dados[Pids.RPM], dados[Pids.PRESSAO_COLETOR], dados[Pids.TEMPERATURA_AR_ADMISSAO], motor,
+                    ) ?: return null
+                    litrosPorHora = litrosPorHoraDaMassaAr(massaAr, dados, motor)
+                    metodo = MetodoConsumo.SPEED_DENSITY
+                }
             }
         } else {
             val massaAr: Double

@@ -1,5 +1,7 @@
 package com.charruamotors.obd.sessao
 
+import com.charruamotors.direcao.desempenho.ModalidadeTeste
+import com.charruamotors.direcao.desempenho.MotivoCancelamento
 import com.charruamotors.direcao.hud.TelemetriaCompartilhada
 import com.charruamotors.domain.model.EstadoConexaoObd
 import com.charruamotors.domain.model.TipoCombustivel
@@ -84,9 +86,39 @@ class SessaoObdTest {
         gpsAtivo = { gpsAtivo },
         velocidadeGps = velocidadeGps,
         aoSalvarLogReal = { _, csv -> logsReaisSalvos += csv.nome },
+        relogioMonotonico = { testScheduler.currentTime },
     )
 
     private val logsReaisSalvos = mutableListOf<String>()
+
+    // ---------------------------------------------------------------- testes de aceleração (v2.6.0)
+
+    @Test
+    fun `teste armado devolve o polling normal ao desconectar e a viagem continua visivel`() = runTest {
+        val sessao = novaSessao(ModoObd.BLUETOOTH)
+        assertFalse("sem conexão não arma", sessao.armarTeste(ModalidadeTeste.V0_100))
+        sessao.conectar(scanner, veiculoId = 7, origem = OrigemSessao.MANUAL)
+        avancar(5_000)
+        fake.simularArrancada()
+        assertTrue(sessao.armarTeste(ModalidadeTeste.V0_100))
+        // O carro simulado freia, para (armado) e arranca.
+        var armou = false
+        repeat(300) {
+            if (!armou) {
+                avancar(100)
+                armou = fake.prioridadePolling != null
+            }
+        }
+        assertTrue(armou)
+
+        sessao.desconectar()
+        advanceUntilIdle()
+
+        assertNull(fake.prioridadePolling)
+        assertEquals(MotivoCancelamento.DESCONECTADO, sessao.testeAceleracao.estado.value.motivo)
+        assertTrue(sessao.viagem.value.estatisticas.segundosTotais > 0)
+        assertEquals("Toyota SW4", sessao.viagem.value.veiculo)
+    }
 
     // ---------------------------------------------------------------- velocidade GPS (v2.0)
 

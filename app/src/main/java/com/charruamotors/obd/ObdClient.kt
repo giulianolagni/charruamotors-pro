@@ -127,6 +127,12 @@ interface ObdClient {
      */
     fun definirFocoPolling(foco: FocoPolling?) = Unit
 
+    /**
+     * v2.6.0: polling prioritário do teste de aceleração (null = polling normal). Ver
+     * [PrioridadePolling]. Clientes sem fila (ou nos modos 21/22) ignoram.
+     */
+    fun definirPrioridadePolling(prioridade: PrioridadePolling?) = Unit
+
     /** Limpa os códigos de falha (modo 04). A UI deve sempre pedir confirmação antes. */
     suspend fun limparCodigosFalha(): Result<Unit>
 

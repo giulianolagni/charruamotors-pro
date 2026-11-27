@@ -31,6 +31,7 @@ Disciplina: Desenvolvimento Mobile II. Professor: Jaqson.
 - [GitHub Releases, atualizador e sensores da SW4 (v1.5)](#github-releases-atualizador-e-sensores-da-sw4-v15)
 - [Modo Flex, faixas esperadas, Cruze 1.4T e Teste de Atuadores (v2.1)](#modo-flex-faixas-esperadas-cruze-14t-e-teste-de-atuadores-v21)
 - [Perfis isolados por veículo, status ELM × ECU e Backup (v2.3)](#perfis-isolados-por-veículo-status-elm--ecu-e-backup-v23)
+- [Desempenho, viagem e calibração de consumo (v2.6)](#desempenho-viagem-e-calibração-de-consumo-v26)
 - [Regras de negócio e cálculos](#regras-de-negócio-e-cálculos)
 - [Arquitetura e stack](#arquitetura-e-stack)
 - [Como executar](#como-executar)
@@ -538,6 +539,25 @@ computador de bordo, HUD, Meus Carros, abastecimentos; o relatório `.txt` mostr
 perfis isolados, históricos, configurações globais e recordes; *Importar* valida o esquema (arquivo inválido vira só
 uma mensagem) e pede confirmação entre **Mesclar** (só acrescenta os carros com placa nova, renumerando os IDs) e
 **Substituir tudo**. Backups do formato 1 continuam aceitos (o Painel global vai para o carro padrão do arquivo).
+
+---
+
+## Desempenho, viagem e calibração de consumo (v2.6)
+
+Três telas na aba **Oficina**; tudo o que é salvo fica no perfil isolado de cada carro.
+
+- **Testes de Aceleração:** 0–60, 0–100, 60–100, 80–120 km/h, 200 m e 400 m pela velocidade da ECU
+  (`010D`). Fases *Aguardando parada → Armado → Em medição → Concluído*; a chegada é interpolada entre
+  amostras e a leitura `255 km/h` é ignorada. Nas arrancadas o tempo começa na primeira leitura acima
+  de 0; nas retomadas, no cruzamento (interpolado) de 60 ou 80 km/h, sem precisar parar. Armado ou
+  medindo, o polling lê só velocidade e RPM; concluir, cancelar, desconectar ou sair da tela devolve o
+  polling normal e os alertas. Nos modos 21/22 a leitura não muda. Os 10 melhores tempos de cada teste
+  ficam por carro (tempos do Modo Simulado não são salvos).
+- **Estatísticas da Viagem:** distância, tempo total, em movimento e parado, velocidades média e
+  máxima, RPM médio e máximo, km/L, L/100 km, litros e custo estimados, desde a conexão.
+- **Calibração de Consumo** (também em *Meus Carros*): cilindrada, combustível (Gasolina, Etanol,
+  Diesel S10 ou o do cadastro), eficiência volumétrica para carros sem MAF, preço do litro e ajuste
+  fino, calculado pelos litros da bomba contra o contador do app.
 
 ---
 

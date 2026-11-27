@@ -149,6 +149,21 @@
             android:name=".ui.oficina.sensores.GraficosActivity"
             android:exported="false"
             android:parentActivityName=".ui.diagnostico.DiagnosticoActivity" />
+        <!-- v2.6.0: Testes de Aceleração, Estatísticas da Viagem e Calibração de Consumo. A tela do
+             teste trata a rotação sozinha: recriá-la cancelaria o teste em andamento. -->
+        <activity
+            android:name=".ui.desempenho.TesteAceleracaoActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden"
+            android:exported="false"
+            android:parentActivityName=".ui.diagnostico.DiagnosticoActivity" />
+        <activity
+            android:name=".ui.desempenho.EstatisticasViagemActivity"
+            android:exported="false"
+            android:parentActivityName=".ui.diagnostico.DiagnosticoActivity" />
+        <activity
+            android:name=".ui.desempenho.CalibracaoConsumoActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize|stateHidden" />
         <activity
             android:name=".ui.painel.PersonalizarPainelActivity"
             android:exported="false"

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v2.6.0: uma linha "rótulo · valor" das Estatísticas da Viagem. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:minHeight="44dp"
+    android:orientation="horizontal">
+
+    <TextView
+        android:id="@+id/texto_rotulo"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textAppearance="?attr/textAppearanceBodyMedium"
+        android:textColor="@color/texto_secundario"
+        tools:text="Distância percorrida" />
+
+    <TextView
+        android:id="@+id/texto_valor"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/espaco_pequeno"
+        android:fontFeatureSettings="tnum"
+        android:gravity="end"
+        android:maxWidth="200dp"
+        android:textAppearance="?attr/textAppearanceTitleMedium"
+        tools:text="12,4 km" />
+</LinearLayout>

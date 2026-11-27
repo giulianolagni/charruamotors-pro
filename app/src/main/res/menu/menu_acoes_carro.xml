@@ -14,6 +14,9 @@
         android:id="@+id/acao_carro_alertas"
         android:title="@string/carros_acao_alertas" />
     <item
+        android:id="@+id/acao_carro_calibracao"
+        android:title="@string/carros_acao_calibracao" />
+    <item
         android:id="@+id/acao_carro_duplicar"
         android:title="@string/carros_acao_duplicar" />
     <item

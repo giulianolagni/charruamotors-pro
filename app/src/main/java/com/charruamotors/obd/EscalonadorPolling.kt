@@ -28,6 +28,9 @@ import com.charruamotors.obd.pid.Pids
  * essenciais e o apoio e, 1 vez a cada [VEZES_POR_FUNDO], o restante, para o log e o Painel não
  * pararem. Um ciclo com foco nunca envia mais comandos que o normal. A fila leve não muda.
  *
+ * **Prioridade** ([definirPrioridade], v2.6.0): durante um teste de aceleração, o ciclo é só o que a
+ * [PrioridadePolling] pede; desligada, o polling (normal ou com foco) volta no ciclo seguinte.
+ *
  * Objeto puro e não thread-safe (cada fluxo de polling tem o seu), testável na JVM.
  */
 class EscalonadorPolling(
@@ -116,12 +119,37 @@ class EscalonadorPolling(
         foco = novo
     }
 
+    /** Polling prioritário em vigor (null = normal); vence o [foco] enquanto durar. */
+    private var prioridade: PrioridadePolling? = null
+    private val rodizioVigiados = Rodizio()
+
+    /** Liga, troca ou (null) desliga o polling prioritário; vale no próximo ciclo. */
+    fun definirPrioridade(nova: PrioridadePolling?) {
+        prioridade = nova
+    }
+
     /** Comandos do próximo ciclo: toda a fila rápida + a vez da fila lenta (1 a cada [ciclosPorLento]). */
     fun proximoCiclo(): List<String> {
         val numero = ciclos++
+        prioridade?.let { p -> cicloPrioritario(p, numero)?.let { return it } }
         val vezDaLeve = filaLeve.isNotEmpty() && numero % ciclosPorLeve == 0L
         val base = foco?.let { cicloComFoco(it, numero) } ?: cicloNormal(numero)
         return if (vezDaLeve) base + filaLeve else base
+    }
+
+    /**
+     * Só os comandos prioritários (sem fila lenta nem leve). Um vigiado que exige trocar o cabeçalho
+     * ou é de outro módulo fica de fora. Null = nenhum prioritário suportado: vale o ciclo normal.
+     */
+    private fun cicloPrioritario(p: PrioridadePolling, numero: Long): List<String>? {
+        val principais = p.comandos.filter { it in suportados }
+        if (principais.isEmpty()) return null
+        val extras = p.urgentes.filter { it in suportados }.toMutableList()
+        if (p.ciclosPorVigiado > 0 && numero % p.ciclosPorVigiado == 0L) {
+            val vigiados = p.vigiados.filter { it in suportados && it !in principais && it !in leves && !exigeCabecalho(it) }
+            extras += rodizioVigiados.proximos(vigiados.map(grupoAtual), 1)
+        }
+        return extras.filter { it !in principais }.distinct() + principais
     }
 
     private fun cicloNormal(numero: Long): List<String> {
