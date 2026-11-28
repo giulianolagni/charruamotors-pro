@@ -96,12 +96,16 @@ class AcompanhamentoFaixa(val faixa: FaixaEsperada) {
         }
     }
 
-    /** `OK`, `acima em 12 % das leituras`, `abaixo em 3 % · acima em 1 %`, `sem leitura`. */
+    /** `OK`, `acima em 12 % das leituras`, `abaixo em 3 % · acima em < 1 %`, `sem leitura`. */
     val situacao: String
         get() {
             if (amostras == 0) return "sem leitura"
             if (abaixo == 0 && acima == 0) return "OK"
-            fun pct(n: Int) = "${RelatorioSessaoTxt.numero(n * 100.0 / amostras, 0)} %"
+            // Fora da faixa nunca vira "0 %": abaixo de 1 % sai como "< 1 %".
+            fun pct(n: Int): String {
+                val p = n * 100.0 / amostras
+                return if (p < 1.0) "< 1 %" else "${RelatorioSessaoTxt.numero(p, 0)} %"
+            }
             return listOfNotNull(
                 if (abaixo > 0) "abaixo em ${pct(abaixo)}" else null,
                 if (acima > 0) "acima em ${pct(acima)}" else null,
@@ -461,8 +465,10 @@ object RelatorioSessaoTxt {
             saida.append("  Nenhum sensor lido nesta sessão.\n")
             return
         }
-        val porComando = colunas.associateBy { it.comando }
-        val ordem = colunas.map { it.comando }.distinct().filter { it in e.sensores } + e.sensores.keys.filter { it !in porComando }
+        // O boost é calculado pela sessão e fica fora das colunas do CSV: a definição entra só aqui.
+        val porComando = (listOf(DefinicaoPid.PRESSAO_BOOST) + colunas).associateBy { it.comando }
+        val nasColunas = colunas.map { it.comando }.toSet()
+        val ordem = nasColunas.filter { it in e.sensores } + e.sensores.keys.filter { it !in nasColunas }
         for (comando in ordem) {
             val s = e.sensores[comando]?.takeIf { it.amostras > 0 } ?: continue
             val def = porComando[comando]

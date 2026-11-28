@@ -129,7 +129,7 @@ data class DefinicaoPid(
         val PRESSAO_BOOST: DefinicaoPid by lazy {
             DefinicaoPid(
                 comando = Pids.PRESSAO_BOOST,
-                nome = "Pressão do Turbo (Boost)",
+                nome = "Pressão de turbo relativa (boost)",
                 unidade = "kPa",
                 bytes = 0,
                 formula = Formula.compilar("0"),
