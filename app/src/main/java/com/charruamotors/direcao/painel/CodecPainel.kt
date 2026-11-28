@@ -50,10 +50,14 @@ object CodecPainel {
         // Ausente = todos os botões (padrão); presente e vazio = o usuário escondeu todos.
         val botoes = ler(BOTOES_NAVEGACAO)?.let { texto -> partes(texto).mapNotNull { enumOuNull<BotaoNavegacao>(it) }.toSet() }
             ?: BotaoNavegacao.entries.toSet()
+        val ordem = partes(ler(ORDEM)).mapNotNull { enumOuNull<SecaoPainel>(it) }
+        // Um bloco opcional que não existia quando a configuração foi salva entra removido.
+        val ocultas = partes(ler(OCULTAS)).mapNotNull { enumOuNull<SecaoPainel>(it) }.toSet() +
+            SecaoPainel.OPCIONAIS.filter { it !in ordem }
         return normalizar(
             ConfigPainel(
-                ordem = partes(ler(ORDEM)).mapNotNull { enumOuNull<SecaoPainel>(it) },
-                ocultas = partes(ler(OCULTAS)).mapNotNull { enumOuNull<SecaoPainel>(it) }.toSet(),
+                ordem = ordem,
+                ocultas = ocultas,
                 botoesNavegacao = botoes,
                 ordemBotoes = partes(ler(ORDEM_BOTOES)).mapNotNull { enumOuNull<BotaoNavegacao>(it) },
                 mostradores = mostradores,

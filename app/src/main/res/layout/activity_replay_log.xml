@@ -120,6 +120,60 @@
                 android:textColor="@color/texto_secundario"
                 android:visibility="gone" />
 
+            <!-- v2.12.0: trajeto GPS do log, sincronizado com o cursor do gráfico -->
+            <LinearLayout
+                android:id="@+id/painel_trajeto"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone"
+                tools:visibility="visible">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical|end"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/botao_mapa"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/replay_mapa_ocultar" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/botao_exportar_gpx"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/replay_exportar_gpx" />
+                </LinearLayout>
+
+                <com.charruamotors.ui.componentes.TrajetoView
+                    android:id="@+id/mapa_trajeto"
+                    android:layout_width="match_parent"
+                    android:layout_height="140dp"
+                    android:contentDescription="@string/replay_mapa_descricao" />
+
+                <TextView
+                    android:id="@+id/texto_cursor_mapa"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/replay_sem_posicao_cursor"
+                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:textColor="@color/texto_secundario"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/texto_picos"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:textColor="@color/texto_secundario"
+                    tools:text="Picos no mapa — RPM 3.420 · MAP 210 kPa · Rail 1.450 bar" />
+            </LinearLayout>
+
             <TextView
                 android:id="@+id/texto_janela"
                 android:layout_width="match_parent"

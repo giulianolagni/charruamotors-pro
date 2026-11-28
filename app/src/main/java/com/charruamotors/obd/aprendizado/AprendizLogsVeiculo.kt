@@ -1,5 +1,6 @@
 package com.charruamotors.obd.aprendizado
 
+import com.charruamotors.obd.log.ColunasCelular
 import com.charruamotors.obd.pid.Pids
 import com.charruamotors.oficina.replay.LeitorCsvLog
 import com.charruamotors.oficina.replay.LogCsv
@@ -123,7 +124,11 @@ class AprendizLogsVeiculo(
 
     /** null = o CSV não tem amostras/sensores utilizáveis (vira ignorado). */
     private fun incorporar(modelo: ModeloAprendido, nome: String, log: LogCsv): ModeloAprendido? {
-        val colunas = log.colunas.indices.filter { !log.colunas[it].comando.isNullOrBlank() }
+        // Posição e Força G do celular ficam de fora: o Modo Simulado não reproduz trajetos reais.
+        val colunas = log.colunas.indices.filter {
+            val comando = log.colunas[it].comando
+            !comando.isNullOrBlank() && comando !in ColunasCelular.COMANDOS
+        }
         if (log.amostras < MIN_AMOSTRAS || colunas.isEmpty()) return null
         fun indiceDe(cmd: String) = log.colunas.indexOfFirst { it.comando == cmd }
         val iRpm = indiceDe(Pids.RPM)

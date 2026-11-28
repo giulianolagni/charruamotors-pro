@@ -106,7 +106,13 @@ class ProvedorVelocidadeGps(
     /** Velocidade atual em km/h, ou null sem fix confiável (ver [FiltroVelocidadeGps]). */
     fun velocidadeKmh(): Double? = FiltroVelocidadeGps.kmh(ultima, relogio())
 
+    /** Posição atual para o log, ou null sem fix confiável (ver [FiltroPosicaoGps]). */
+    fun posicao(): PosicaoGps? = FiltroPosicaoGps.posicao(ultima, relogio())
+
     private fun amostraDe(l: Location) = AmostraGps(
+        latitude = l.latitude,
+        longitude = l.longitude,
+        altitudeM = if (l.hasAltitude()) l.altitude else null,
         velocidadeMs = if (l.hasSpeed()) l.speed else null,
         precisaoVelocidadeMs = if (l.hasSpeedAccuracy()) l.speedAccuracyMetersPerSecond else null,
         precisaoHorizontalM = if (l.hasAccuracy()) l.accuracy else null,

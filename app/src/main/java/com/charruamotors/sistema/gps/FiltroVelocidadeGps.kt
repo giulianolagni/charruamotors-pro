@@ -13,6 +13,10 @@ data class AmostraGps(
     val precisaoVelocidadeMs: Float?,
     val precisaoHorizontalM: Float?,
     val instanteMs: Long,
+    /** Coordenadas e altitude do fix (v2.12.0, posição no log); ver [FiltroPosicaoGps]. */
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val altitudeM: Double? = null,
 )
 
 /** Situação do GPS para a tela de Configurações. */

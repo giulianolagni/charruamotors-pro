@@ -45,6 +45,8 @@ data class DefinicaoPid(
     val rotulos: Map<Int, String> = emptyMap(),
     val decodificador: String? = null,
     val doAparelho: Boolean = false,
+    /** Cabeçalho literal no CSV (ex.: `gps_lat`); null = o padrão `Nome (unidade) [comando]`. */
+    val cabecalhoCsv: String? = null,
 ) {
     init {
         require(decodificador == null || Decodificadores.existe(decodificador)) {

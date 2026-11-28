@@ -15,4 +15,8 @@
     <cache-path
         name="laudos"
         path="laudos/" />
+    <!-- Trajetos exportados em GPX pelo Replay (fora do backup do sistema: revelam por onde o carro andou). -->
+    <cache-path
+        name="gpx"
+        path="gpx/" />
 </paths>

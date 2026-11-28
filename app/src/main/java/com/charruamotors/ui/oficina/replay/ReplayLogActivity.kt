@@ -1,5 +1,7 @@
 package com.charruamotors.ui.oficina.replay
 
+import android.content.ActivityNotFoundException
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -19,7 +21,10 @@ import com.charruamotors.R
 import com.charruamotors.databinding.ActivityReplayLogBinding
 import com.charruamotors.oficina.replay.AnaliseReplay
 import com.charruamotors.oficina.replay.JanelaReplay
+import com.charruamotors.oficina.replay.MarcoGpx
+import com.charruamotors.obd.pid.Pids
 import com.charruamotors.ui.componentes.GraficoSeriesView
+import com.charruamotors.ui.componentes.TrajetoView
 import com.charruamotors.ui.laudo.LaudoUi
 import com.charruamotors.ui.laudo.ResultadoLaudoLog
 import com.charruamotors.ui.util.aplicarInsetsDoSistema
@@ -50,6 +55,18 @@ class ReplayLogActivity : AppCompatActivity() {
 
     private var formatoTempo = FormatoTempo(true, 0L)
 
+    /** O usuário mostrou ou recolheu o mapa; null = ainda não escolheu. */
+    private var escolhaMapa: Boolean? = null
+
+    /** Sem escolha, o mapa começa recolhido em telas baixas (paisagem), onde o gráfico ficaria sem altura. */
+    private val mapaOculto: Boolean
+        get() = escolhaMapa ?: (resources.configuration.screenHeightDp < ALTURA_MINIMA_MAPA_DP)
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        escolhaMapa?.let { outState.putBoolean(ESTADO_MAPA_OCULTO, it) }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT))
         super.onCreate(savedInstanceState)
@@ -61,6 +78,24 @@ class ReplayLogActivity : AppCompatActivity() {
 
         // Também depois de o processo ser recriado: o ViewModel novo ainda não tem o log.
         if (viewModel.log.value == null) abrirDoIntent()
+
+        escolhaMapa = savedInstanceState?.takeIf { it.containsKey(ESTADO_MAPA_OCULTO) }?.getBoolean(ESTADO_MAPA_OCULTO)
+        binding.botaoMapa.setOnClickListener {
+            escolhaMapa = !mapaOculto
+            aplicarVisibilidadeMapa()
+            mostrarCursorNoMapa(viewModel.log.value, viewModel.cursor.value)
+        }
+        binding.botaoExportarGpx.setOnClickListener {
+            viewModel.log.value?.let { aberto ->
+                viewModel.exportarGpx(
+                    aberto.picos.map { pico ->
+                        val coluna = aberto.log.colunas[pico.coluna]
+                        val valor = formatarValor(aberto.log.series[pico.coluna][pico.indice])
+                        MarcoGpx(getString(R.string.replay_pico_gpx, nomePico(pico.comando), valor, coluna.unidade), pico.ponto)
+                    },
+                )
+            }
+        }
 
         binding.botaoVerTudo.setOnClickListener {
             viewModel.log.value?.let { binding.graficoReplay.definirJanela(it.total) }
@@ -83,12 +118,16 @@ class ReplayLogActivity : AppCompatActivity() {
                 // Log ou seleção mudou: redesenha o gráfico com as séries novas.
                 launch { combine(viewModel.log, viewModel.selecionados) { log, sel -> log to sel }.collect { (log, sel) -> mostrarLog(log, sel) } }
                 launch { viewModel.resumo.collect(::mostrarResumo) }
+                // O cursor do gráfico leva o ponto no mapa junto.
+                launch { combine(viewModel.log, viewModel.cursor) { log, c -> log to c }.collect { (log, c) -> mostrarCursorNoMapa(log, c) } }
                 launch {
                     viewModel.eventos.collect { evento ->
                         when (evento) {
                             is EventoReplay.Erro -> mensagem(getString(R.string.replay_erro_ler, evento.detalhe))
                             EventoReplay.MaximoSensores -> mensagem(getString(R.string.replay_max_sensores, AnaliseReplay.MAX_SENSORES))
                             is EventoReplay.Laudo -> LaudoUi.mostrar(this@ReplayLogActivity, binding.root, evento.resultado)
+                            is EventoReplay.Gpx -> entregarGpx(evento.gpx)
+                            is EventoReplay.ErroGpx -> mensagem(getString(R.string.gpx_erro, evento.detalhe))
                         }
                     }
                 }
@@ -119,6 +158,7 @@ class ReplayLogActivity : AppCompatActivity() {
             if (log.linhasIgnoradas > 0) info + " · " + getString(R.string.replay_linhas_ignoradas, log.linhasIgnoradas) else info,
         )
         montarChips(aberto, selecionados)
+        mostrarTrajeto(aberto)
         val series = selecionados.mapIndexed { i, coluna ->
             GraficoSeriesView.Serie(log.colunas[coluna].rotulo, log.series[coluna], coresSeries[i % coresSeries.size])
         }
@@ -131,6 +171,68 @@ class ReplayLogActivity : AppCompatActivity() {
             aberto.duracaoMinimaMs,
             viewModel.cursor.value,
         )
+    }
+
+    // ---------------------------------------------------------------- trajeto GPS
+
+    private fun mostrarTrajeto(aberto: LogAberto) = with(binding) {
+        val trajeto = aberto.trajeto
+        painelTrajeto.isVisible = trajeto != null
+        aplicarVisibilidadeMapa()
+        val marcas = aberto.picos.mapIndexed { i, pico ->
+            TrajetoView.Marca(pico.ponto, nomePico(pico.comando), coresSeries[i % coresSeries.size])
+        }
+        mapaTrajeto.definirTrajeto(trajeto, marcas)
+        val valores = aberto.picos.joinToString(" · ") { pico ->
+            val coluna = aberto.log.colunas[pico.coluna]
+            "${nomePico(pico.comando)} ${formatarValor(aberto.log.series[pico.coluna][pico.indice])} ${coluna.unidade} " +
+                "(${formatoTempo.eixo(aberto.log.instantesMs[pico.indice])})"
+        }
+        textoPicos.definirTexto(if (valores.isEmpty()) "" else getString(R.string.replay_picos, valores))
+    }
+
+    private fun aplicarVisibilidadeMapa() = with(binding) {
+        mapaTrajeto.isVisible = !mapaOculto
+        textoPicos.isVisible = !mapaOculto
+        botaoMapa.setText(if (mapaOculto) R.string.replay_mapa_mostrar else R.string.replay_mapa_ocultar)
+        // Com o mapa aberto, a dica de gestos sai para o gráfico não encolher demais.
+        textoDicaGestos.isVisible = !painelTrajeto.isVisible || mapaOculto
+    }
+
+    private fun mostrarCursorNoMapa(aberto: LogAberto?, indice: Int?) {
+        val trajeto = aberto?.trajeto ?: return
+        val ponto = indice?.let(trajeto::pontoEm)
+        binding.mapaTrajeto.cursor = ponto
+        binding.textoCursorMapa.isVisible = indice != null && ponto == null && !mapaOculto
+    }
+
+    private fun nomePico(comando: String): String = getString(
+        when (comando) {
+            Pids.RPM -> R.string.replay_pico_rpm
+            Pids.PRESSAO_COLETOR -> R.string.replay_pico_map
+            else -> R.string.replay_pico_rail
+        },
+    )
+
+    private fun entregarGpx(gpx: GpxGerado) {
+        val envio = Intent(Intent.ACTION_SEND).apply {
+            type = MIME_GPX
+            putExtra(Intent.EXTRA_STREAM, gpx.uri)
+            putExtra(Intent.EXTRA_SUBJECT, gpx.nome)
+            clipData = ClipData.newRawUri(gpx.nome, gpx.uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        Snackbar.make(binding.root, R.string.gpx_pronto, Snackbar.LENGTH_INDEFINITE)
+            .setAction(R.string.gpx_abrir) {
+                val ver = Intent(Intent.ACTION_VIEW).setDataAndType(gpx.uri, MIME_GPX).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                try {
+                    startActivity(ver)
+                } catch (_: ActivityNotFoundException) {
+                    mensagem(getString(R.string.gpx_sem_app))
+                }
+            }
+            .show()
+        runCatching { startActivity(Intent.createChooser(envio, getString(R.string.gpx_compartilhar_titulo))) }
     }
 
     /** Um chip por coluna com leitura; as selecionadas ficam marcadas com a cor da série. */
@@ -234,6 +336,9 @@ class ReplayLogActivity : AppCompatActivity() {
     companion object {
         private const val EXTRA_URI = "extra_uri"
         private const val EXTRA_NOME = "extra_nome"
+        private const val ESTADO_MAPA_OCULTO = "mapa_oculto"
+        private const val ALTURA_MINIMA_MAPA_DP = 600
+        private const val MIME_GPX = "application/gpx+xml"
 
         /** Replay de um CSV da lista do Histórico. */
         fun intent(context: Context, uri: Uri, nome: String): Intent = intentExterno(context, uri).putExtra(EXTRA_NOME, nome)

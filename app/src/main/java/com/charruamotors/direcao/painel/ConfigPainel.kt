@@ -4,7 +4,12 @@ package com.charruamotors.direcao.painel
  * Blocos do Painel, todos reordenáveis e removíveis em "Personalizar Painel". Os nomes são
  * persistidos (o `MARCADORES` vem da v1.4 e continua valendo para os mostradores/relógios).
  */
-enum class SecaoPainel(val titulo: String, val descricao: String) {
+enum class SecaoPainel(
+    val titulo: String,
+    val descricao: String,
+    /** Bloco que começa removido: o usuário o adiciona em "Personalizar Painel". */
+    val opcional: Boolean = false,
+) {
     MUSICA("Músicas (Spotify)", "Mini-player do Spotify / YouTube Music"),
     NAVEGACAO("Navegação (Atalhos Waze)", "Abrir o Waze, posto, oficina e o Modo HUD"),
     MARCADORES("Mostradores (Relógios)", "Os relógios ao vivo, no estilo de cada um"),
@@ -13,6 +18,12 @@ enum class SecaoPainel(val titulo: String, val descricao: String) {
     CRONOMETRO("Cronômetro 0–100", "Arrancada medida automaticamente"),
     LISTA_SENSORES("Lista rápida de sensores", "Grade de sensores, salvar leitura e gravar log CSV"),
     INFO_ECU("Informações da ECU", "VIN, PIDs suportados, perfil e protocolo"),
+    FORCA_G("Medidor de Força G", "Aceleração, frenagem e curvas pelos sensores do celular", opcional = true),
+    ;
+
+    companion object {
+        val OPCIONAIS: Set<SecaoPainel> get() = entries.filter { it.opcional }.toSet()
+    }
 }
 
 /**
@@ -136,7 +147,7 @@ data class ConfigPainel(
     /** Todos os blocos, na ordem (os removidos também guardam o lugar). */
     val ordem: List<SecaoPainel> = ORDEM_PADRAO,
     /** Blocos que o usuário tirou da tela ("Blocos removidos"). */
-    val ocultas: Set<SecaoPainel> = emptySet(),
+    val ocultas: Set<SecaoPainel> = SecaoPainel.OPCIONAIS,
     val botoesNavegacao: Set<BotaoNavegacao> = BotaoNavegacao.entries.toSet(),
     /** Ordem de todos os atalhos da Navegação (os escondidos também guardam o lugar). */
     val ordemBotoes: List<BotaoNavegacao> = BotaoNavegacao.entries,
@@ -302,6 +313,7 @@ data class ConfigPainel(
             SecaoPainel.CRONOMETRO,
             SecaoPainel.LISTA_SENSORES,
             SecaoPainel.INFO_ECU,
+            SecaoPainel.FORCA_G,
         )
         val MOSTRADORES_PADRAO = listOf(SensorPainel.RPM, SensorPainel.VELOCIDADE, SensorPainel.TURBO, SensorPainel.TEMP_MOTOR)
             .map { Mostrador(it) }

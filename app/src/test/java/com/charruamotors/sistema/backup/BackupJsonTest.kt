@@ -109,7 +109,8 @@ class BackupJsonTest {
         val prefs = raiz.getJSONObject("preferencias")
         assertEquals(SistemaUnidades.entries.last().name, prefs.getString("sistemaUnidades"))
         val json = prefs.getJSONObject("painel")
-        assertEquals("MUSICA", json.getString("ocultas"))
+        // v2.12.0: o bloco opcional do Medidor de Força G vai como removido.
+        assertEquals("MUSICA,FORCA_G", json.getString("ocultas"))
         assertTrue(json.getString("mostradores_v2").contains(":FITA"))
         assertEquals("ATRV,010C", json.getString("lista_rapida"))
 

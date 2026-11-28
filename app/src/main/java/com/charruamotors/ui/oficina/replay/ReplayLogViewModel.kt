@@ -11,8 +11,12 @@ import com.charruamotors.oficina.replay.AnaliseReplay
 import com.charruamotors.oficina.replay.ColunaLog
 import com.charruamotors.oficina.replay.CsvInvalidoException
 import com.charruamotors.oficina.replay.EstatisticaSerie
+import com.charruamotors.oficina.replay.ExportadorGpx
 import com.charruamotors.oficina.replay.JanelaReplay
 import com.charruamotors.oficina.replay.LogCsv
+import com.charruamotors.oficina.replay.MarcoGpx
+import com.charruamotors.oficina.replay.PicoTrajeto
+import com.charruamotors.oficina.replay.TrajetoGps
 import com.charruamotors.oficina.replay.emUnidades
 import com.charruamotors.sistema.unidades.ConversorUnidades
 import com.charruamotors.ui.laudo.ArquivoLaudoPdf
@@ -33,10 +37,21 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.IOException
 
 /** Log aberto no replay. */
-data class LogAberto(val nome: String, val uri: Uri, val log: LogCsv, val total: JanelaReplay, val duracaoMinimaMs: Long)
+data class LogAberto(
+    val nome: String,
+    val uri: Uri,
+    val log: LogCsv,
+    val total: JanelaReplay,
+    val duracaoMinimaMs: Long,
+    /** v2.12.0: trajeto das colunas `gps_*`; null = o log não tem coordenadas válidas. */
+    val trajeto: TrajetoGps? = null,
+    /** Onde cada pico (RPM, MAP, rail) aconteceu no trajeto. */
+    val picos: List<PicoTrajeto> = emptyList(),
+)
 
 /** Resumo de um sensor selecionado: estatísticas da janela e o valor no cursor. */
 data class ResumoSerie(
@@ -54,6 +69,8 @@ sealed interface EventoReplay {
     data class Erro(val detalhe: String) : EventoReplay
     data object MaximoSensores : EventoReplay
     data class Laudo(val resultado: ResultadoLaudoLog) : EventoReplay
+    data class Gpx(val gpx: GpxGerado) : EventoReplay
+    data class ErroGpx(val detalhe: String) : EventoReplay
 }
 
 /**
@@ -64,9 +81,31 @@ class ReplayLogViewModel(
     private val repositorio: RepositorioLogsCsv,
     private val geradorLaudo: GeradorLaudoLog,
     private val conversor: () -> ConversorUnidades,
+    private val arquivoGpx: ArquivoGpx,
 ) : ViewModel() {
 
     private var gerandoLaudo = false
+    private var gerandoGpx = false
+
+    /** Exporta o trajeto do log aberto, com os [marcos] dos picos já nas unidades da tela. */
+    fun exportarGpx(marcos: List<MarcoGpx>) {
+        val aberto = _log.value ?: return
+        val trajeto = aberto.trajeto ?: return
+        if (gerandoGpx) return
+        gerandoGpx = true
+        viewModelScope.launch {
+            try {
+                val conteudo = withContext(Dispatchers.Default) {
+                    ExportadorGpx.gerar(aberto.nome, trajeto, aberto.log.tempoAbsoluto, marcos)
+                }
+                _eventos.send(EventoReplay.Gpx(arquivoGpx.salvar(aberto.nome, conteudo)))
+            } catch (e: IOException) {
+                _eventos.send(EventoReplay.ErroGpx(e.message ?: "falha de escrita"))
+            } finally {
+                gerandoGpx = false
+            }
+        }
+    }
 
     /** Laudo PDF do log aberto (e do relatório `.txt` da mesma sessão). */
     fun gerarLaudo(uri: Uri, nome: String, opcoes: OpcoesLaudo) {
@@ -135,9 +174,14 @@ class ReplayLogViewModel(
         carregamento = viewModelScope.launch {
             _carregando.value = true
             try {
-                val log = repositorio.abrir(uri).emUnidades(conversor())
+                val bruto = repositorio.abrir(uri)
+                val log = bruto.emUnidades(conversor())
                 val total = AnaliseReplay.janelaCompleta(log)
-                _log.value = LogAberto(nome(), uri, log, total, AnaliseReplay.duracaoMinima(log))
+                val (trajeto, picos) = withContext(Dispatchers.Default) {
+                    val t = TrajetoGps.de(bruto)
+                    t to t?.picos(bruto).orEmpty()
+                }
+                _log.value = LogAberto(nome(), uri, log, total, AnaliseReplay.duracaoMinima(log), trajeto, picos)
                 _selecionados.value = AnaliseReplay.selecaoInicial(log)
                 _janela.value = total
                 _cursor.value = null
@@ -181,7 +225,7 @@ class ReplayLogViewModel(
             initializer {
                 val app = this[APPLICATION_KEY] as CharruaMotorsApp
                 val gerador = GeradorLaudoLog(ArquivoLaudoPdf(app), app.preferenciasApp, PendenciasManutencao(app))
-                ReplayLogViewModel(RepositorioLogsCsv(app), gerador) { app.preferenciasApp.config.value.conversor }
+                ReplayLogViewModel(RepositorioLogsCsv(app), gerador, { app.preferenciasApp.config.value.conversor }, ArquivoGpx(app))
             }
         }
     }

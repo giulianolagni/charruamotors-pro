@@ -74,7 +74,13 @@ import com.charruamotors.obd.log.LogsSessaoSalvos
 import com.charruamotors.obd.pid.Pids
 import com.charruamotors.obd.sessao.ConfigAutoConexao
 import com.charruamotors.obd.sessao.EstadoSessao
+import com.charruamotors.obd.sessao.ObdSessaoService
 import com.charruamotors.obd.sessao.SessaoObd
+import com.charruamotors.direcao.forcag.EstadoForcaG
+import com.charruamotors.ui.oficina.forcag.ForcaGUi
+import com.charruamotors.ui.permissoes.OpcaoPosicaoNoLog
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import com.charruamotors.ui.diagnostico.DiagnosticoActivity
 import com.charruamotors.ui.diagnostico.DiagnosticoPagerAdapter
 import com.charruamotors.ui.diagnostico.historico.HistoricoFragment
@@ -147,6 +153,14 @@ class ObdFragment : Fragment() {
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             if (Settings.canDrawOverlays(requireContext())) ativarHud() else mostrarMensagem(getString(R.string.hud_permissao_overlay))
         }
+
+    /** v2.12.0: atalho "GPS no log"; a localização só é pedida ao ligar. */
+    private val posicaoNoLog = OpcaoPosicaoNoLog(this, { app }) { concedida ->
+        if (_binding != null) {
+            mostrarOpcoesDoLog()
+            if (!concedida) mostrarMensagem(getString(R.string.log_gps_permissao_negada))
+        }
+    }
 
     private val pedirBluetoothHud =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
@@ -224,6 +238,12 @@ class ObdFragment : Fragment() {
         botaoIgnorarPerfil.setOnClickListener { viewModel.ignorarPerfilAutomatico() }
         botaoSalvarLeitura.setOnClickListener { viewModel.salvarLeitura() }
         botaoGravarLog.setOnClickListener { viewModel.alternarLog() }
+        chipLogGps.setOnClickListener {
+            posicaoNoLog.definir(chipLogGps.isChecked)
+            mostrarOpcoesDoLog()
+        }
+        chipLogForcaG.setOnClickListener { app.preferenciasApp.definirGravarForcaG(chipLogForcaG.isChecked) }
+        botaoCalibrarForcaG.setOnClickListener { mostrarMensagem(getString(ForcaGUi.calibrar(requireContext()))) }
         botaoAbrirAceleracao.setOnClickListener { startActivity(TesteAceleracaoActivity.intent(requireContext())) }
         botaoZerarViagem.setOnClickListener { viewModel.zerarViagem() }
         botaoRegistroComunicacao.setOnClickListener { mostrarRegistroComunicacao() }
@@ -525,7 +545,16 @@ class ObdFragment : Fragment() {
                 controladorMidia?.let { midia -> launch { midia.estado.collect { mostrarMidia(it) } } }
                 launch { telemetriaHud.hudAtivo.collect { mostrarHud(it) } }
                 launch { viewModel.configAuto.collect { mostrarAdaptador(it) } }
-                launch { app.preferenciasApp.config.collect { aplicarConversor(it.conversor) } }
+                launch {
+                    app.preferenciasApp.config.collect {
+                        aplicarConversor(it.conversor)
+                        mostrarOpcoesDoLog()
+                    }
+                }
+                launch { viewModel.modo.collect { mostrarOpcoesDoLog() } }
+                launch { app.sensorForcaG.medidor.estado.collect { mostrarForcaG(it) } }
+                // O aviso "calibre o suporte" some assim que a calibração existir.
+                launch { app.sensorForcaG.medidor.estado.map { it.calibrado }.distinctUntilChanged().collect { mostrarOpcoesDoLog() } }
                 launch { app.preferenciasPainel.config.collect { aplicarConfigPainel(it) } }
                 launch { viewModel.estadoSessao.collect { mostrarEstadoSessao(it) } }
                 launch { app.sessaoObd.fonteSimulacao.collect { mostrarFonteSimulacao(it) } }
@@ -706,6 +735,8 @@ class ObdFragment : Fragment() {
             }
         }
         organizarAtalhos(config)
+        atualizarSensorForcaG()
+        mostrarForcaG(app.sensorForcaG.medidor.estado.value)
         configurarMostradores()
         mostrarSensores(viewModel.sensores.value)
     }
@@ -737,6 +768,41 @@ class ObdFragment : Fragment() {
         SecaoPainel.CRONOMETRO -> binding.cardCronometro
         SecaoPainel.LISTA_SENSORES -> binding.cardListaSensores
         SecaoPainel.INFO_ECU -> binding.cardInfoEcu
+        SecaoPainel.FORCA_G -> binding.cardForcaG
+    }
+
+    // ------------------------------------------------------------------ Força G e leituras do celular
+
+    /** O sensor de movimento só trabalha com a aba em primeiro plano e o bloco no Painel. */
+    private fun atualizarSensorForcaG() {
+        app.sensorForcaG.usar(this, emPrimeiroPlano && configPainel.visivel(SecaoPainel.FORCA_G))
+    }
+
+    private fun mostrarForcaG(estado: EstadoForcaG) = with(binding) {
+        if (!cardForcaG.isVisible) return@with
+        val ctx = requireContext()
+        mostradorForcaG.estado = estado
+        textoForcaGSituacao.definirTexto(ForcaGUi.situacao(ctx, estado))
+        textoForcaGAtual.definirTexto(ForcaGUi.atual(ctx, estado))
+        textoForcaGPicos.definirTexto(ForcaGUi.picos(ctx, estado))
+    }
+
+    /** Atalho "GPS no log" / "Força G no log": travado durante a gravação, com o aviso do que não vai sair. */
+    private fun mostrarOpcoesDoLog() = with(binding) {
+        val config = app.preferenciasApp.config.value
+        val gravando = viewModel.estadoLog.value.gravando
+        chipLogGps.isChecked = config.gravarPosicaoGps
+        chipLogForcaG.isChecked = config.gravarForcaG
+        chipLogGps.isEnabled = !gravando
+        chipLogForcaG.isEnabled = !gravando
+        val algum = config.gravarPosicaoGps || config.gravarForcaG
+        val aviso = when {
+            algum && viewModel.modo.value == ModoObd.SIMULADO -> getString(R.string.log_aviso_simulado)
+            config.gravarForcaG && !app.sensorForcaG.medidor.estado.value.calibrado -> getString(R.string.log_aviso_calibrar)
+            else -> null
+        }
+        textoAvisoLog.isVisible = aviso != null
+        textoAvisoLog.definirTexto(aviso.orEmpty())
     }
 
     /** Remonta a grade (2 colunas; Fita em largura total) só quando os relógios ou as unidades mudam. */
@@ -909,6 +975,7 @@ class ObdFragment : Fragment() {
             getString(R.string.obd_log_gravar)
         })
         atualizarBotoes()
+        mostrarOpcoesDoLog()
     }
 
     /** Log salvo: Snackbar com o local do arquivo e a ação de compartilhar. */
@@ -956,11 +1023,15 @@ class ObdFragment : Fragment() {
         emPrimeiroPlano = true
         aplicarTelaAcesa()
         avaliarCluster()
+        atualizarSensorForcaG()
+        // A sessão automática nasceu em segundo plano: com o app à frente, o GPS do log pode entrar.
+        ObdSessaoService.revalidarLocalizacao(requireContext())
     }
 
     override fun onPause() {
         emPrimeiroPlano = false
         aplicarTelaAcesa()
+        atualizarSensorForcaG()
         super.onPause()
     }
 
@@ -974,6 +1045,7 @@ class ObdFragment : Fragment() {
         Log.d(TAG, "onDestroyView: libera o binding")
         controladorMidia?.parar()
         controladorMidia = null
+        app.sensorForcaG.usar(this, false)
         _binding = null
         super.onDestroyView()
     }

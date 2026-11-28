@@ -34,6 +34,7 @@ import com.charruamotors.ui.alertas.ConfigAlertasActivity
 import com.charruamotors.ui.assistente.AssistenteActivity
 import com.charruamotors.ui.atualizacao.AtualizadorApp
 import com.charruamotors.ui.permissoes.ChecklistPermissoesActivity
+import com.charruamotors.ui.permissoes.OpcaoPosicaoNoLog
 import com.charruamotors.ui.permissoes.SolicitadorPermissoes
 import com.charruamotors.ui.util.aplicarInsetsDoSistema
 import com.charruamotors.oficina.bateria.LaudoBateria
@@ -71,6 +72,14 @@ class ConfiguracoesActivity : AppCompatActivity() {
             app.reavaliarGps()
         } else {
             Snackbar.make(binding.root, R.string.config_gps_permissao_negada, Snackbar.LENGTH_LONG).show()
+        }
+    }
+
+    /** v2.12.0: posição no log; a permissão só é pedida ao ligar. */
+    private val posicaoNoLog = OpcaoPosicaoNoLog(this, { app }) { concedida ->
+        if (!concedida) {
+            binding.switchPosicaoLog.isChecked = false
+            Snackbar.make(binding.root, R.string.log_gps_permissao_negada, Snackbar.LENGTH_LONG).show()
         }
     }
 
@@ -292,6 +301,13 @@ class ConfiguracoesActivity : AppCompatActivity() {
                 pedirLocalizacao.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
             }
         }
+        switchPosicaoLog.setOnCheckedChangeListener { _, marcado ->
+            if (marcado == prefsApp.config.value.gravarPosicaoGps) return@setOnCheckedChangeListener
+            // Sem a permissão, o botão volta até a resposta: a opção só liga com ela concedida.
+            if (marcado && !app.velocidadeGps.temPermissao()) switchPosicaoLog.isChecked = false
+            posicaoNoLog.definir(marcado)
+        }
+        switchForcaGLog.setOnCheckedChangeListener { _, marcado -> prefsApp.definirGravarForcaG(marcado) }
         grupoFonteCronometro.addOnButtonCheckedListener { _, id, marcado ->
             if (!marcado) return@addOnButtonCheckedListener
             val fonte = if (id == R.id.botao_fonte_gps) FonteVelocidade.GPS else FonteVelocidade.OBD
@@ -305,7 +321,9 @@ class ConfiguracoesActivity : AppCompatActivity() {
         if (grupoFonteCronometro.checkedButtonId != fonte) grupoFonteCronometro.check(fonte)
         // A fonte GPS só vale com a leitura ligada.
         grupoFonteCronometro.isEnabled = config.velocidadeGps
-        textoSituacaoGps.isVisible = config.velocidadeGps
+        textoSituacaoGps.isVisible = config.velocidadeGps || config.gravarPosicaoGps
+        if (switchPosicaoLog.isChecked != config.gravarPosicaoGps) switchPosicaoLog.isChecked = config.gravarPosicaoGps
+        if (switchForcaGLog.isChecked != config.gravarForcaG) switchForcaGLog.isChecked = config.gravarForcaG
     }
 
     companion object {

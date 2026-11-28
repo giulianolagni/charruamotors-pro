@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v2.12.0: posição GPS no log CSV, mapa do trajeto no Replay, exportação GPX e Medidor de Força G. -->
+<resources>
+    <!-- Opções de gravação (Configurações e atalho do log) -->
+    <string name="log_gps_opcao">Gravar posição GPS no log</string>
+    <string name="log_gps_descricao">Colunas gps_lat, gps_lon, gps_alt_m e gps_vel_kmh nos CSVs de sessões reais, para o mapa do Replay e o GPX. No log automático, vale a partir da próxima conexão. O arquivo passa a revelar por onde o carro andou: atenção ao compartilhar.</string>
+    <string name="log_gps_permissao_negada">Sem a permissão de localização precisa, a posição não é gravada. A conexão OBD2 segue normalmente.</string>
+    <string name="log_forca_g_opcao">Gravar Força G no log</string>
+    <string name="log_forca_g_descricao">Colunas forca_g_long e forca_g_lat nos CSVs de sessões reais. Calibre o suporte no Medidor de Força G (aba Oficina). No log automático, vale a partir da próxima conexão.</string>
+    <string name="log_chip_gps">GPS no log</string>
+    <string name="log_chip_forca_g">Força G no log</string>
+    <string name="log_aviso_simulado">Modo Simulado: posição e Força G não são gravadas.</string>
+    <string name="log_aviso_calibrar">Força G: calibre o suporte no Medidor de Força G (aba Oficina).</string>
+
+    <!-- Replay: mapa do trajeto e GPX -->
+    <string name="replay_mapa_descricao">Mapa do trajeto com o ponto do cursor e os picos</string>
+    <string name="replay_mapa_mostrar">Mostrar mapa</string>
+    <string name="replay_mapa_ocultar">Ocultar mapa</string>
+    <string name="replay_exportar_gpx">Exportar GPX</string>
+    <string name="replay_sem_posicao_cursor">Sem posição GPS no instante do cursor</string>
+    <string name="replay_picos">Picos no mapa — %1$s</string>
+    <string name="replay_pico_rpm">RPM</string>
+    <string name="replay_pico_map">MAP</string>
+    <string name="replay_pico_rail">Rail</string>
+    <string name="replay_pico_gpx">Pico %1$s: %2$s %3$s</string>
+    <string name="gpx_pronto">GPX pronto</string>
+    <string name="gpx_abrir">Abrir no mapa</string>
+    <string name="gpx_compartilhar_titulo">Compartilhar trajeto GPX</string>
+    <string name="gpx_sem_app">Nenhum app instalado abre GPX direto. Compartilhe o arquivo ou importe-o no Google Earth.</string>
+    <string name="gpx_erro">Não foi possível gerar o GPX: %1$s</string>
+
+    <!-- Medidor de Força G -->
+    <string name="oficina_card_forca_g">Medidor de Força G</string>
+    <string name="oficina_card_forca_g_desc">Aceleração, frenagem e curvas pelos sensores do celular.</string>
+    <string name="forca_g_titulo">Medidor de Força G</string>
+    <string name="forca_g_calibrar">Zerar / Calibrar suporte</string>
+    <string name="forca_g_zerar_picos">Zerar picos</string>
+    <string name="forca_g_instrucoes">Fixe o celular no suporte com a tela voltada para o motorista, pare o carro em local plano e toque em “Zerar / Calibrar suporte”. Recalibre se o celular mudar de posição.</string>
+    <string name="forca_g_atual">Longitudinal %1$s G · Lateral %2$s G</string>
+    <string name="forca_g_picos">Picos: aceleração %1$s G · frenagem %2$s G\nCurva à esquerda %3$s G · curva à direita %4$s G</string>
+    <string name="forca_g_nao_calibrado">Suporte não calibrado</string>
+    <string name="forca_g_aguardando">Aguardando o sensor…</string>
+    <string name="forca_g_calibrado">Suporte calibrado</string>
+    <string name="forca_g_calibrar_sem_leituras">Aguarde um instante e tente de novo: ainda não há leituras suficientes.</string>
+    <string name="forca_g_calibrar_movimento">Movimento detectado. Pare o carro, não toque no celular e tente de novo.</string>
+    <string name="forca_g_calibrar_posicao">Não foi possível definir a frente do carro nesta posição. Vire a tela para o motorista.</string>
+    <string name="forca_g_sem_sensor">Este aparelho não tem acelerômetro.</string>
+    <string name="forca_g_sem_linear">Sem o sensor de aceleração linear: a gravidade é filtrada pelo app e forças mantidas por vários segundos aparecem menores.</string>
+    <string name="forca_g_simulado">Modo Simulado: as leituras são só da tela; nada é gravado.</string>
+    <string name="forca_g_acel">ACEL</string>
+    <string name="forca_g_freio">FREIO</string>
+    <string name="forca_g_esq">ESQ</string>
+    <string name="forca_g_dir">DIR</string>
+    <string name="forca_g_mostrador_descricao">Mostrador de Força G: longitudinal %1$s G, lateral %2$s G</string>
+</resources>

@@ -32,6 +32,7 @@ Disciplina: Desenvolvimento Mobile II. Professor: Jaqson.
 - [Modo Flex, faixas esperadas, Cruze 1.4T e Teste de Atuadores (v2.1)](#modo-flex-faixas-esperadas-cruze-14t-e-teste-de-atuadores-v21)
 - [Perfis isolados por veículo, status ELM × ECU e Backup (v2.3)](#perfis-isolados-por-veículo-status-elm--ecu-e-backup-v23)
 - [Desempenho, viagem e calibração de consumo (v2.6)](#desempenho-viagem-e-calibração-de-consumo-v26)
+- [GPS no log e Força G (v2.12)](#gps-no-log-e-força-g-v212)
 - [Regras de negócio e cálculos](#regras-de-negócio-e-cálculos)
 - [Arquitetura e stack](#arquitetura-e-stack)
 - [Como executar](#como-executar)
@@ -590,6 +591,23 @@ No topo da aba **Manutenções**, por carro (perfil isolado):
   na aba e no cartão, sem alarme sonoro.
 - Os itens, o odômetro, o histórico e o nome da oficina e do técnico vão no backup `.json`; o laudo PDF pode
   incluir no fim os itens vencidos ou próximos.
+
+---
+
+## GPS no log e Força G (v2.12)
+
+Tudo com APIs nativas e `Canvas`, sem SDK de mapa nem chave de API.
+
+- **Gravar posição GPS no log** (Configurações ou chip **GPS no log** ao lado de *Gravar Log CSV*, desligado por
+  padrão): colunas `gps_lat`, `gps_lon`, `gps_alt_m` e `gps_vel_kmh`. A localização precisa só é pedida ao ligar;
+  negada ou sem sinal, a conexão OBD2 segue igual e os campos ficam vazios. No log automático vale a partir da
+  próxima conexão. CSVs antigos continuam abrindo normalmente.
+- **Replay:** com coordenadas no CSV, mini-mapa do trajeto sincronizado com o cursor do gráfico, o ponto de cada
+  pico de RPM, MAP e rail e **Exportar GPX** (Google Earth, Maps). O CSV e o GPX revelam por onde o carro andou.
+- **Medidor de Força G** (Oficina, ou bloco opcional em *Personalizar Painel*): **Zerar / Calibrar suporte** com o
+  carro parado e a tela voltada para o motorista; anéis de 0,5, 1,0 e 1,5 G, rastro e picos de aceleração,
+  frenagem e curvas. **Gravar Força G no log** acrescenta `forca_g_long` e `forca_g_lat`. A calibração é por carro.
+- No **Modo Simulado** nada disso é gravado; os picos ficam só na memória em qualquer modo.
 
 ---
 

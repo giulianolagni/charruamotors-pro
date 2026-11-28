@@ -2,12 +2,15 @@ package com.charruamotors.ui.oficina.sensores
 
 import com.charruamotors.CharruaMotorsApp
 import com.charruamotors.obd.ModoComunicacaoEcu
+import com.charruamotors.obd.log.ColunasCelular
 import com.charruamotors.obd.pid.DefinicaoPid
 
 /** Sensores que a conexão atual suporta (ECU, montadora e os calculados pelo app). */
 fun CharruaMotorsApp.definicoesDaSessao(): List<DefinicaoPid> {
     val suportados = sessaoObd.pidsSuportados.value
-    return (sessaoObd.definicoesSuportadas(suportados) + sessaoObd.colunasDoAparelho(suportados)).distinctBy { it.comando }
+    // As colunas opcionais do log (posição e Força G) não são sensores destas telas.
+    val doApp = sessaoObd.colunasDoAparelho(suportados).filterNot { it.comando in ColunasCelular.COMANDOS }
+    return (sessaoObd.definicoesSuportadas(suportados) + doApp).distinctBy { it.comando }
 }
 
 /**

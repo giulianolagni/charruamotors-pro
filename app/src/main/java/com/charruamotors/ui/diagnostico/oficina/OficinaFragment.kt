@@ -29,6 +29,7 @@ import com.charruamotors.ui.oficina.bateria.TesteBateriaActivity
 import com.charruamotors.ui.oficina.checkup.CheckupObdActivity
 import com.charruamotors.ui.oficina.checkup.FerramentaCheckup
 import com.charruamotors.ui.oficina.falhas.DiagnosticoErrosActivity
+import com.charruamotors.ui.oficina.forcag.ForcaGActivity
 import com.charruamotors.ui.oficina.injecao.InjecaoActivity
 import com.charruamotors.ui.oficina.sensores.GraficosActivity
 import com.charruamotors.ui.oficina.sensores.SensoresActivity
@@ -64,7 +65,8 @@ class OficinaFragment : Fragment() {
             preencher(cardSensores, R.string.oficina_card_sensores, R.string.oficina_card_sensores_desc, R.drawable.ic_checklist, R.color.azul_primario)
             preencher(cardGraficos, R.string.oficina_card_graficos, R.string.oficina_card_graficos_desc, R.drawable.ic_grafico, R.color.terminal_card)
             preencher(cardAceleracao, R.string.oficina_card_aceleracao, R.string.oficina_card_aceleracao_desc, R.drawable.ic_cronometro, R.color.veredito_atencao)
-            preencher(cardCalibracao, R.string.oficina_card_calibracao, R.string.oficina_card_calibracao_desc, R.drawable.ic_posto, R.color.azul_primario)
+            preencher(cardForcaG, R.string.oficina_card_forca_g, R.string.oficina_card_forca_g_desc, R.drawable.ic_cronometro, R.color.terminal_card)
+            preencher(cardCalibracao,R.string.oficina_card_calibracao, R.string.oficina_card_calibracao_desc, R.drawable.ic_posto, R.color.azul_primario)
             preencher(cardBateria, R.string.oficina_card_bateria, R.string.oficina_card_bateria_desc, R.drawable.ic_bateria, R.color.veredito_bom)
             preencher(cardInjecao, R.string.oficina_card_injecao, R.string.oficina_card_injecao_desc, R.drawable.ic_grafico, R.color.dtc_confirmado)
             preencher(cardFalhas, R.string.oficina_card_falhas, R.string.oficina_card_falhas_desc, R.drawable.ic_falha, R.color.dtc_confirmado)
@@ -77,6 +79,8 @@ class OficinaFragment : Fragment() {
             cardSensores.root.setOnClickListener { abrirConectada { SensoresActivity.intent(requireContext()) } }
             cardGraficos.root.setOnClickListener { abrirConectada { GraficosActivity.intent(requireContext()) } }
             cardAceleracao.root.setOnClickListener { abrirConectada { TesteAceleracaoActivity.intent(requireContext()) } }
+            // O medidor de Força G abre sempre: usa só os sensores do celular.
+            cardForcaG.root.setOnClickListener { startActivity(ForcaGActivity.intent(requireContext())) }
             // A calibração abre sempre: não depende do scanner.
             cardCalibracao.root.setOnClickListener { startActivity(CalibracaoConsumoActivity.intent(requireContext(), veiculoId)) }
             cardBateria.root.setOnClickListener { abrirConectada { TesteBateriaActivity.intent(requireContext(), veiculoId) } }

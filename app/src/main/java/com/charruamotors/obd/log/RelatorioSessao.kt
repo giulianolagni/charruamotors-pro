@@ -172,7 +172,10 @@ class EstatisticasViagem(
 
     fun registrar(dados: ValoresSensores, instanteMs: Long? = null) {
         amostras++
-        for ((comando, valor) in dados.valores) sensores.getOrPut(comando) { ResumoSensor() }.registrar(valor)
+        for ((comando, valor) in dados.valores) {
+            // Média de latitude não é um sensor (e o relatório não deve revelar o trajeto).
+            if (comando !in ColunasCelular.COORDENADAS) sensores.getOrPut(comando) { ResumoSensor() }.registrar(valor)
+        }
         // GM: a posição do TCM substitui a marcha estimada no resumo.
         (dados[AlavancaGmTcm.CHAVE_POSICAO] ?: dados[CambioA750f.CHAVE_MARCHA])?.takeIf { it.isFinite() }
             ?.let { marchas.merge(it.toInt(), 1, Int::plus) }
