@@ -39,6 +39,7 @@ class GeradorLaudoLog(
                 tecnico = config.nomeTecnico,
                 observacoes = opcoes.observacoes,
                 manutencao = manutencao,
+                unidades = config.conversor,
             )
             ResultadoLaudoLog.Gerado(arquivo.gerar(completo))
         } catch (e: CancellationException) {

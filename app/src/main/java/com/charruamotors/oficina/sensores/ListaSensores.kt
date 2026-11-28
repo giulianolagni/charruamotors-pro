@@ -13,12 +13,7 @@ object FormatadorSensor {
     const val SEM_LEITURA = "—"
 
     private fun exibir(def: DefinicaoPid, valor: Double, conversor: ConversorUnidades): ValorExibicao =
-        // O rail sai em bar/psi como no Painel (em kPa teria 6 dígitos).
-        if (SensorPainel.doComando(def.comando) == SensorPainel.RAIL) {
-            SensorPainel.RAIL.exibir(valor, conversor)
-        } else {
-            conversor.converter(valor, def.unidade, def.casasDecimais)
-        }
+        SensorPainel.exibirDoComando(def.comando, valor, def.unidade, def.casasDecimais, conversor)
 
     /** O rótulo do estado (`D`, `3ª`) ou o número convertido, sem a unidade; "—" sem leitura. */
     fun valor(def: DefinicaoPid, valor: Double?, conversor: ConversorUnidades): String {

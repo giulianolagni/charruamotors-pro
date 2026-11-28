@@ -1,5 +1,7 @@
 package com.charruamotors.laudo
 
+import com.charruamotors.sistema.unidades.ConversorUnidades
+
 /** De onde vieram os dados do laudo. Obrigatória: é ela que decide a faixa de modo simulado. */
 enum class OrigemLaudo {
     /** Sessão em curso com o scanner Bluetooth conectado. */
@@ -68,6 +70,9 @@ data class ResumoTecnicoLaudo(
     val velocidadeMediaKmh: Double? = null,
     val litros: Double? = null,
     val kmPorLitro: Double? = null,
+    /** v2.11.2: pressões em kPa; null = não lidas (a linha não sai no laudo). */
+    val map: FaixaLida? = null,
+    val rail: FaixaLida? = null,
 )
 
 /** v2.8.0: resumo do teste de bateria concluído na sessão, já formatado. */
@@ -103,6 +108,8 @@ data class DadosLaudo(
     val injecao: List<Pair<String, String>> = emptyList(),
     /** v2.11.0: itens de manutenção vencidos ou próximos (nome → situação); vazio = sem a seção. */
     val manutencao: List<Pair<String, String>> = emptyList(),
+    /** v2.11.2: unidades de exibição do resumo (as leituras acima continuam em SI). */
+    val unidades: ConversorUnidades = ConversorUnidades.PADRAO,
 ) {
     val simulado: Boolean get() = origem == OrigemLaudo.SIMULADO
 }

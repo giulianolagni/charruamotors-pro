@@ -44,6 +44,8 @@ object LaudoDaSessao {
             velocidadeMediaKmh = viagem.velocidadeMediaKmh,
             litros = viagem.litros.takeIf { it > 0 },
             kmPorLitro = viagem.kmPorLitro,
+            map = faixa(Pids.PRESSAO_COLETOR),
+            rail = faixa(Pids.PRESSAO_RAIL),
         )
     }
 }

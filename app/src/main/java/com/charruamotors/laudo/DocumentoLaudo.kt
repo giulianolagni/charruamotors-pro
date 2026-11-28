@@ -1,6 +1,10 @@
 package com.charruamotors.laudo
 
+import com.charruamotors.direcao.painel.SensorPainel
 import com.charruamotors.obd.log.RelatorioSessaoTxt
+import com.charruamotors.obd.pid.Pids
+import com.charruamotors.sistema.unidades.ConversorUnidades
+import com.charruamotors.sistema.unidades.ValorExibicao
 import java.time.ZoneId
 
 /** Um trecho do corpo do laudo, na ordem de leitura. */
@@ -41,7 +45,7 @@ object MontadorLaudo {
         blocos = buildList {
             veiculo(d.veiculo)
             diagnostico(d.diagnostico)
-            resumo(d.resumo)
+            resumo(d.resumo, d.unidades)
             d.testeBateria?.let { testeBateria(it) }
             if (d.injecao.isNotEmpty()) {
                 add(BlocoLaudo.Secao("Diagnóstico de injeção"))
@@ -119,18 +123,25 @@ object MontadorLaudo {
         }
     }
 
-    private fun MutableList<BlocoLaudo>.resumo(r: ResumoTecnicoLaudo) {
+    private fun MutableList<BlocoLaudo>.resumo(r: ResumoTecnicoLaudo, unidades: ConversorUnidades) {
         add(BlocoLaudo.Secao("Resumo técnico da sessão"))
+        fun texto(v: ValorExibicao) = "${numero(v.valor, v.casas)} ${v.unidade}"
+        fun medida(valor: Double, unidade: String, casas: Int) = texto(unidades.converter(valor, unidade, casas))
+        fun extremos(f: FaixaLida, exibir: (Double) -> String) = "mín ${exibir(f.minimo)} · máx ${exibir(f.maximo)}"
         fun faixa(rotulo: String, f: FaixaLida?, casas: Int, unidade: String) = add(
-            BlocoLaudo.Campo(
-                rotulo,
-                f?.let { "mín ${numero(it.minimo, casas)} $unidade · máx ${numero(it.maximo, casas)} $unidade" } ?: SEM_LEITURA,
-            ),
+            BlocoLaudo.Campo(rotulo, f?.let { extremos(it) { v -> medida(v, unidade, casas) } } ?: SEM_LEITURA),
         )
+        // Pressões só aparecem quando lidas (nem todo motor tem rail).
+        fun pressao(rotulo: String, comando: String, f: FaixaLida?) {
+            if (f == null) return
+            add(BlocoLaudo.Campo(rotulo, extremos(f) { texto(SensorPainel.exibirDoComando(comando, it, "kPa", 0, unidades)) }))
+        }
         faixa("Bateria / alternador", r.tensao, 1, "V")
         faixa("Temperatura da água", r.agua, 0, "°C")
         faixa("Temperatura do ATF", r.atf, 0, "°C")
-        add(BlocoLaudo.Campo("Velocidade máxima", r.velocidadeMaximaKmh?.let { "${numero(it, 0)} km/h" } ?: SEM_LEITURA))
+        pressao("Pressão do coletor (MAP / turbo)", Pids.PRESSAO_COLETOR, r.map)
+        pressao("Pressão do rail", Pids.PRESSAO_RAIL, r.rail)
+        add(BlocoLaudo.Campo("Velocidade máxima", r.velocidadeMaximaKmh?.let { medida(it, "km/h", 0) } ?: SEM_LEITURA))
         add(BlocoLaudo.Campo("RPM máximo", r.rpmMaximo?.let { "${numero(it, 0)} rpm" } ?: SEM_LEITURA))
 
         // Estatísticas da viagem: só o que a fonte tiver.
@@ -139,12 +150,12 @@ object MontadorLaudo {
         }
         fun tempo(segundos: Double?) = segundos?.takeIf { it > 0 }?.let { RelatorioSessaoTxt.duracao((it * 1000).toLong()) }
         viagem("Duração", tempo(r.duracaoSegundos))
-        viagem("Distância percorrida", r.distanciaKm?.takeIf { it > 0 }?.let { "${numero(it, 1)} km" })
+        viagem("Distância percorrida", r.distanciaKm?.takeIf { it > 0 }?.let { medida(it, "km", 1) })
         viagem("Tempo em movimento", tempo(r.segundosMovimento))
         viagem("Tempo parado", tempo(r.segundosParado))
-        viagem("Velocidade média", r.velocidadeMediaKmh?.takeIf { it > 0 }?.let { "${numero(it, 1)} km/h" })
-        viagem("Combustível estimado", r.litros?.takeIf { it > 0 }?.let { "${numero(it, 2)} L" })
-        viagem("Consumo médio", r.kmPorLitro?.let { "${numero(it, 1)} km/L" })
+        viagem("Velocidade média", r.velocidadeMediaKmh?.takeIf { it > 0 }?.let { medida(it, "km/h", 1) })
+        viagem("Combustível estimado", r.litros?.takeIf { it > 0 }?.let { medida(it, "L", 2) })
+        viagem("Consumo médio", r.kmPorLitro?.let { medida(it, "km/L", 1) })
     }
 
     private fun MutableList<BlocoLaudo>.testeBateria(t: TesteBateriaLaudo) {

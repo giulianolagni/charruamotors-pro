@@ -13,6 +13,8 @@ import com.charruamotors.oficina.replay.CsvInvalidoException
 import com.charruamotors.oficina.replay.EstatisticaSerie
 import com.charruamotors.oficina.replay.JanelaReplay
 import com.charruamotors.oficina.replay.LogCsv
+import com.charruamotors.oficina.replay.emUnidades
+import com.charruamotors.sistema.unidades.ConversorUnidades
 import com.charruamotors.ui.laudo.ArquivoLaudoPdf
 import com.charruamotors.ui.laudo.GeradorLaudoLog
 import com.charruamotors.ui.laudo.OpcoesLaudo
@@ -61,6 +63,7 @@ sealed interface EventoReplay {
 class ReplayLogViewModel(
     private val repositorio: RepositorioLogsCsv,
     private val geradorLaudo: GeradorLaudoLog,
+    private val conversor: () -> ConversorUnidades,
 ) : ViewModel() {
 
     private var gerandoLaudo = false
@@ -132,7 +135,7 @@ class ReplayLogViewModel(
         carregamento = viewModelScope.launch {
             _carregando.value = true
             try {
-                val log = repositorio.abrir(uri)
+                val log = repositorio.abrir(uri).emUnidades(conversor())
                 val total = AnaliseReplay.janelaCompleta(log)
                 _log.value = LogAberto(nome(), uri, log, total, AnaliseReplay.duracaoMinima(log))
                 _selecionados.value = AnaliseReplay.selecaoInicial(log)
@@ -178,7 +181,7 @@ class ReplayLogViewModel(
             initializer {
                 val app = this[APPLICATION_KEY] as CharruaMotorsApp
                 val gerador = GeradorLaudoLog(ArquivoLaudoPdf(app), app.preferenciasApp, PendenciasManutencao(app))
-                ReplayLogViewModel(RepositorioLogsCsv(app), gerador)
+                ReplayLogViewModel(RepositorioLogsCsv(app), gerador) { app.preferenciasApp.config.value.conversor }
             }
         }
     }

@@ -369,6 +369,17 @@ enum class SensorPainel(
 
         fun doComando(comando: String): SensorPainel? =
             entries.firstOrNull { s -> s.comandos.any { it.equals(comando, ignoreCase = true) } }
+
+        /**
+         * Leitura de um PID na unidade de exibição: o rail em kPa sai em bar/psi como no Painel; os
+         * demais seguem a [unidade] do catálogo (ou do cabeçalho do CSV).
+         */
+        fun exibirDoComando(comando: String?, valor: Double, unidade: String, casas: Int, conversor: ConversorUnidades): ValorExibicao =
+            if (comando != null && doComando(comando) == RAIL && UnidadePressao.ehPressao(unidade)) {
+                RAIL.exibir(valor, conversor)
+            } else {
+                conversor.converter(valor, unidade, casas)
+            }
     }
 }
 

@@ -15,6 +15,8 @@ import com.charruamotors.obd.FreezeFrame
 import com.charruamotors.obd.StatusProntidao
 import com.charruamotors.obd.log.RelatorioSessaoTxt
 import com.charruamotors.oficina.injecao.TextosInjecao
+import com.charruamotors.oficina.sensores.FormatadorSensor
+import com.charruamotors.sistema.unidades.ConversorUnidades
 import com.charruamotors.ui.diagnostico.obd.DtcExibicao
 import com.charruamotors.ui.diagnostico.obd.ResultadoDiagnostico
 import kotlinx.coroutines.Dispatchers
@@ -48,7 +50,8 @@ class LaudoSessaoAtual(private val app: CharruaMotorsApp) {
                 combustivelEcu = impressao?.descricaoCombustivel,
                 tcm = impressao?.tcmDetectado?.let { if (it) "detectado (${impressao.tcmCabecalho})" else "não detectado" },
             ),
-            diagnostico = converter(diagnostico, prontidao),
+            unidades = config.conversor,
+            diagnostico = converter(diagnostico, prontidao, config.conversor),
             resumo = LaudoDaSessao.resumo(sessao.historico.estatisticas(), sessao.viagem.value.estatisticas),
             alertas = sessao.alertasDisparados(),
             observacoes = opcoes.observacoes,
@@ -79,7 +82,7 @@ class LaudoSessaoAtual(private val app: CharruaMotorsApp) {
         }
     }
 
-    private fun converter(d: ResultadoDiagnostico, prontidao: StatusProntidao?): DiagnosticoLaudo {
+    private fun converter(d: ResultadoDiagnostico, prontidao: StatusProntidao?, unidades: ConversorUnidades): DiagnosticoLaudo {
         fun lista(codigos: List<DtcExibicao>) = codigos.map { DtcLaudo(it.codigo, it.info.titulo) }
         return DiagnosticoLaudo(
             milAcesa = prontidao?.milAcesa,
@@ -87,17 +90,21 @@ class LaudoSessaoAtual(private val app: CharruaMotorsApp) {
             pendentes = d.pendentes?.let(::lista),
             permanentes = d.permanentes?.let(::lista),
             cambio = d.cambio?.let(::lista),
-            freezeFrame = d.freezeFrame?.takeIf { !it.vazio }?.let { quadro(it, d.infoFreezeFrame?.titulo) },
+            freezeFrame = d.freezeFrame?.takeIf { !it.vazio }?.let { quadro(it, d.infoFreezeFrame?.titulo, unidades) },
             monitores = prontidao?.suportados?.map { MonitorLaudo(it.nome, it.estado == EstadoMonitor.PRONTO) },
         )
     }
 
-    private fun quadro(ff: FreezeFrame, titulo: String?): FreezeFrameLaudo {
+    private fun quadro(ff: FreezeFrame, titulo: String?, unidades: ConversorUnidades): FreezeFrameLaudo {
         val definicoes = app.catalogoPids.pids.associateBy { it.comando }
         val leituras = ff.valores.map { (comando, valor) ->
             val def = definicoes[comando]
-            val unidade = def?.unidade?.takeIf { it.isNotBlank() }?.let { " $it" }.orEmpty()
-            (def?.nome ?: comando) to RelatorioSessaoTxt.numero(valor, def?.casasDecimais ?: 1) + unidade
+            val texto = if (def == null) {
+                RelatorioSessaoTxt.numero(valor, 1)
+            } else {
+                "${FormatadorSensor.valor(def, valor, unidades)} ${FormatadorSensor.unidade(def, unidades)}".trim()
+            }
+            (def?.nome ?: comando) to texto
         }
         return FreezeFrameLaudo(ff.dtc?.let { codigo -> listOfNotNull(codigo, titulo).joinToString(" · ") }, leituras)
     }

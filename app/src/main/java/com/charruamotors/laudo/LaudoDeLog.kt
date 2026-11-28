@@ -86,6 +86,8 @@ object LaudoDeLog {
                 distanciaKm = primeiroNumero(campo("Distância percorrida")),
                 litros = primeiroNumero(campo("Combustível estimado (L)")),
                 kmPorLitro = primeiroNumero(campo("Consumo médio")),
+                map = sensores[Pids.PRESSAO_COLETOR],
+                rail = sensores[Pids.PRESSAO_RAIL],
             ),
             alertas = alertas,
         )
@@ -118,6 +120,8 @@ object LaudoDeLog {
                 velocidadeMediaKmh = a.velocidadeMediaKmh ?: b.velocidadeMediaKmh,
                 litros = a.litros ?: b.litros,
                 kmPorLitro = a.kmPorLitro ?: b.kmPorLitro,
+                map = a.map ?: b.map,
+                rail = a.rail ?: b.rail,
             ),
         )
     }
@@ -154,6 +158,8 @@ object LaudoDeLog {
                 segundosMovimento = e.segundosMovimento.takeIf { velocidade != null },
                 segundosParado = e.segundosParado.takeIf { velocidade != null },
                 velocidadeMediaKmh = e.velocidadeMediaKmh,
+                map = faixa(Pids.PRESSAO_COLETOR),
+                rail = faixa(Pids.PRESSAO_RAIL),
             ),
         )
     }

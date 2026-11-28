@@ -72,17 +72,21 @@ object AnaliseReplay {
 
     /**
      * Escala própria de uma série: (mínimo, máximo) da janela com uma margem; série constante ganha
-     * uma faixa artificial em volta do valor (senão a divisão por zero achataria tudo).
+     * uma faixa artificial em volta do valor (senão a divisão por zero achataria tudo). Sem leituras
+     * negativas, a margem de baixo para no zero.
      */
     fun escala(estatistica: EstatisticaSerie): Pair<Double, Double> {
         val amplitude = estatistica.maximo - estatistica.minimo
-        if (amplitude <= 1e-12) {
-            val folga = max(kotlin.math.abs(estatistica.maximo) * 0.05, 1.0)
-            return (estatistica.minimo - folga) to (estatistica.maximo + folga)
+        val margem = if (amplitude <= 1e-12) {
+            max(kotlin.math.abs(estatistica.maximo) * 0.05, 1.0)
+        } else {
+            amplitude * MARGEM_NORMALIZACAO
         }
-        val margem = amplitude * MARGEM_NORMALIZACAO
-        return (estatistica.minimo - margem) to (estatistica.maximo + margem)
+        return pisoZero(estatistica.minimo - margem, estatistica.minimo) to (estatistica.maximo + margem)
     }
+
+    /** A [base] com margem não fica negativa se o menor valor representado ([minimo]) não é. */
+    private fun pisoZero(base: Double, minimo: Double): Double = if (minimo >= 0) max(base, 0.0) else base
 
     /**
      * Escala ampliada para os [extras] (linhas de referência e marcador) caberem no quadro, com uma folga
@@ -94,7 +98,8 @@ object AnaliseReplay {
         val minimo = minOf(escala.first, finitos.min())
         val maximo = maxOf(escala.second, finitos.max())
         val folga = (maximo - minimo) * MARGEM_NORMALIZACAO
-        return (if (minimo < escala.first) minimo - folga else minimo) to (if (maximo > escala.second) maximo + folga else maximo)
+        val base = if (minimo < escala.first) pisoZero(minimo - folga, minimo) else minimo
+        return base to (if (maximo > escala.second) maximo + folga else maximo)
     }
 
     /** Valor normalizado em 0–1 na escala (mínimo, máximo); fora da escala é limitado às bordas. */
