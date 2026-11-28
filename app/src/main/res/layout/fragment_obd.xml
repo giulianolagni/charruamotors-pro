@@ -387,6 +387,49 @@ TCM        7E1"
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- v2.13.0: sugestão pelo VIN + protocolo; só grava no carro se o usuário tocar em Usar -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/card_sugestao_perfil"
+            style="@style/Widget.Material3.CardView.Filled"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/espaco_pequeno"
+            android:visibility="gone"
+            app:cardCornerRadius="20dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="@dimen/espaco_medio"
+                android:paddingEnd="@dimen/espaco_minimo">
+
+                <TextView
+                    android:id="@+id/texto_sugestao_perfil"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:paddingTop="@dimen/espaco_pequeno"
+                    android:paddingBottom="@dimen/espaco_pequeno"
+                    android:textAppearance="?attr/textAppearanceBodySmall" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/botao_usar_sugestao"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/obd_perfil_usar" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/botao_adiar_sugestao"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/obd_perfil_agora_nao" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <!-- Blocos do Painel: o ObdFragment mostra, esconde e reposiciona os filhos conforme
              "Personalizar Painel" -->
         <!-- v2.4.0: alertas críticos (vermelho piscante) com "Silenciar 5 min" -->

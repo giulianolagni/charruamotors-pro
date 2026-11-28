@@ -94,6 +94,7 @@ import com.charruamotors.ui.util.rotulo
 import com.charruamotors.ui.componentes.PontoTelemetria
 import com.charruamotors.ui.componentes.CurvaPressao
 import com.charruamotors.obd.sessao.VeiculoSessao
+import com.charruamotors.domain.perfis.SugestaoPerfil
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.launch
@@ -251,6 +252,8 @@ class ObdFragment : Fragment() {
         botaoDesconectar.setOnClickListener { viewModel.desconectar() }
         botaoManterPerfil.setOnClickListener { viewModel.manterPerfilAutomatico() }
         botaoIgnorarPerfil.setOnClickListener { viewModel.ignorarPerfilAutomatico() }
+        botaoUsarSugestao.setOnClickListener { viewModel.aceitarSugestaoPerfil() }
+        botaoAdiarSugestao.setOnClickListener { viewModel.dispensarSugestaoPerfil() }
         botaoSalvarLeitura.setOnClickListener { viewModel.salvarLeitura() }
         botaoGravarLog.setOnClickListener { viewModel.alternarLog() }
         chipLogGps.setOnClickListener {
@@ -539,6 +542,7 @@ class ObdFragment : Fragment() {
                 launch { viewModel.sensores.collect { mostrarSensores(it) } }
                 launch { viewModel.infoEcu.collect { mostrarInfoEcu(it) } }
                 launch { viewModel.perfilAutomatico.collect { mostrarPerfilAutomatico(it) } }
+                launch { viewModel.sugestaoPerfil.collect { mostrarSugestaoPerfil(it) } }
                 launch { viewModel.estadoLog.collect { mostrarEstadoLog(it) } }
                 launch {
                     viewModel.computador.collect {
@@ -724,6 +728,13 @@ class ObdFragment : Fragment() {
         cardPerfilAutomatico.isVisible = perfil != null
         if (perfil != null) {
             textoPerfilAutomatico.text = getString(R.string.obd_perfil_automatico, perfil.preset.titulo, perfil.origem.rotulo)
+        }
+    }
+
+    private fun mostrarSugestaoPerfil(sugestao: SugestaoPerfil?) = with(binding) {
+        cardSugestaoPerfil.isVisible = sugestao != null
+        if (sugestao != null) {
+            textoSugestaoPerfil.text = getString(R.string.obd_perfil_sugerido, sugestao.preset.titulo, sugestao.motivo)
         }
     }
 

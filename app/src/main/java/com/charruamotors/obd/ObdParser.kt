@@ -138,7 +138,7 @@ object ObdParser {
     ): RespostaObd<Double> {
         val requisicao = requireNotNull(definicao.estendida) { "${definicao.comando} não é um PID estendido" }
         var r = bytesDaResposta(bruto, requisicao.prefixoResposta, definicao.bytes, comando)
-        if (r is RespostaObd.Ok && requisicao.identificador in AlavancaGmTcm.IDS_BYTE_UNICO) {
+        if (r is RespostaObd.Ok && !requisicao.customizada && requisicao.identificador in AlavancaGmTcm.IDS_BYTE_UNICO) {
             val umByte = Regex(requisicao.prefixoResposta + "[0-9A-F]{2}$")
             if (linhasLimpas(bruto, comando).none { umByte.containsMatchIn(compactar(it)) }) r = RespostaObd.Invalido(bruto)
         }

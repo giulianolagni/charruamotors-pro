@@ -79,6 +79,17 @@ interface ObdClient {
      */
     suspend fun ativarPerfilFabricante(marca: String?): ResultadoPerfil
 
+    /**
+     * Sonda os PIDs customizados do veículo e põe na fila lenta os que responderem (entram em
+     * [pidsSuportados] com a chave de cada um). Nos modos 21/22 nada é enviado; fora do CAN de
+     * 11 bits o cabeçalho próprio é ignorado. Nunca lança.
+     */
+    suspend fun ativarPidsCustomizados(pids: List<com.charruamotors.obd.pid.PidCustomizado>): List<com.charruamotors.obd.pid.DefinicaoPid> =
+        emptyList()
+
+    /** Número do protocolo ativo (`ATDPN`); null sem resposta. */
+    suspend fun lerNumeroProtocolo(): Int? = null
+
     /** Lê os códigos de falha armazenados/confirmados (modo 03). Lista vazia = nenhum código. */
     suspend fun lerCodigosFalha(): Result<List<DtcLido>>
 

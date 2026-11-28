@@ -33,6 +33,7 @@ Disciplina: Desenvolvimento Mobile II. Professor: Jaqson.
 - [Perfis isolados por veículo, status ELM × ECU e Backup (v2.3)](#perfis-isolados-por-veículo-status-elm--ecu-e-backup-v23)
 - [Desempenho, viagem e calibração de consumo (v2.6)](#desempenho-viagem-e-calibração-de-consumo-v26)
 - [GPS no log e Força G (v2.12)](#gps-no-log-e-força-g-v212)
+- [Perfis Técnicos e PIDs customizados (v2.13)](#perfis-técnicos-e-pids-customizados-v213)
 - [Regras de negócio e cálculos](#regras-de-negócio-e-cálculos)
 - [Arquitetura e stack](#arquitetura-e-stack)
 - [Como executar](#como-executar)
@@ -608,6 +609,23 @@ Tudo com APIs nativas e `Canvas`, sem SDK de mapa nem chave de API.
   carro parado e a tela voltada para o motorista; anéis de 0,5, 1,0 e 1,5 G, rastro e picos de aceleração,
   frenagem e curvas. **Gravar Força G no log** acrescenta `forca_g_long` e `forca_g_lat`. A calibração é por carro.
 - No **Modo Simulado** nada disso é gravado; os picos ficam só na memória em qualquer modo.
+
+---
+
+## Perfis Técnicos e PIDs customizados (v2.13)
+
+Em **Meus Carros → Perfil técnico**:
+
+- **Perfis Técnicos:** busca por montadora, modelo ou motor; perfis validados em carro separados dos de base; e os
+  genéricos de fallback no topo (OBD-II / EOBD Básico, CAN 11 bits Gasolina/Flex, com variante turbo, e CAN 11 bits
+  Diesel).
+- **Sugestão pelo VIN:** em perfil genérico, o WMI do `0902` com o `ATDPN` sugere um perfil na aba Painel. Nada é
+  gravado sem tocar em **Usar**, e um perfil escolhido à mão nunca é trocado nem recebe sugestão.
+- **PIDs customizados por carro:** CSV do Torque Pro
+  (`Name,ShortName,ModeAndPID,Equation,Min,Max,Units,Header`), JSON do app ou cadastro manual, até 40 por veículo,
+  incluídos no backup `.json`. Só serviços de leitura (`01`, `21`, `22`) e fórmulas com `A`–`D`, `Signed(x)`,
+  parênteses e `+ - * /`. O cabeçalho próprio só é enviado em CAN de 11 bits (`ATDPN` 6 ou 8); em KWP/ISO9141 é
+  ignorado. Nos modos 21/22 (Hilux SW4) os PIDs customizados ficam desligados.
 
 ---
 

@@ -17,6 +17,7 @@ import com.charruamotors.domain.model.Veiculo
 import com.charruamotors.domain.perfis.CarregadorPerfis
 import com.charruamotors.domain.perfis.CatalogoPerfis
 import com.charruamotors.domain.perfis.PerfilCambio
+import com.charruamotors.obd.pid.PidCustomizado
 import com.charruamotors.oficina.bateria.HistoricoBateria
 import com.charruamotors.oficina.sensores.PresetGrafico
 
@@ -84,7 +85,28 @@ data class PerfilCarro(
     val planoManutencao: PlanoManutencao = PlanoManutencao(),
     /** v2.11.0: odômetro somado pelas viagens reais; null = ainda o do cadastro. */
     val odometro: Odometro? = null,
+    /** v2.13.0: PIDs extras importados ou cadastrados para este carro. */
+    val pidsCustomizados: List<PidCustomizado> = emptyList(),
+    /**
+     * v2.13.0: o usuário escolheu o perfil técnico (ou dispensou a sugestão): a sugestão pelo VIN e
+     * a identificação automática não mexem mais neste carro.
+     */
+    val perfilManual: Boolean = false,
 ) {
+    /**
+     * Perfil técnico escolhido pelo usuário: [id] null volta ao automático pelo cadastro. O OBD2
+     * Genérico nunca usa a camada da montadora; sair dele volta à camada automática.
+     */
+    fun comPerfilEscolhido(id: String?): PerfilCarro = copy(
+        perfilFaixasId = id,
+        camada = when {
+            id == OBD2_GENERICO -> CamadaPreferida.OBD2
+            obd2Generico -> CamadaPreferida.AUTO
+            else -> camada
+        },
+        perfilManual = id != null,
+    )
+
     /** Carro sem perfil específico, no OBD2 genérico (sem PIDs da SW4, do Cruze ou de outra montadora). */
     val obd2Generico: Boolean get() = perfilFaixasId == OBD2_GENERICO
 

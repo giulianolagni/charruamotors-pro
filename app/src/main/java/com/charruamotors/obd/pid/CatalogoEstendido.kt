@@ -13,10 +13,20 @@ import org.json.JSONObject
  * A resposta positiva é `serviço + 0x40` seguido do identificador (`61 82 ...`, `62 F4 0C ...`);
  * a negativa é `7F <serviço> <NRC>`.
  */
-data class RequisicaoEstendida(val cabecalho: String, val servico: String, val identificador: String) {
+data class RequisicaoEstendida(
+    val cabecalho: String,
+    val servico: String,
+    val identificador: String,
+    /** PID cadastrado pelo usuário: aceita o serviço `01` e [cabecalho] vazio (o padrão do protocolo). */
+    val customizada: Boolean = false,
+) {
     init {
-        require(REGEX_CABECALHO.matches(cabecalho)) { "Cabeçalho CAN de 11 bits inválido: $cabecalho" }
-        val bytesId = TAMANHO_IDENTIFICADOR[servico] ?: throw IllegalArgumentException("Serviço não suportado: $servico")
+        require(REGEX_CABECALHO.matches(cabecalho) || (customizada && cabecalho.isEmpty())) {
+            "Cabeçalho CAN de 11 bits inválido: $cabecalho"
+        }
+        val bytesId = TAMANHO_IDENTIFICADOR[servico]
+            ?: 1.takeIf { customizada && servico == "01" }
+            ?: throw IllegalArgumentException("Serviço não suportado: $servico")
         require(Regex("^[0-9A-F]{${bytesId * 2}}$").matches(identificador)) {
             "Identificador \"$identificador\" inválido para o serviço $servico ($bytesId byte(s) hexadecimais)"
         }

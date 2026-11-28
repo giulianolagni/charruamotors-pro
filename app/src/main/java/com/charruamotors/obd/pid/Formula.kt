@@ -6,7 +6,9 @@ package com.charruamotors.obd.pid
  *
  * Gramática: números decimais, `+ - * /`, parênteses, sinal unário e as variáveis:
  * - `A`..`H`: bytes de dados da resposta, na ordem (A = primeiro byte após o PID);
- * - `X`: valor numérico já lido em texto (comandos AT, ex.: `ATRV` → `12.6`).
+ * - `X`: valor numérico já lido em texto (comandos AT, ex.: `ATRV` → `12.6`);
+ * - `Signed(x)`: inteiro com sinal, na largura dos bytes citados em `x` (`Signed(A)` = 8 bits,
+ *   `Signed(256*A+B)` = 16 bits).
  *
  * Objeto puro (sem Android), avaliado a cada leitura sem reinterpretar o texto.
  */
@@ -55,6 +57,15 @@ class Formula private constructor(
         override fun valor(bytes: List<Int>, x: Double) = -operando.valor(bytes, x)
     }
 
+    /** Complemento de dois em [bits]: da metade da faixa para cima o valor é negativo. */
+    private class ComSinal(val operando: No, val bits: Int) : No {
+        override fun valor(bytes: List<Int>, x: Double): Double {
+            val v = operando.valor(bytes, x)
+            val faixa = (1L shl bits).toDouble()
+            return if (v >= faixa / 2 && v < faixa) v - faixa else v
+        }
+    }
+
     private class Binaria(val op: Char, val esq: No, val dir: No) : No {
         override fun valor(bytes: List<Int>, x: Double): Double {
             val a = esq.valor(bytes, x)
@@ -74,6 +85,10 @@ class Formula private constructor(
     private class Analisador(private val fonte: String) {
         private var pos = 0
         val variaveis = linkedSetOf<Char>()
+
+        /** Bytes citados desde a abertura do `Signed(` em análise (decide a largura). */
+        private var citados = mutableSetOf<Char>()
+        private var profundidade = 0
 
         fun analisar(): No {
             val no = expressao()
@@ -103,7 +118,26 @@ class Formula private constructor(
         }
 
         private fun fator(): No {
+            // Texto importado pelo usuário: o limite evita estouro de pilha na análise e na avaliação.
+            if (++profundidade > PROFUNDIDADE_MAXIMA) erro("expressão aninhada demais")
+            return fatorSimples().also { profundidade-- }
+        }
+
+        private fun comSinal(): No {
+            pos += SIGNED.length
+            if (proximo() != '(') erro("'(' esperado depois de Signed")
+            val deFora = citados
+            citados = mutableSetOf()
+            val interno = fator()
+            val bits = 8 * citados.size.coerceIn(1, 4)
+            deFora += citados
+            citados = deFora
+            return ComSinal(interno, bits)
+        }
+
+        private fun fatorSimples(): No {
             val c = proximo() ?: erro("expressão incompleta")
+            if (fonte.regionMatches(pos, SIGNED, 0, SIGNED.length, ignoreCase = true)) return comSinal()
             return when {
                 c == '-' -> { pos++; Negacao(fator()) }
                 c == '+' -> { pos++; fator() }
@@ -118,6 +152,7 @@ class Formula private constructor(
                 c.uppercaseChar() in BYTES -> {
                     pos++
                     variaveis += c.uppercaseChar()
+                    citados += c.uppercaseChar()
                     VariavelByte(c.uppercaseChar() - 'A')
                 }
                 c.uppercaseChar() == 'X' -> { pos++; variaveis += 'X'; VariavelX }
@@ -148,6 +183,8 @@ class Formula private constructor(
 
     companion object {
         private val BYTES = 'A'..'H'
+        private const val SIGNED = "SIGNED"
+        private const val PROFUNDIDADE_MAXIMA = 40
 
         /** @throws IllegalArgumentException se o texto não for uma fórmula válida. */
         fun compilar(texto: String): Formula {

@@ -468,6 +468,7 @@ class CharruaMotorsApp : Application() {
             opcoesLogCelular = { preferenciasApp.config.value.opcoesLogCelular },
             posicaoGps = { velocidadeGps.posicao() },
             forcaG = { sensorForcaG.medidor.leituraAtual() },
+            aoConfirmarPerfil = { id, perfilId -> perfisCarro.atualizar(id) { it.comPerfilEscolhido(perfilId) } },
         ).also { sessao ->
             val escopo = escopoDoApp()
             // v2.4.0: limites editados valem na sessão em curso (v2.6.0: a calibração do consumo também).
