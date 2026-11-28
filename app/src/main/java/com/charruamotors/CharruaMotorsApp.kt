@@ -30,6 +30,10 @@ import com.charruamotors.direcao.desempenho.ModalidadeTeste
 import com.charruamotors.direcao.desempenho.RecordesDesempenho
 import com.charruamotors.direcao.hud.EssenciaisHud
 import com.charruamotors.direcao.hud.TelemetriaCompartilhada
+import com.charruamotors.direcao.forcag.CalibracaoSuporte
+import com.charruamotors.direcao.forcag.ResultadoCalibracao
+import com.charruamotors.direcao.forcag.RotacaoTela
+import com.charruamotors.sistema.sensores.SensorForcaG
 import com.charruamotors.domain.calculo.CalibracaoConsumo
 import com.charruamotors.domain.calculo.CentralAlertas
 import com.charruamotors.domain.alertas.ConfigAlertas
@@ -271,13 +275,36 @@ class CharruaMotorsApp : Application() {
         )
     }
 
-    /** Velocidade pelo GPS do celular (v2.0): só escuta com a opção ligada e a sessão OBD conectada. */
+    /**
+     * GPS do celular (v2.0: velocidade; v2.12.0: também a posição no log): só escuta com uma das
+     * opções ligada e a sessão OBD conectada.
+     */
     val velocidadeGps: ProvedorVelocidadeGps by lazy { ProvedorVelocidadeGps(this) }
 
-    /** Liga/desliga a escuta do GPS conforme a opção e a sessão (também depois de conceder a permissão). */
+    /** Liga/desliga a escuta do GPS conforme as opções e a sessão (também depois de conceder a permissão). */
     fun reavaliarGps() {
         val conectada = sessaoObd.estadoSessao.value.fase == FaseSessao.Conectada
-        if (conectada && preferenciasApp.config.value.velocidadeGps) velocidadeGps.iniciar() else velocidadeGps.parar()
+        val simulado = sessaoObd.modo.value == ModoObd.SIMULADO
+        if (conectada && preferenciasApp.config.value.precisaGps(simulado)) velocidadeGps.iniciar() else velocidadeGps.parar()
+    }
+
+    // ---------------------------------------------------------------- Força G
+
+    /** Sensores de movimento do Medidor de Força G (v2.12.0), em thread própria. */
+    val sensorForcaG: SensorForcaG by lazy { SensorForcaG(this) }
+
+    /** "Zerar / Calibrar suporte": captura a posição do celular e a guarda no perfil do carro em uso. */
+    fun calibrarForcaG(rotacao: RotacaoTela): ResultadoCalibracao {
+        val (resultado, calibracao) = sensorForcaG.medidor.calibrar(rotacao)
+        if (calibracao != null) perfisCarro.escopo(chaveRecorde()).gravar(mapOf(CHAVE_CALIBRACAO_G to calibracao.codificar()))
+        return resultado
+    }
+
+    /** Cada carro tem o próprio suporte: carrega a calibração salva do [veiculoId]. */
+    private fun carregarCalibracaoForcaG(veiculoId: Long) {
+        sensorForcaG.medidor.definirCalibracao(
+            CalibracaoSuporte.decodificar(perfisCarro.escopo(veiculoId).lerTexto(CHAVE_CALIBRACAO_G)),
+        )
     }
 
     /** Melhores 0–60 e 0–100 por veículo (v2.3.0: no perfil isolado de cada carro). */
@@ -397,6 +424,12 @@ class CharruaMotorsApp : Application() {
     private companion object {
         /** Teto da migração única de preferências na abertura (só lê os veículos do banco). */
         const val PRAZO_MIGRACAO_MS = 5_000L
+
+        /** Chave da calibração do suporte (Força G) no escopo do veículo. */
+        const val CHAVE_CALIBRACAO_G = "forca_g_calibracao"
+
+        /** Dono do sensor de movimento pela gravação de uma sessão real. */
+        const val DONO_SENSOR_LOG = "log"
     }
 
     val sessaoObd: SessaoObd by lazy {
@@ -432,6 +465,9 @@ class CharruaMotorsApp : Application() {
             aoPercorrer = perfisCarro::acumularQuilometros,
             aoRegistrarTempo = perfisCarro::registrarTempo,
             aoRegistrarTesteBateria = perfisCarro::registrarTesteBateria,
+            opcoesLogCelular = { preferenciasApp.config.value.opcoesLogCelular },
+            posicaoGps = { velocidadeGps.posicao() },
+            forcaG = { sensorForcaG.medidor.leituraAtual() },
         ).also { sessao ->
             val escopo = escopoDoApp()
             // v2.4.0: limites editados valem na sessão em curso (v2.6.0: a calibração do consumo também).
@@ -442,11 +478,36 @@ class CharruaMotorsApp : Application() {
                 }
             }
             escopo.launch {
-                sessao.estadoSessao.map { it.fase == FaseSessao.Conectada }
-                    .combine(preferenciasApp.config.map { it.velocidadeGps }) { conectada, gps -> conectada && gps }
+                combine(
+                    sessao.estadoSessao.map { it.fase == FaseSessao.Conectada },
+                    preferenciasApp.config,
+                    sessao.modo,
+                ) { conectada, config, modo -> conectada && config.precisaGps(modo == ModoObd.SIMULADO) }
                     .distinctUntilChanged()
                     // Usa o valor do fluxo (não reavaliarGps): aqui o lazy de sessaoObd ainda está inicializando.
                     .collect { ligar -> if (ligar) velocidadeGps.iniciar() else velocidadeGps.parar() }
+            }
+            escopo.launch {
+                combine(
+                    sessao.estadoSessao.map { it.fase == FaseSessao.Conectada },
+                    preferenciasApp.config.map { it.gravarForcaG },
+                    sessao.modo,
+                ) { conectada, gravar, modo -> conectada && gravar && modo != ModoObd.SIMULADO }
+                    .distinctUntilChanged()
+                    .collect { ligar -> sensorForcaG.usar(DONO_SENSOR_LOG, ligar) }
+            }
+            // Picos de Força G são da sessão: zeram a cada nova conexão.
+            escopo.launch {
+                sessao.estadoSessao.map { it.fase == FaseSessao.Conectada }
+                    .distinctUntilChanged()
+                    .collect { conectada -> if (conectada) sensorForcaG.medidor.zerarPicos() }
+            }
+            escopo.launch {
+                combine(sessao.estadoSessao.map { it.veiculoId }, perfisCarro.veiculoAtivo) { daSessao, ativo ->
+                    daSessao.takeIf { it > 0 } ?: ativo
+                }
+                    .distinctUntilChanged()
+                    .collect { carregarCalibracaoForcaG(it) }
             }
         }
     }

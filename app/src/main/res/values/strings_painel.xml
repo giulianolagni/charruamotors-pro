@@ -155,7 +155,7 @@
     <string name="config_unidade_imperial">No sistema imperial a pressão é sempre em psi. Os logs continuam em kPa.</string>
 
     <!-- Velocidade GPS (v2.0) -->
-    <string name="config_secao_gps">Velocidade GPS</string>
+    <string name="config_secao_gps">GPS e sensores do celular</string>
     <string name="config_gps_switch">Ler a velocidade pelo GPS do celular</string>
     <string name="config_gps_descricao">Sensor \"Velocidade GPS\" no Painel, Cluster e HUD, e coluna nos CSVs. Só funciona com a sessão OBD conectada. Sem sinal, mostra \"—\".</string>
     <string name="config_gps_situacao">Situação: %1$s</string>

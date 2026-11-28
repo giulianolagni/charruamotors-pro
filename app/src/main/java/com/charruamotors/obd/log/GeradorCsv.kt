@@ -14,6 +14,7 @@ import java.time.format.DateTimeFormatter
  *
  * Colunas: `timestamp_ms` (epoch), `data_hora` (ISO 8601 local, com milissegundos),
  * `tempo_s` (segundos desde o início) e um campo por PID: `Nome (unidade) [comando]`.
+ * As colunas opcionais do celular ([ColunasCelular]) usam o nome curto (`gps_lat`, `forca_g_long`).
  * PID sem resposta no ciclo = campo vazio.
  */
 object GeradorCsv {
@@ -26,7 +27,7 @@ object GeradorCsv {
     private val formatoNomeArquivo: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")
 
     fun cabecalho(colunas: List<DefinicaoPid>): String =
-        (listOf("timestamp_ms", "data_hora", "tempo_s") + colunas.map { "${it.nome} (${it.unidade}) [${it.comando}]" })
+        (listOf("timestamp_ms", "data_hora", "tempo_s") + colunas.map { it.cabecalhoCsv ?: "${it.nome} (${it.unidade}) [${it.comando}]" })
             .joinToString(SEPARADOR.toString()) { escapar(it) }
 
     fun linha(amostra: AmostraLog, sessao: SessaoLog, zona: ZoneId): String {

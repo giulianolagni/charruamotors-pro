@@ -1,5 +1,6 @@
 package com.charruamotors.oficina.replay
 
+import com.charruamotors.obd.log.ColunasCelular
 import java.io.Reader
 import java.io.StringReader
 
@@ -16,6 +17,7 @@ data class ColunaLog(val nome: String, val unidade: String, val comando: String?
 
         fun deCabecalho(texto: String): ColunaLog {
             val limpo = texto.trim()
+            ColunasCelular.doCabecalho(limpo)?.let { return ColunaLog(it.nome, it.unidade, it.comando, limpo) }
             val m = regexCabecalho.matchEntire(limpo)
                 ?: return ColunaLog(limpo, "", null, limpo)
             val nome = m.groupValues[1].ifBlank { limpo }
@@ -41,8 +43,12 @@ class LogCsv(
     val inicioMs: Long get() = instantesMs.first()
     val fimMs: Long get() = instantesMs.last()
 
-    /** Índices das colunas com pelo menos uma leitura (as que valem a pena virar chip). */
-    val colunasComDados: List<Int> get() = series.indices.filter { i -> series[i].any { !it.isNaN() } }
+    /**
+     * Índices das colunas com pelo menos uma leitura (as que valem a pena virar chip). Latitude e
+     * longitude ficam de fora: viram o mapa do trajeto, não uma curva.
+     */
+    val colunasComDados: List<Int>
+        get() = series.indices.filter { i -> colunas[i].comando !in ColunasCelular.COORDENADAS && series[i].any { !it.isNaN() } }
 }
 
 class CsvInvalidoException(mensagem: String) : Exception(mensagem)

@@ -2,6 +2,10 @@ package com.charruamotors.obd.sessao
 
 import com.charruamotors.direcao.desempenho.ModalidadeTeste
 import com.charruamotors.direcao.desempenho.MotivoCancelamento
+import com.charruamotors.direcao.forcag.ForcaG
+import com.charruamotors.obd.log.ColunasCelular
+import com.charruamotors.obd.log.OpcoesLogCelular
+import com.charruamotors.sistema.gps.PosicaoGps
 import com.charruamotors.direcao.hud.TelemetriaCompartilhada
 import com.charruamotors.domain.model.EstadoConexaoObd
 import com.charruamotors.domain.model.TipoCombustivel
@@ -67,6 +71,9 @@ class SessaoObdTest {
         modo: ModoObd = ModoObd.BLUETOOTH,
         gpsAtivo: Boolean = false,
         velocidadeGps: () -> Double? = { null },
+        opcoesCelular: OpcoesLogCelular = OpcoesLogCelular(),
+        posicaoGps: () -> PosicaoGps? = { null },
+        forcaG: () -> ForcaG? = { null },
     ) = SessaoObd(
         clientePorModo = { fake },
         modoInicial = modo,
@@ -89,7 +96,53 @@ class SessaoObdTest {
         relogioMonotonico = { testScheduler.currentTime },
         aoPercorrer = { _, km -> kmPercorridos += km },
         aoRegistrarTempo = { _, marca -> temposRegistrados += marca.modalidade to marca.tempoMs },
+        opcoesLogCelular = { opcoesCelular },
+        posicaoGps = posicaoGps,
+        forcaG = forcaG,
     )
+
+    // ---------------------------------------------------------------- posição e Força G no log (v2.12.0)
+
+    @Test
+    fun `posicao e Forca G entram no CSV da sessao real e ficam fora do historico e do relatorio`() = runTest {
+        val sessao = novaSessao(
+            ModoObd.BLUETOOTH,
+            opcoesCelular = OpcoesLogCelular(posicaoGps = true, forcaG = true),
+            posicaoGps = { PosicaoGps(-28.262345, -52.406789, 687.0, 42.0) },
+            forcaG = { ForcaG(0.25, -0.5) },
+        )
+        sessao.conectar(scanner, veiculoId = 7, origem = OrigemSessao.MANUAL)
+        avancar(5_000)
+        val vistosNoHistorico = sessao.historico.estatisticas().keys
+        sessao.desconectar()
+        advanceUntilIdle()
+
+        val log = LeitorCsvLog.ler(destino.terminadoEm(".csv").conteudo)
+        fun ultimo(comando: String) = log.series[log.colunas.indexOfFirst { it.comando == comando }].last()
+        assertEquals(-28.262345, ultimo(ColunasCelular.GPS_LATITUDE), 1e-9)
+        assertEquals(-0.5, ultimo(ColunasCelular.FORCA_G_LATERAL), 1e-9)
+        assertTrue(ColunasCelular.COORDENADAS.none { it in vistosNoHistorico })
+        assertFalse("-28,26" in destino.terminadoEm(".txt").conteudo)
+    }
+
+    @Test
+    fun `modo simulado nao consulta nem grava posicao e Forca G`() = runTest {
+        var consultas = 0
+        val sessao = novaSessao(
+            ModoObd.SIMULADO,
+            opcoesCelular = OpcoesLogCelular(posicaoGps = true, forcaG = true),
+            posicaoGps = { consultas++; PosicaoGps(-28.2, -52.4) },
+            forcaG = { consultas++; ForcaG(1.0, 1.0) },
+        )
+        sessao.conectar(scanner, veiculoId = 7, origem = OrigemSessao.MANUAL)
+        avancar(5_000)
+
+        assertTrue(sessao.colunasDoAparelho().isEmpty())
+        assertNull(sessao.dados.value!![ColunasCelular.GPS_LATITUDE])
+        assertEquals(0, consultas)
+        sessao.desconectar()
+        advanceUntilIdle()
+    }
 
     private val temposRegistrados = mutableListOf<Pair<ModalidadeTeste, Long>>()
 

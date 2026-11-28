@@ -439,6 +439,35 @@
                         android:textColor="?attr/colorPrimary"
                         tools:text="Situação: GPS com sinal" />
 
+                    <!-- v2.12.0: leituras do celular no log CSV -->
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switch_posicao_log"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/espaco_medio"
+                        android:text="@string/log_gps_opcao" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/log_gps_descricao"
+                        android:textAppearance="?attr/textAppearanceBodySmall"
+                        android:textColor="@color/texto_secundario" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switch_forca_g_log"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/espaco_medio"
+                        android:text="@string/log_forca_g_opcao" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/log_forca_g_descricao"
+                        android:textAppearance="?attr/textAppearanceBodySmall"
+                        android:textColor="@color/texto_secundario" />
+
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"

@@ -106,6 +106,10 @@
             layout="@layout/item_card_oficina" />
 
         <include
+            android:id="@+id/card_forca_g"
+            layout="@layout/item_card_oficina" />
+
+        <include
             android:id="@+id/card_calibracao"
             layout="@layout/item_card_oficina" />
 

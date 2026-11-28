@@ -855,6 +855,69 @@ TCM        7E1"
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- v2.12.0: Medidor de Força G (bloco opcional, adicionado em "Personalizar Painel") -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_forca_g"
+                style="@style/Widget.Material3.CardView.Outlined"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/espaco_pequeno"
+                android:visibility="gone"
+                app:cardCornerRadius="@dimen/raio_card"
+                tools:visibility="visible">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="@dimen/espaco_medio">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/forca_g_titulo"
+                        android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+                    <TextView
+                        android:id="@+id/texto_forca_g_situacao"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="?attr/textAppearanceBodySmall"
+                        android:textColor="@color/texto_secundario"
+                        tools:text="Suporte calibrado" />
+
+                    <com.charruamotors.ui.componentes.ForcaGView
+                        android:id="@+id/mostrador_forca_g"
+                        android:layout_width="match_parent"
+                        android:layout_height="240dp" />
+
+                    <TextView
+                        android:id="@+id/texto_forca_g_atual"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fontFeatureSettings="tnum"
+                        android:gravity="center"
+                        android:textAppearance="?attr/textAppearanceTitleSmall"
+                        tools:text="Longitudinal 0,12 G · Lateral -0,34 G" />
+
+                    <TextView
+                        android:id="@+id/texto_forca_g_picos"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fontFeatureSettings="tnum"
+                        android:gravity="center"
+                        android:textAppearance="?attr/textAppearanceBodySmall" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/botao_calibrar_forca_g"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/espaco_pequeno"
+                        android:text="@string/forca_g_calibrar" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
             <!-- Lista rápida: os sensores escolhidos em "Personalizar Painel" (vazia = todos os suportados),
                  salvar a leitura no histórico e o Data Logger CSV manual -->
             <com.google.android.material.card.MaterialCardView
@@ -940,6 +1003,35 @@ TCM        7E1"
                             android:checkable="true"
                             android:text="@string/obd_log_gravar" />
                     </LinearLayout>
+
+                    <!-- v2.12.0: atalho das leituras do celular, escolhidas antes de começar a gravar -->
+                    <com.google.android.material.chip.ChipGroup
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/espaco_minimo">
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chip_log_gps"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/log_chip_gps" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chip_log_forca_g"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/log_chip_forca_g" />
+                    </com.google.android.material.chip.ChipGroup>
+
+                    <TextView
+                        android:id="@+id/texto_aviso_log"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="?attr/textAppearanceBodySmall"
+                        android:textColor="@color/texto_secundario"
+                        android:visibility="gone" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 

@@ -150,7 +150,8 @@ class HudFlutuanteService : Service() {
         val base = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE else 0
         val app = application as? CharruaMotorsApp
         val comGps = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-            app?.preferenciasApp?.config?.value?.velocidadeGps == true && app.velocidadeGps.temPermissao()
+            app?.preferenciasApp?.config?.value?.let { it.velocidadeGps || it.gravarPosicaoGps } == true &&
+            app.velocidadeGps.temPermissao()
         if (comGps && iniciarPrimeiroPlano(base or ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)) return true
         return iniciarPrimeiroPlano(base)
     }

@@ -30,10 +30,25 @@ class ConfigPainelTest {
 
     @Test
     fun `todos os blocos do painel entram na lista arrastavel`() {
-        assertEquals(SecaoPainel.entries.toSet(), padrao.secoesVisiveis.toSet())
+        assertEquals(SecaoPainel.entries.toSet() - SecaoPainel.OPCIONAIS, padrao.secoesVisiveis.toSet())
         assertEquals(8, padrao.secoesVisiveis.size)
         assertEquals(listOf(SecaoPainel.MUSICA, SecaoPainel.NAVEGACAO, SecaoPainel.MARCADORES), padrao.secoesVisiveis.take(3))
-        assertTrue(padrao.secoesRemovidas.isEmpty())
+        // v2.12.0: o Medidor de Força G é opcional e começa removido.
+        assertEquals(listOf(SecaoPainel.FORCA_G), padrao.secoesRemovidas)
+    }
+
+    @Test
+    fun `bloco opcional novo nao aparece em painel salvo antes e fica depois de adicionado`() {
+        val memoria = Memoria().apply {
+            valores["ordem"] = "MUSICA,NAVEGACAO,MARCADORES,GRAFICO,COMPUTADOR,CRONOMETRO,LISTA_SENSORES,INFO_ECU"
+            valores["ocultas"] = "MUSICA"
+        }
+        val prefs = PreferenciasPainel(memoria)
+        assertEquals(listOf(SecaoPainel.MUSICA, SecaoPainel.FORCA_G), prefs.config.value.secoesRemovidas)
+
+        prefs.atualizar { it.restaurar(SecaoPainel.FORCA_G) }
+
+        assertTrue(PreferenciasPainel(memoria).config.value.visivel(SecaoPainel.FORCA_G))
     }
 
     @Test
@@ -66,7 +81,7 @@ class ConfigPainelTest {
         val semWaze = padrao.ocultar(SecaoPainel.NAVEGACAO).ocultar(SecaoPainel.MUSICA)
         assertFalse(SecaoPainel.NAVEGACAO in semWaze.secoesVisiveis)
         assertFalse(semWaze.visivel(SecaoPainel.MUSICA))
-        assertEquals(listOf(SecaoPainel.MUSICA, SecaoPainel.NAVEGACAO), semWaze.secoesRemovidas)
+        assertEquals(listOf(SecaoPainel.MUSICA, SecaoPainel.NAVEGACAO, SecaoPainel.FORCA_G), semWaze.secoesRemovidas)
         assertEquals(6, semWaze.secoesVisiveis.size)
     }
 
@@ -74,7 +89,7 @@ class ConfigPainelTest {
     fun `adicionar de volta restaura o bloco depois do ultimo visivel`() {
         val semMusica = padrao.ocultar(SecaoPainel.MUSICA)
         val restaurado = semMusica.restaurar(SecaoPainel.MUSICA)
-        assertTrue(restaurado.secoesRemovidas.isEmpty())
+        assertEquals(listOf(SecaoPainel.FORCA_G), restaurado.secoesRemovidas)
         assertEquals(SecaoPainel.MUSICA, restaurado.secoesVisiveis.last())
         assertEquals(restaurado, restaurado.restaurar(SecaoPainel.MUSICA))
     }
@@ -83,7 +98,7 @@ class ConfigPainelTest {
     fun `arrastar com blocos removidos mexe so nos visiveis`() {
         val config = padrao.ocultar(SecaoPainel.MUSICA).mover(0, 1)
         assertEquals(listOf(SecaoPainel.MARCADORES, SecaoPainel.NAVEGACAO), config.secoesVisiveis.take(2))
-        assertEquals(listOf(SecaoPainel.MUSICA), config.secoesRemovidas)
+        assertEquals(listOf(SecaoPainel.MUSICA, SecaoPainel.FORCA_G), config.secoesRemovidas)
     }
 
     @Test
@@ -217,7 +232,7 @@ class ConfigPainelTest {
         val reaberto = PreferenciasPainel(memoria).config.value
         assertEquals(esperado, reaberto)
         assertEquals(SecaoPainel.MARCADORES, reaberto.secoesVisiveis.first())
-        assertEquals(listOf(SecaoPainel.MUSICA), reaberto.secoesRemovidas)
+        assertEquals(listOf(SecaoPainel.MUSICA, SecaoPainel.FORCA_G), reaberto.secoesRemovidas)
         assertFalse(reaberto.botaoVisivel(BotaoNavegacao.OFICINA))
         assertEquals(6, reaberto.mostradores.size)
         assertEquals(EstiloMostrador.FITA, reaberto.mostradores[1].estilo)
@@ -237,7 +252,7 @@ class ConfigPainelTest {
         val config = PreferenciasPainel(memoria).config.value
         assertEquals(listOf(SensorPainel.RPM, SensorPainel.TURBO, SensorPainel.TENSAO, SensorPainel.RAIL), config.mostradores.map { it.sensor })
         assertTrue(config.mostradores.all { it.estilo == EstiloMostrador.FITA })
-        assertEquals(SecaoPainel.entries.size, config.secoesVisiveis.size)
+        assertEquals(SecaoPainel.entries.size - SecaoPainel.OPCIONAIS.size, config.secoesVisiveis.size)
         assertTrue(BotaoNavegacao.entries.all(config::botaoVisivel))
         assertEquals(listOf("010C", "0105"), config.listaRapida)
     }
@@ -272,7 +287,7 @@ class ConfigPainelTest {
         }
         val config = PreferenciasPainel(memoria).config.value
         assertEquals(listOf(Mostrador(SensorPainel.RPM, EstiloMostrador.ESPORTIVO)), config.mostradores)
-        assertTrue(config.secoesRemovidas.isEmpty())
+        assertEquals(listOf(SecaoPainel.FORCA_G), config.secoesRemovidas)
         assertEquals(ConfigHud.PADRAO_EXPANDIDO, config.hud.sensores)
         assertEquals(TamanhoHud.EXPANDIDO, config.hud.tamanho)
         assertTrue(config.listaRapida.isEmpty())

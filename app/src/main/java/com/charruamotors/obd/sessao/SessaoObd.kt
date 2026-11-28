@@ -7,6 +7,10 @@ import com.charruamotors.direcao.desempenho.MarcaDesempenho
 import com.charruamotors.direcao.desempenho.ModalidadeTeste
 import com.charruamotors.direcao.desempenho.MotivoCancelamento
 import com.charruamotors.direcao.desempenho.ResultadoTeste
+import com.charruamotors.direcao.forcag.ForcaG
+import com.charruamotors.obd.log.ColunasCelular
+import com.charruamotors.obd.log.OpcoesLogCelular
+import com.charruamotors.sistema.gps.PosicaoGps
 import com.charruamotors.direcao.hud.TelemetriaCompartilhada
 import com.charruamotors.domain.calculo.AcumuladorPercurso
 import com.charruamotors.domain.calculo.CalibracaoConsumo
@@ -295,6 +299,12 @@ class SessaoObd(
     private val relogioMonotonico: () -> Long = { System.nanoTime() / 1_000_000 },
     /** v2.8.0: teste de bateria concluído numa sessão **real** de `veiculoId`. */
     private val aoRegistrarTesteBateria: (veiculoId: Long, registro: RegistroTesteBateria) -> Unit = { _, _ -> },
+    /** v2.12.0: leituras do celular pedidas para o log (posição GPS e Força G); nunca no Modo Simulado. */
+    private val opcoesLogCelular: () -> OpcoesLogCelular = { OpcoesLogCelular() },
+    /** v2.12.0: posição atual já filtrada (null = sem fix confiável). */
+    private val posicaoGps: () -> PosicaoGps? = { null },
+    /** v2.12.0: Força G atual (null = sem calibração ou sem leitura recente). */
+    private val forcaG: () -> ForcaG? = { null },
 ) {
     private val _modo = MutableStateFlow(modoInicial)
     val modo: StateFlow<ModoObd> = _modo.asStateFlow()
@@ -800,7 +810,8 @@ class SessaoObd(
     /**
      * Colunas de log que não vêm da ECU: a velocidade GPS (quando ativa) e a relação A/F real
      * calculada (motores de ciclo Otto com λ suportado: `0124`/`0134` ou `0144`) e a marcha estimada
-     * da A750F (alavanca do `7E1 · 21D9` lida e o `2130` fora do polling).
+     * da A750F (alavanca do `7E1 · 21D9` lida e o `2130` fora do polling). v2.12.0: em sessão real,
+     * a posição GPS e a Força G pedidas ([ColunasCelular]).
      */
     fun colunasDoAparelho(suportados: Set<String> = emptySet()): List<DefinicaoPid> = buildList {
         if (gpsAtivo()) add(DefinicaoPid.VELOCIDADE_GPS)
@@ -811,7 +822,12 @@ class SessaoObd(
             add(DefinicaoPid.MARCHA_ESTIMADA_A750F)
         }
         if (AlavancaGmTcm.CHAVES_SELETOR.any { it in suportados }) add(DefinicaoPid.ALAVANCA_GM)
+        addAll(ColunasCelular.definicoes(opcoesCelularEfetivas()))
     }
+
+    /** Posição e Força G só entram em sessão real: o Modo Simulado não grava trajeto nem picos. */
+    private fun opcoesCelularEfetivas(): OpcoesLogCelular =
+        if (_modo.value == ModoObd.SIMULADO) OpcoesLogCelular() else opcoesLogCelular()
 
     // ------------------------------------------------------------------ execução
 
@@ -949,7 +965,7 @@ class SessaoObd(
 
     private fun receberAmostra(daEcu: DadosObd, g: GravadorLogsSessao?) {
         acompanharMap(daEcu[Pids.PRESSAO_COLETOR], g)
-        val base = comCalculados(comVelocidadeGps(daEcu), combustivelAtual)
+        val base = comCalculados(comLeiturasDoCelular(comVelocidadeGps(daEcu)), combustivelAtual)
         val porPerfil = estimadorPerfil
         val dados = when {
             PresetVeiculo.marcaGm(marcaMontadoraAtual) -> estimadorCambioGm.aplicar(base)
@@ -961,7 +977,8 @@ class SessaoObd(
         testeBateria.amostrar(daEcu)
         injecao.amostrar(daEcu)
         registrarNaViagem(dados)
-        historico.registrar(dados.valores, relogio())
+        // As coordenadas só seguem para os logs: não ficam no histórico de sensores.
+        historico.registrar(dados.valores - ColunasCelular.COORDENADAS, relogio())
         _dados.value = dados
         _amostras.tryEmit(dados)
         telemetria.publicar(dados, conectado = true)
@@ -1100,6 +1117,18 @@ class SessaoObd(
         if (!gpsAtivo()) return dados
         val kmh = runCatching { velocidadeGps() }.getOrNull()?.takeIf { it.isFinite() } ?: return dados
         return DadosObd(dados.valores + (Pids.VELOCIDADE_GPS to kmh))
+    }
+
+    /** Mescla a posição GPS e a Força G pedidas para o log; sem pedido ou sem leitura, o instantâneo segue igual. */
+    private fun comLeiturasDoCelular(dados: DadosObd): DadosObd {
+        val opcoes = opcoesCelularEfetivas()
+        if (!opcoes.posicaoGps && !opcoes.forcaG) return dados
+        val extras = ColunasCelular.valores(
+            opcoes,
+            if (opcoes.posicaoGps) runCatching { posicaoGps() }.getOrNull() else null,
+            if (opcoes.forcaG) runCatching { forcaG() }.getOrNull() else null,
+        )
+        return if (extras.isEmpty()) dados else DadosObd(dados.valores + extras)
     }
 
     /** Uma leitura de confirmados/pendentes/permanentes por sessão, só para o relatório (não mexe no histórico). */

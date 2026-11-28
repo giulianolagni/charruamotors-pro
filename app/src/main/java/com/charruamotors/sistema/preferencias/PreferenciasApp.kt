@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.edit
 import com.charruamotors.direcao.desempenho.FonteVelocidade
+import com.charruamotors.obd.log.OpcoesLogCelular
 import com.charruamotors.sistema.unidades.ConversorUnidades
 import com.charruamotors.sistema.unidades.SistemaUnidades
 import com.charruamotors.sistema.unidades.UnidadeConsumo
@@ -45,7 +46,16 @@ data class ConfigApp(
     val nomeOficina: String = "",
     /** v2.7.0: nome do técnico no cabeçalho do laudo PDF (vazio = não sai). */
     val nomeTecnico: String = "",
+    /** v2.12.0: colunas `gps_*` nos CSVs de sessões reais (mapa do replay e GPX). */
+    val gravarPosicaoGps: Boolean = false,
+    /** v2.12.0: colunas `forca_g_*` nos CSVs de sessões reais (suporte calibrado no Medidor). */
+    val gravarForcaG: Boolean = false,
 ) {
+    val opcoesLogCelular: OpcoesLogCelular get() = OpcoesLogCelular(posicaoGps = gravarPosicaoGps, forcaG = gravarForcaG)
+
+    /** Ligar o GPS (com a sessão conectada)? A posição no log não vale no Modo Simulado. */
+    fun precisaGps(simulado: Boolean): Boolean = velocidadeGps || (gravarPosicaoGps && !simulado)
+
     /** Fonte que o cronômetro realmente usa: sem a velocidade GPS ligada, sempre a ECU. */
     val fonteCronometroEfetiva: FonteVelocidade
         get() = if (velocidadeGps) fonteCronometro else FonteVelocidade.OBD
@@ -117,6 +127,10 @@ class PreferenciasApp(private val armazenamento: ArmazenamentoChaveValor) {
 
     fun definirFonteCronometro(fonte: FonteVelocidade) = atualizar { it.copy(fonteCronometro = fonte) }
 
+    fun definirGravarPosicaoGps(gravar: Boolean) = atualizar { it.copy(gravarPosicaoGps = gravar) }
+
+    fun definirGravarForcaG(gravar: Boolean) = atualizar { it.copy(gravarForcaG = gravar) }
+
     fun definirNomeOficina(nome: String) = atualizar { it.copy(nomeOficina = nome) }
 
     fun definirNomeTecnico(nome: String) = atualizar { it.copy(nomeTecnico = nome) }
@@ -147,6 +161,8 @@ class PreferenciasApp(private val armazenamento: ArmazenamentoChaveValor) {
                 UNIDADE_CONSUMO to nova.unidadeConsumo.name,
                 NOME_OFICINA to nova.nomeOficina,
                 NOME_TECNICO to nova.nomeTecnico,
+                GRAVAR_POSICAO_GPS to nova.gravarPosicaoGps,
+                GRAVAR_FORCA_G to nova.gravarForcaG,
             ),
         )
         _config.value = nova
@@ -162,6 +178,8 @@ class PreferenciasApp(private val armazenamento: ArmazenamentoChaveValor) {
         unidadeConsumo = UnidadeConsumo.deCodigo(armazenamento.lerTexto(UNIDADE_CONSUMO)),
         nomeOficina = armazenamento.lerTexto(NOME_OFICINA).orEmpty(),
         nomeTecnico = armazenamento.lerTexto(NOME_TECNICO).orEmpty(),
+        gravarPosicaoGps = armazenamento.lerBooleano(GRAVAR_POSICAO_GPS, false),
+        gravarForcaG = armazenamento.lerBooleano(GRAVAR_FORCA_G, false),
     )
 
     companion object {
@@ -175,5 +193,7 @@ class PreferenciasApp(private val armazenamento: ArmazenamentoChaveValor) {
         const val UNIDADE_CONSUMO = "unidade_consumo"
         const val NOME_OFICINA = "laudo_oficina"
         const val NOME_TECNICO = "laudo_tecnico"
+        const val GRAVAR_POSICAO_GPS = "log_posicao_gps"
+        const val GRAVAR_FORCA_G = "log_forca_g"
     }
 }

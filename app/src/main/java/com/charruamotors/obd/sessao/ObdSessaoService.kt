@@ -17,11 +17,15 @@ import androidx.core.content.ContextCompat
 import com.charruamotors.CharruaMotorsApp
 import com.charruamotors.R
 import com.charruamotors.direcao.hud.HudFlutuanteService
+import com.charruamotors.obd.ModoObd
+import com.charruamotors.ui.util.PermissoesBluetooth
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
@@ -31,6 +35,11 @@ import kotlinx.coroutines.launch
  * discreta (canal de baixa prioridade, sem som nem vibração) mostrando o status
  * (`Conectado · Toyota SW4 · Gravando log`) e a ação **Desconectar**. Para sozinho quando a sessão
  * termina — os logs já foram fechados e salvos pela sessão.
+ *
+ * v2.12.0: com "Gravar posição GPS no log" (sessão real e permissão concedida) o serviço também
+ * declara o tipo `location`, para o GPS continuar chegando com o app minimizado. Se o Android
+ * recusar (sessão automática iniciada em segundo plano), segue só como `connectedDevice`: a conexão
+ * OBD2 nunca depende da localização.
  */
 class ObdSessaoService : Service() {
 
@@ -40,6 +49,9 @@ class ObdSessaoService : Service() {
     private var emPrimeiroPlano = false
     private var observando = false
     private var ultimoTexto: String? = null
+
+    /** O primeiro plano em vigor inclui o tipo `location`? */
+    private var comLocalizacao = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -64,6 +76,9 @@ class ObdSessaoService : Service() {
                 stopSelf()
                 return START_NOT_STICKY
             }
+        } else {
+            // Novo pedido com o serviço já em primeiro plano (ex.: o app voltou à frente).
+            ajustarTipos()
         }
         observar()
         if (automatica) {
@@ -90,6 +105,12 @@ class ObdSessaoService : Service() {
         if (observando) return
         observando = true
         escopo.launch {
+            (application as CharruaMotorsApp).preferenciasApp.config
+                .map { it.gravarPosicaoGps }
+                .distinctUntilChanged()
+                .collect { ajustarTipos() }
+        }
+        escopo.launch {
             var viuAtiva = false
             // Os alertas entram na mesma coleta: a notificação mostra o aviso com a tela bloqueada.
             sessao.estadoSessao.combine(sessao.alertas) { estado, _ -> estado }.collect { estado ->
@@ -111,19 +132,38 @@ class ObdSessaoService : Service() {
 
     // ------------------------------------------------------------------ notificação
 
-    private fun entrarEmPrimeiroPlano(): Boolean = try {
-        ServiceCompat.startForeground(
-            this,
-            ID_NOTIFICACAO,
-            criarNotificacao(sessao.estadoSessao.value),
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE else 0,
-        )
+    private fun entrarEmPrimeiroPlano(): Boolean {
+        val base = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE else 0
+        if (querLocalizacao() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            iniciarPrimeiroPlano(base or ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+        ) {
+            comLocalizacao = true
+            return true
+        }
+        comLocalizacao = false
+        return iniciarPrimeiroPlano(base)
+    }
+
+    private fun iniciarPrimeiroPlano(tipos: Int): Boolean = try {
+        ServiceCompat.startForeground(this, ID_NOTIFICACAO, criarNotificacao(sessao.estadoSessao.value), tipos)
         true
     } catch (e: RuntimeException) {
         // Android 12+: ForegroundServiceStartNotAllowedException (início em segundo plano bloqueado);
-        // Android 14+: SecurityException sem a permissão de Bluetooth exigida pelo tipo connectedDevice.
-        Log.w(TAG, "Não foi possível iniciar a sessão OBD em primeiro plano", e)
+        // Android 14+: SecurityException sem a permissão exigida pelo tipo (Bluetooth ou localização).
+        Log.w(TAG, "Não foi possível iniciar a sessão OBD em primeiro plano (tipos $tipos)", e)
         false
+    }
+
+    private fun querLocalizacao(): Boolean {
+        val app = application as CharruaMotorsApp
+        return app.preferenciasApp.config.value.gravarPosicaoGps &&
+            sessao.modo.value != ModoObd.SIMULADO &&
+            app.velocidadeGps.temPermissao()
+    }
+
+    /** A opção, a permissão ou o modo mudaram: troca os tipos do primeiro plano, sem derrubar o serviço. */
+    private fun ajustarTipos() {
+        if (emPrimeiroPlano && querLocalizacao() != comLocalizacao) entrarEmPrimeiroPlano()
     }
 
     private fun atualizarNotificacao(estado: EstadoSessao) {
@@ -202,6 +242,17 @@ class ObdSessaoService : Service() {
                 // A sessão segue no processo; só fica sem a proteção do primeiro plano.
                 Log.w(TAG, "Serviço da sessão não iniciado", e)
             }
+        }
+
+        /**
+         * Com o app em primeiro plano: pede ao serviço da sessão real em curso que inclua o tipo
+         * `location` (a sessão automática nasce em segundo plano, onde o Android não o concede).
+         */
+        fun revalidarLocalizacao(context: Context) {
+            val app = context.applicationContext as CharruaMotorsApp
+            if (!app.preferenciasApp.config.value.gravarPosicaoGps) return
+            if (!app.sessaoObd.estadoSessao.value.ativa || app.sessaoObd.modo.value == ModoObd.SIMULADO) return
+            if (PermissoesBluetooth.concedidas(context)) iniciar(context)
         }
 
         /**

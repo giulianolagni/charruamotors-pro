@@ -23,8 +23,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Velocidade GPS (v2.0, opcional): sensor do Painel/HUD e fonte do cronômetro 0–100. Só com o
-         app em uso ou com o HUD aberto (serviço em primeiro plano do tipo location); nunca em segundo plano puro. -->
+    <!-- Localização (opcional): velocidade GPS (v2.0, Painel/HUD e cronômetro 0–100) e posição no log
+         CSV (v2.12.0). Só com o app em uso ou com um serviço em primeiro plano do tipo location (HUD ou
+         sessão OBD gravando a posição); nunca em segundo plano puro. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
@@ -139,6 +140,11 @@
             android:name=".ui.oficina.checkup.CheckupObdActivity"
             android:exported="false"
             android:parentActivityName=".ui.diagnostico.DiagnosticoActivity" />
+        <!-- v2.12.0: Medidor de Força G -->
+        <activity
+            android:name=".ui.oficina.forcag.ForcaGActivity"
+            android:exported="false"
+            android:parentActivityName=".ui.diagnostico.DiagnosticoActivity" />
         <!-- v2.9.0: Diagnóstico de Injeção -->
         <activity
             android:name=".ui.oficina.injecao.InjecaoActivity"
@@ -211,10 +217,11 @@
 
         <!-- Sessão OBD2 compartilhada (caixa-preta): mantém a conexão, o polling e a gravação dos logs
              em segundo plano, para a aba OBD2 e o HUD assumirem a sessão já ativa. -->
+        <!-- v2.12.0: o tipo location só é declarado em execução com "Gravar posição GPS no log". -->
         <service
             android:name=".obd.sessao.ObdSessaoService"
             android:exported="false"
-            android:foregroundServiceType="connectedDevice" />
+            android:foregroundServiceType="connectedDevice|location" />
 
         <!-- Gatilho pelo Bluetooth do carro (padrão "Toyota SW4"): ACL conectado/desconectado são
              broadcasts protegidos do sistema, entregues mesmo com o app fechado. -->
