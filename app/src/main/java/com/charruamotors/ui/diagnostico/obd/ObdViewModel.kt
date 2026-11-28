@@ -369,7 +369,9 @@ class ObdViewModel(
             viagem = computadorBordo.registrar(consumo, velocidade, instanteMs),
             motor = parametrosMotor,
         )
-        _grafico.value = janelaGrafico.adicionar(PontoTelemetria(instanteMs, dados[Pids.RPM], dados[Pids.PRESSAO_COLETOR]))
+        _grafico.value = janelaGrafico.adicionar(
+            PontoTelemetria(instanteMs, dados[Pids.RPM], dados[Pids.PRESSAO_COLETOR], dados[Pids.PRESSAO_BOOST]),
+        )
     }
 
     /** Zera a média da viagem do computador de bordo. */

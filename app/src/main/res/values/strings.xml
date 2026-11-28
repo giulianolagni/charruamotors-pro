@@ -183,9 +183,9 @@ Toque em “Novo veículo” para começar.</string>
     <string name="obd_grafico_titulo">Telemetria ao vivo (últimos 60 s)</string>
     <string name="obd_grafico_agora">agora</string>
     <string name="obd_grafico_legenda_rpm">RPM %1$s</string>
-    <string name="obd_grafico_legenda_map">MAP %1$s kPa</string>
+    <string name="obd_grafico_legenda_pressao">%1$s %2$s %3$s</string>
     <string name="obd_grafico_vazio">Gráfico de RPM e pressão do coletor: sem leituras</string>
-    <string name="obd_grafico_descricao">Gráfico dos últimos 60 segundos. RPM atual %1$s, pressão do coletor %2$s kPa</string>
+    <string name="obd_grafico_descricao">Gráfico dos últimos 60 segundos. RPM atual %1$s, %2$s %3$s %4$s</string>
 
     <!-- Computador de bordo -->
     <string name="obd_bordo_titulo">Computador de bordo</string>

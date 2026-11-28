@@ -31,6 +31,8 @@ object FocoSensores {
                     add(ALAVANCA_NO_MOTOR)
                 }
                 AlavancaGmTcm.CHAVE_POSICAO -> addAll(AlavancaGmTcm.CHAVES_SELETOR)
+                // Como o mostrador Turbo/MAP; o barômetro segue na fila normal.
+                Pids.PRESSAO_BOOST -> add(Pids.PRESSAO_COLETOR)
             }
         }
     }

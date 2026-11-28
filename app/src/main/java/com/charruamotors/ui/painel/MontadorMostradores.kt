@@ -23,6 +23,7 @@ object MontadorMostradores {
         mostradores: List<Mostrador>,
         conversor: ConversorUnidades,
         cambio: PerfilCambio? = null,
+        diesel: Boolean = false,
     ): List<GaugeView> {
         container.removeAllViews()
         val contexto = container.context
@@ -41,7 +42,7 @@ object MontadorMostradores {
                     val lateral = if (m.estilo == EstiloMostrador.FITA) espacoFita else espaco
                     setPadding(lateral, espaco, lateral, espaco)
                 }
-                configurarGauge(gauge, m.sensor, m.estilo, conversor, cambio)
+                configurarGauge(gauge, m.sensor, m.estilo, conversor, cambio, diesel)
                 fileira.addView(gauge, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
                 gauges[i] = gauge
             }
@@ -61,10 +62,11 @@ object MontadorMostradores {
         estilo: EstiloMostrador,
         conversor: ConversorUnidades,
         cambio: PerfilCambio? = null,
+        diesel: Boolean = false,
     ) {
         gauge.titulo = sensor.tituloPara(cambio)
         gauge.unidade = sensor.unidade(conversor)
-        gauge.escala = sensor.escala(conversor)
+        gauge.escala = sensor.escala(conversor, diesel)
         gauge.casasDecimais = sensor.exibir(0.0, conversor).casas
         gauge.rotulos = sensor.rotulos
         gauge.estilo = estilo

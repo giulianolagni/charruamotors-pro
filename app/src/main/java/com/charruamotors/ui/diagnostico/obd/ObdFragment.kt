@@ -92,6 +92,8 @@ import com.charruamotors.obd.aprendizado.FonteSimulacao
 import com.charruamotors.ui.util.definirTexto
 import com.charruamotors.ui.util.rotulo
 import com.charruamotors.ui.componentes.PontoTelemetria
+import com.charruamotors.ui.componentes.CurvaPressao
+import com.charruamotors.obd.sessao.VeiculoSessao
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.launch
@@ -136,7 +138,10 @@ class ObdFragment : Fragment() {
     private var configPainel: ConfigPainel = ConfigPainel()
 
     /** Mostradores desenhados agora (sensores + estilos + unidades), para não recriar a cada mudança. */
-    private var assinaturaMostradores: Triple<List<Mostrador>, ConversorUnidades, PerfilCambio?>? = null
+    private var assinaturaMostradores: List<Any?>? = null
+
+    /** O veículo do cadastro é diesel? Escala do boost enquanto não há sessão. */
+    private var dieselCadastro = false
 
     /** "Ver todos": ignora a lista rápida e mostra todos os sensores suportados. */
     private var mostrarTodosSensores = false
@@ -209,7 +214,17 @@ class ObdFragment : Fragment() {
         configurarAcoes()
         configurarDirecao()
         observarViewModel()
+        carregarCombustivel()
         if (savedInstanceState == null) iniciarMapeamentoSePedido()
+    }
+
+    private fun carregarCombustivel() {
+        val veiculoId = requireArguments().getLong(DiagnosticoActivity.EXTRA_VEICULO_ID)
+        viewLifecycleOwner.lifecycleScope.launch {
+            val veiculo = app.veiculoRepository.buscarPorId(veiculoId) ?: return@launch
+            dieselCadastro = VeiculoSessao.de(veiculo, app.perfisCarro.ler(veiculoId)).diesel
+            configurarMostradores()
+        }
     }
 
     /**
@@ -544,6 +559,7 @@ class ObdFragment : Fragment() {
                 launch { viewModel.manterTelaAcesa.collect { aplicarTelaAcesa() } }
                 controladorMidia?.let { midia -> launch { midia.estado.collect { mostrarMidia(it) } } }
                 launch { telemetriaHud.hudAtivo.collect { mostrarHud(it) } }
+                launch { telemetriaHud.motorDiesel.collect { configurarMostradores() } }
                 launch { viewModel.configAuto.collect { mostrarAdaptador(it) } }
                 launch {
                     app.preferenciasApp.config.collect {
@@ -808,10 +824,13 @@ class ObdFragment : Fragment() {
     /** Remonta a grade (2 colunas; Fita em largura total) só quando os relógios ou as unidades mudam. */
     private fun configurarMostradores() {
         val cambio = app.sessaoObd.cambioAtivo.value
-        val assinatura = Triple(configPainel.mostradores, conversor, cambio)
+        val diesel = telemetriaHud.motorDiesel.value ?: dieselCadastro
+        val assinatura = listOf(configPainel.mostradores, conversor, cambio, diesel)
         if (assinatura == assinaturaMostradores) return
         assinaturaMostradores = assinatura
-        gauges = MontadorMostradores.montar(binding.grupoMostradores, configPainel.mostradores, conversor, cambio)
+        // O rodapé segue a unidade e troca o MAP pelo boost junto com os relógios.
+        mostrarGrafico(viewModel.grafico.value)
+        gauges = MontadorMostradores.montar(binding.grupoMostradores, configPainel.mostradores, conversor, cambio, diesel)
         val dados = viewModel.dados.value
         val consumoKmL = viewModel.computador.value.consumo?.kmPorLitro
         configPainel.mostradores.forEachIndexed { i, m ->
@@ -964,7 +983,8 @@ class ObdFragment : Fragment() {
     }
 
     private fun mostrarGrafico(pontos: List<PontoTelemetria>) {
-        binding.graficoTelemetria.definirPontos(pontos)
+        val boost = configPainel.mostradores.any { it.sensor == SensorPainel.BOOST }
+        binding.graficoTelemetria.definirPontos(pontos, CurvaPressao(conversor, boost))
     }
 
     private fun mostrarEstadoLog(log: EstadoLog) = with(binding) {

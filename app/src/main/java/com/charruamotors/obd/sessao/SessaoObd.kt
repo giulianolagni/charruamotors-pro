@@ -13,6 +13,7 @@ import com.charruamotors.obd.log.OpcoesLogCelular
 import com.charruamotors.sistema.gps.PosicaoGps
 import com.charruamotors.direcao.hud.TelemetriaCompartilhada
 import com.charruamotors.domain.calculo.AcumuladorPercurso
+import com.charruamotors.domain.calculo.CalculadoraBoost
 import com.charruamotors.domain.calculo.CalibracaoConsumo
 import com.charruamotors.domain.calculo.EstatisticasPercurso
 import com.charruamotors.domain.calculo.TelemetriaCalculada
@@ -140,6 +141,10 @@ data class VeiculoSessao(
     /** Câmbio do perfil exato (estima a marcha dos automáticos sem regra própria); null nos genéricos. */
     val cambio: PerfilCambio?
         get() = cambioEscolhido ?: resolucao?.takeIf { !it.generico }?.preset?.perfilCambio
+
+    /** Diesel pelo perfil técnico exato e, sem ele, pelo cadastro (escala do boost sem sessão). */
+    val diesel: Boolean
+        get() = (resolucao?.takeIf { !it.generico }?.preset?.combustivel ?: combustivel) == TipoCombustivel.DIESEL
 
     /** Parâmetros dos cálculos de consumo (relatório da sessão e estatísticas da viagem). */
     fun parametrosMotor(calibracao: CalibracaoConsumo = calibracaoPerfil): ParametrosMotor =
@@ -663,6 +668,7 @@ class SessaoObd(
 
     /** Marcha 1ª–6ª estimada do câmbio GM 6T35/6T40 (Cruze) pela razão rpm/velocidade. */
     private val estimadorCambioGm = EstimadorCambioGm6T()
+    private val calculadoraBoost = CalculadoraBoost()
 
     /** v2.2: marcha pelas razões do perfil de câmbio do catálogo (ex.: Aisin 6 marchas dos VW TSI). */
     @Volatile private var estimadorPerfil: EstimadorMarchaPerfil? = null
@@ -857,6 +863,7 @@ class SessaoObd(
             monitorAlertas.config = configAlertas(if (veiculo != null) veiculoId else 0)
             _cambioAtivo.value = veiculo?.cambio
             estimadorCambio.reiniciar()
+            calculadoraBoost.reiniciar()
             combustivelAtual = veiculo?.combustivel
             testeAceleracao.selecionar(testeAceleracao.estado.value.modalidade)
             testeBateria.novaSessao(if (veiculo != null) veiculoId else 0)
@@ -965,7 +972,12 @@ class SessaoObd(
 
     private fun receberAmostra(daEcu: DadosObd, g: GravadorLogsSessao?) {
         acompanharMap(daEcu[Pids.PRESSAO_COLETOR], g)
-        val base = comCalculados(comLeiturasDoCelular(comVelocidadeGps(daEcu)), combustivelAtual)
+        val diesel = motorDiesel()
+        telemetria.definirMotorDiesel(diesel)
+        val base = calculadoraBoost.aplicar(
+            comCalculados(comLeiturasDoCelular(comVelocidadeGps(daEcu)), combustivelAtual),
+            diesel,
+        )
         val porPerfil = estimadorPerfil
         val dados = when {
             PresetVeiculo.marcaGm(marcaMontadoraAtual) -> estimadorCambioGm.aplicar(base)
@@ -983,6 +995,13 @@ class SessaoObd(
         _amostras.tryEmit(dados)
         telemetria.publicar(dados, conectado = true)
         g?.registrar(dados, relogio())
+    }
+
+    /** Diesel pelo perfil técnico em uso (automático ou o exato escolhido) e, sem ele, pelo cadastro. */
+    private fun motorDiesel(): Boolean {
+        val preset = perfilAplicado?.preset?.takeIf { !it.generico }
+            ?: veiculoAtual?.resolucao?.takeIf { !it.generico }?.preset
+        return (preset?.combustivel ?: combustivelAtual) == TipoCombustivel.DIESEL
     }
 
     // ------------------------------------------------------------------ identificação automática (v2.2.2)
@@ -1170,6 +1189,7 @@ class SessaoObd(
         perfilIgnorado = false
         mapPicoKpa = null
         telemetria.publicar(null, conectado = false)
+        telemetria.definirMotorDiesel(null)
         pararAlarme()
         cli.definirPidsEmConfirmacao(emptySet())
         cli.definirFocoPolling(null)

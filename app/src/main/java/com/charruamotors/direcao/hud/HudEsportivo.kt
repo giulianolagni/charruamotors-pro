@@ -181,6 +181,8 @@ object FormatadorHudEsportivo {
      * Barômetro do Toyota (`2133`) ou OBD2 (`0133`); sem leitura válida, [BAROMETRO_PADRAO_KPA].
      */
     fun boostBar(valores: ValoresSensores?): Double {
+        // O boost da sessão (mesmo barômetro do Painel), quando houver.
+        valores?.get(Pids.PRESSAO_BOOST)?.takeIf { it.isFinite() }?.let { return (it / 100.0).coerceAtLeast(0.0) }
         val map = valores?.get(Pids.PRESSAO_COLETOR)?.takeIf { it.isFinite() } ?: return 0.0
         val baro = COMANDOS_BAROMETRO.firstNotNullOfOrNull { c -> valores[c]?.takeIf { it.isFinite() && it in FAIXA_BAROMETRO_KPA } }
             ?: BAROMETRO_PADRAO_KPA

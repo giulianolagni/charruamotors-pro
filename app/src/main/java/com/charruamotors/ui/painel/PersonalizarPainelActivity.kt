@@ -253,6 +253,7 @@ class PersonalizarPainelActivity : AppCompatActivity() {
             SensorPainel.RPM to 2350.0,
             SensorPainel.VELOCIDADE to 88.0,
             SensorPainel.TURBO to 182.0,
+            SensorPainel.BOOST to 85.0,
             SensorPainel.TEMP_MOTOR to 92.0,
             SensorPainel.TEMP_ADMISSAO to 38.0,
             SensorPainel.TEMP_OLEO to 101.0,

@@ -1,11 +1,39 @@
 package com.charruamotors.ui.componentes
 
+import com.charruamotors.sistema.unidades.ConversorUnidades
 import kotlin.math.floor
 import kotlin.math.log10
 import kotlin.math.pow
 
-/** Uma amostra do gráfico ao vivo: RPM e MAP/turbo (kPa) num instante (null = sem leitura). */
-data class PontoTelemetria(val instanteMs: Long, val rpm: Double?, val mapKpa: Double?)
+/** Uma amostra do gráfico ao vivo: RPM, MAP e boost (kPa) num instante (null = sem leitura). */
+data class PontoTelemetria(val instanteMs: Long, val rpm: Double?, val mapKpa: Double?, val boostKpa: Double? = null)
+
+/** A curva de pressão do gráfico ao vivo: MAP ou boost, na unidade das Configurações. */
+data class CurvaPressao(val conversor: ConversorUnidades = ConversorUnidades.PADRAO, val boost: Boolean = false) {
+    val rotulo: String get() = if (boost) "Boost" else "MAP"
+    val unidade: String get() = conversor.simboloPressao
+    val casas: Int get() = conversor.pressao.casasDecimais
+
+    fun valor(ponto: PontoTelemetria): Double? = (if (boost) ponto.boostKpa else ponto.mapKpa)?.let { conversor.pressao(it) }
+
+    /** Faixa (mínimo, máximo) do eixo: nunca menor que 100 kPa; o piso só fica negativo com vácuo. */
+    fun eixo(pontos: List<PontoTelemetria>, divisoes: Int = EscalaAutomatica.DIVISOES_PADRAO): Pair<Double, Double> {
+        val valores = pontos.mapNotNull(::valor).filter { it.isFinite() }
+        val minimoEscala = conversor.pressao(MINIMO_ESCALA_KPA)
+        val menor = valores.minOrNull() ?: 0.0
+        if (menor >= 0) return 0.0 to EscalaAutomatica.maximo(valores, minimoEscala, divisoes)
+        val maior = maxOf(valores.maxOrNull() ?: 0.0, minimoEscala)
+        var passo = EscalaAutomatica.passo((maior - menor) / divisoes)
+        // Alinhar o piso ao passo pode cortar o topo: sobe para o próximo passo.
+        while (floor(menor / passo) * passo + passo * divisoes < maior) passo = EscalaAutomatica.passo(passo * 1.01)
+        val piso = floor(menor / passo) * passo
+        return piso to piso + passo * divisoes
+    }
+
+    private companion object {
+        const val MINIMO_ESCALA_KPA = 100.0
+    }
+}
 
 /**
  * Janela deslizante dos últimos [duracaoMs] de telemetria para o [TelemetriaChartView].

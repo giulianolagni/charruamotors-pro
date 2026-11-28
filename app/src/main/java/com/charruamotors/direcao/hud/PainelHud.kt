@@ -44,10 +44,11 @@ object FormatadorHud {
         conectado: Boolean,
         config: ConfigHud = ConfigHud(),
         conversor: ConversorUnidades = ConversorUnidades.PADRAO,
+        diesel: Boolean = false,
     ): PainelHud {
         val valores = dados.takeIf { conectado }
         val temperatura = valores?.get(Pids.TEMPERATURA_MOTOR)
-        val celulas = sensoresExibidos(config.sensoresVisiveis, valores).map { celula(it, valores, conversor) }
+        val celulas = sensoresExibidos(config.sensoresVisiveis, valores).map { celula(it, valores, conversor, diesel) }
         return PainelHud(
             conectado = conectado,
             celulas = celulas,
@@ -87,11 +88,11 @@ object FormatadorHud {
         }
     }
 
-    private fun celula(sensor: SensorPainel, valores: ValoresSensores?, conversor: ConversorUnidades): CelulaHud {
+    private fun celula(sensor: SensorPainel, valores: ValoresSensores?, conversor: ConversorUnidades, diesel: Boolean): CelulaHud {
         if (sensor == SensorPainel.CONSUMO_KML) return celulaConsumo(valores, conversor)
         val bruto = sensor.ler(valores)
         val exibicao = bruto?.let { sensor.exibir(it, conversor) }
-        val escala = sensor.escala(conversor)
+        val escala = sensor.escala(conversor, diesel)
         return CelulaHud(
             sensor = sensor,
             valor = when {

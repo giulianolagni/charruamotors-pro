@@ -10,6 +10,7 @@ import android.util.TypedValue
 import android.view.View
 import androidx.core.graphics.ColorUtils
 import com.charruamotors.R
+import com.charruamotors.ui.util.comoNumero
 import com.google.android.material.color.MaterialColors
 import java.text.NumberFormat
 import java.util.Locale
@@ -17,7 +18,7 @@ import java.util.Locale
 /**
  * Gráfico de linhas da telemetria ao vivo, desenhado com `Canvas`/`Paint` (sem bibliotecas):
  * janela deslizante de [JanelaTelemetria.DURACAO_PADRAO_MS] com duas curvas — **RPM** (eixo
- * esquerdo) e **MAP/turbo em kPa** (eixo direito) —, cada eixo com escala automática
+ * esquerdo) e **MAP ou boost na unidade das Configurações** (eixo direito) —, cada eixo com escala automática
  * ([EscalaAutomatica]), grade, rótulos de tempo e legenda com o valor atual.
  *
  * Trechos sem leitura (PID sem resposta, polling pausado) interrompem a curva em vez de ligar
@@ -30,10 +31,14 @@ class TelemetriaChartView @JvmOverloads constructor(
 ) : View(context, attrs, defStyleAttr) {
 
     private var pontos: List<PontoTelemetria> = emptyList()
+    private var pressao = CurvaPressao()
     private var duracaoMs: Long = JanelaTelemetria.DURACAO_PADRAO_MS
 
     private val densidade = resources.displayMetrics.density
     private val formato: NumberFormat = NumberFormat.getIntegerInstance(Locale.forLanguageTag("pt-BR"))
+
+    /** Rótulos do eixo de pressão: em bar o passo é fracionário. */
+    private val formatoEixo: NumberFormat = NumberFormat.getNumberInstance(Locale.forLanguageTag("pt-BR")).apply { maximumFractionDigits = 2 }
 
     // ---------------------------------------------------------------- cores do tema
     private val corRpm = MaterialColors.getColor(this, androidx.appcompat.R.attr.colorPrimary)
@@ -79,8 +84,9 @@ class TelemetriaChartView @JvmOverloads constructor(
     }
 
     /** Atualiza as curvas com a janela atual (o ponto mais recente fica na borda direita). */
-    fun definirPontos(novos: List<PontoTelemetria>, duracao: Long = JanelaTelemetria.DURACAO_PADRAO_MS) {
+    fun definirPontos(novos: List<PontoTelemetria>, curva: CurvaPressao, duracao: Long = JanelaTelemetria.DURACAO_PADRAO_MS) {
         pontos = novos
+        pressao = curva
         duracaoMs = duracao
         val ultimo = novos.lastOrNull()
         contentDescription = if (ultimo == null) {
@@ -89,11 +95,16 @@ class TelemetriaChartView @JvmOverloads constructor(
             context.getString(
                 R.string.obd_grafico_descricao,
                 ultimo.rpm?.let { formato.format(it) } ?: "—",
-                ultimo.mapKpa?.let { formato.format(it) } ?: "—",
+                curva.rotulo,
+                textoPressao(ultimo),
+                curva.unidade,
             )
         }
         invalidate()
     }
+
+    private fun textoPressao(ponto: PontoTelemetria?): String =
+        ponto?.let { pressao.valor(it) }?.comoNumero(pressao.casas) ?: "—"
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val altura = resolveSize((ALTURA_PADRAO_DP * densidade).toInt(), heightMeasureSpec)
@@ -109,7 +120,8 @@ class TelemetriaChartView @JvmOverloads constructor(
         if (direita <= esquerda || base <= topo) return
 
         val maxRpm = EscalaAutomatica.maximo(pontos.mapNotNull { it.rpm }, MIN_ESCALA_RPM)
-        val maxMap = EscalaAutomatica.maximo(pontos.mapNotNull { it.mapKpa }, MIN_ESCALA_MAP)
+        val (minPressao, maxPressao) = pressao.eixo(pontos)
+        val faixaPressao = maxPressao - minPressao
         val divisoes = EscalaAutomatica.DIVISOES_PADRAO
 
         // Grade horizontal + rótulos dos dois eixos.
@@ -122,7 +134,8 @@ class TelemetriaChartView @JvmOverloads constructor(
             canvas.drawText(formato.format(maxRpm * i / divisoes), esquerda - 4 * densidade, y + alturaTexto / 3, pincelRotulo)
             pincelRotulo.textAlign = Paint.Align.LEFT
             pincelRotulo.color = corMap
-            canvas.drawText(formato.format(maxMap * i / divisoes), direita + 4 * densidade, y + alturaTexto / 3, pincelRotulo)
+            val marca = minPressao + faixaPressao * i / divisoes
+            canvas.drawText(formatoEixo.format(marca), direita + 4 * densidade, y + alturaTexto / 3, pincelRotulo)
         }
 
         // Eixo de tempo: −60 s, −30 s, agora (linhas verticais discretas).
@@ -144,7 +157,9 @@ class TelemetriaChartView @JvmOverloads constructor(
         val agora = pontos.lastOrNull()?.instanteMs
         if (agora != null) {
             montarCaminho(caminhoRpm, agora, esquerda, direita, topo, base) { it.rpm?.let { v -> EscalaAutomatica.fracao(v, maxRpm) } }
-            montarCaminho(caminhoMap, agora, esquerda, direita, topo, base) { it.mapKpa?.let { v -> EscalaAutomatica.fracao(v, maxMap) } }
+            montarCaminho(caminhoMap, agora, esquerda, direita, topo, base) {
+                pressao.valor(it)?.let { v -> EscalaAutomatica.fracao(v - minPressao, faixaPressao) }
+            }
             canvas.save()
             canvas.clipRect(esquerda, topo - pincelRpm.strokeWidth, direita, base + pincelRpm.strokeWidth)
             canvas.drawPath(caminhoMap, pincelMap)
@@ -186,7 +201,7 @@ class TelemetriaChartView @JvmOverloads constructor(
         var cursor = x
         val itens = listOf(
             corRpm to context.getString(R.string.obd_grafico_legenda_rpm, ultimo?.rpm?.let { formato.format(it) } ?: "—"),
-            corMap to context.getString(R.string.obd_grafico_legenda_map, ultimo?.mapKpa?.let { formato.format(it) } ?: "—"),
+            corMap to context.getString(R.string.obd_grafico_legenda_pressao, pressao.rotulo, textoPressao(ultimo), pressao.unidade),
         )
         pincelLegenda.textAlign = Paint.Align.LEFT
         for ((cor, texto) in itens) {
@@ -205,7 +220,6 @@ class TelemetriaChartView @JvmOverloads constructor(
         const val MARGEM_LEGENDA_DP = 30
         const val MARGEM_TEMPO_DP = 20
         const val MIN_ESCALA_RPM = 2_000.0
-        const val MIN_ESCALA_MAP = 100.0
         /** Acima disso entre duas leituras, a curva é interrompida (polling parado). */
         const val LACUNA_MAXIMA_MS = 2_500L
     }

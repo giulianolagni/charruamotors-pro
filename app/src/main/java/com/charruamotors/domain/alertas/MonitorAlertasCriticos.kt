@@ -369,7 +369,8 @@ class MonitorAlertasCriticos(config: ConfigAlertas = ConfigAlertas()) {
     }
 
     /** Chave que veio da ECU (PID OBD2 ou de montadora), e não do celular ou calculada pelo app. */
-    private fun String.startsWithEcu(): Boolean = this != Pids.VELOCIDADE_GPS && this != Pids.RELACAO_AF_REAL
+    private fun String.startsWithEcu(): Boolean =
+        this != Pids.VELOCIDADE_GPS && this != Pids.RELACAO_AF_REAL && this != Pids.PRESSAO_BOOST
 
     companion object {
         const val LEITURAS_PARA_DISPARAR = 3

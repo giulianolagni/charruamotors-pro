@@ -124,6 +124,21 @@ data class DefinicaoPid(
             )
         }
 
+        /** Pressão relativa do turbo ([Pids.PRESSAO_BOOST]), calculada pela sessão; fora do `.csv`. */
+        val PRESSAO_BOOST: DefinicaoPid by lazy {
+            DefinicaoPid(
+                comando = Pids.PRESSAO_BOOST,
+                nome = "Pressão do Turbo (Boost)",
+                unidade = "kPa",
+                bytes = 0,
+                formula = Formula.compilar("0"),
+                min = -120.0,
+                max = 500.0,
+                casasDecimais = 0,
+                doAparelho = true,
+            )
+        }
+
         /**
          * Coluna de log da marcha da A750F estimada pelo app (`TOYOTA_MARCHA`, razão rpm/velocidade),
          * quando o `7E1 · 2130` fica fora do polling por devolver `0xFF` fixo (SW4 2013).
@@ -307,6 +322,9 @@ object Pids {
      * partir do λ medido (ou comandado) × a estequiometria do combustível em uso (flex pelo `0152`).
      */
     const val RELACAO_AF_REAL = "CALC_AFR"
+
+    /** Não é PID: boost (kPa) = MAP − barômetro, calculado pela sessão ([com.charruamotors.domain.calculo.CalculadoraBoost]). */
+    const val PRESSAO_BOOST = "CALC_BOOST"
 
     /** Temperatura do ATF, na ordem de preferência: Toyota (câmbio 7E1 e espelho no motor) e GM (TCM 7E1/7E2). */
     val COMANDOS_ATF: List<String> = listOf("TOYOTA_ATF_CAMBIO", "TOYOTA_ATF", "TOYOTA_ATF_ECM", "GM_ATF", "GM_ATF_7E2")

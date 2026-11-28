@@ -23,6 +23,13 @@ private const val CHAVE_CONSUMO_KML_PAINEL = "CALC_KML"
 /** Correção dos bicos: ±3,00 mm³/st é a faixa saudável; a escala vai até ±4 (zona vermelha em 3). */
 private val ESCALA_BICO = mapOf("mm³/st" to EscalaGauge(-4f, 4f, 3f, 8, 2))
 
+/** Boost no diesel: de zero a 2 bar. */
+private val ESCALA_BOOST_DIESEL = mapOf(
+    "kPa" to EscalaGauge(0f, 200f, 170f, 4, 5),
+    "bar" to EscalaGauge(0f, 2f, 1.7f, 4, 5),
+    "psi" to EscalaGauge(0f, 30f, 25f, 6, 5),
+)
+
 /**
  * Sensores que podem ocupar um dos 4 mostradores do Painel ou uma célula do HUD flutuante, com a
  * escala de cada unidade de exibição (métrica e imperial). [comando] é a chave do PID canônico no
@@ -235,6 +242,16 @@ enum class SensorPainel(
         mapOf("°" to EscalaGauge(-10f, 50f, null, 6, 2)),
         comSinal = true,
     ),
+
+    /** Pressão relativa do turbo (MAP − barômetro). As escalas são as do ciclo Otto; no diesel, sem vácuo. */
+    BOOST(
+        Pids.PRESSAO_BOOST, "Pressão do Turbo (Boost)", "BOOST", "kPa", 0,
+        mapOf(
+            "kPa" to EscalaGauge(-100f, 200f, 150f, 6, 5),
+            "bar" to EscalaGauge(-1f, 2f, 1.5f, 6, 5),
+            "psi" to EscalaGauge(-15f, 30f, 22f, 9, 5),
+        ),
+    ),
     ;
 
     /**
@@ -247,7 +264,7 @@ enum class SensorPainel(
     /** Seção em que o sensor aparece nos chips de escolha. */
     val grupo: GrupoSensor
         get() = when (this) {
-            RPM, VELOCIDADE, VELOCIDADE_GPS, TURBO, CARGA, BORBOLETA, ACELERADOR, CONSUMO_KML -> GrupoSensor.PRINCIPAL
+            RPM, VELOCIDADE, VELOCIDADE_GPS, TURBO, BOOST, CARGA, BORBOLETA, ACELERADOR, CONSUMO_KML -> GrupoSensor.PRINCIPAL
             TEMP_MOTOR, TEMP_ADMISSAO, TEMP_OLEO, TEMP_CAMBIO -> GrupoSensor.TEMPERATURAS
             RAIL, MAF, COMBUSTIVEL, PRESSAO_BARO, BICO_1, BICO_2, BICO_3, BICO_4, AVANCO_IGNICAO -> GrupoSensor.INJECAO
             SONDA_LAMBDA_V, SONDA_LAMBDA, RELACAO_AF, ETANOL, STFT, LTFT -> GrupoSensor.MISTURA
@@ -318,8 +335,11 @@ enum class SensorPainel(
     /** Símbolo de exibição (`km/h` ou `mph`, `°C` ou `°F`, `bar`...). */
     fun unidade(conversor: ConversorUnidades): String = exibir(0.0, conversor).unidade
 
-    /** Escala do mostrador na unidade de exibição; sem uma específica, 0–100. */
-    fun escala(conversor: ConversorUnidades): EscalaGauge = escalas[unidade(conversor)] ?: escalas.values.firstOrNull() ?: EscalaGauge()
+    /** Escala do mostrador na unidade de exibição; sem uma específica, 0–100. O [diesel] só muda a do boost. */
+    fun escala(conversor: ConversorUnidades, diesel: Boolean = false): EscalaGauge {
+        val tabela = if (this == BOOST && diesel) ESCALA_BOOST_DIESEL else escalas
+        return tabela[unidade(conversor)] ?: tabela.values.firstOrNull() ?: EscalaGauge()
+    }
 
     /** `TURBO/MAP bar`, `MOTOR °F`; o RPM dispensa a unidade. */
     fun rotuloHud(conversor: ConversorUnidades): String {

@@ -178,7 +178,10 @@ class ClusterPainelActivity : AppCompatActivity() {
             gauge.emAlerta = gauge.piscando || app.centralAlertas.foraDaFaixa(sensor.comandos, dados)
             if (sensor != exibidos[i] || mudouConversor) {
                 exibidos[i] = sensor
-                MontadorMostradores.configurarGauge(gauge, sensor, EstiloMostrador.DIGITAL, conversor, app.sessaoObd.cambioAtivo.value)
+                MontadorMostradores.configurarGauge(
+                    gauge, sensor, EstiloMostrador.DIGITAL, conversor, app.sessaoObd.cambioAtivo.value,
+                    app.telemetriaCompartilhada.motorDiesel.value == true,
+                )
             }
             gauge.definirValor(valorExibido(sensor))
         }

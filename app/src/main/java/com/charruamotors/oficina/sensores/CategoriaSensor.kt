@@ -19,7 +19,7 @@ enum class CategoriaSensor(val titulo: String) {
             "0106", "0107", "0108", "0109", "010A", "0114", "0115", Pids.PRESSAO_RAIL, "0124", "012F", "0134", "0144",
             Pids.PERCENTUAL_ETANOL, Pids.CONSUMO_ECU, Pids.RELACAO_AF_REAL,
         )
-        private val ADMISSAO_OBD = setOf(Pids.PRESSAO_COLETOR, Pids.TEMPERATURA_AR_ADMISSAO, Pids.MAF, Pids.BORBOLETA, "0133", "0145")
+        private val ADMISSAO_OBD = setOf(Pids.PRESSAO_COLETOR, Pids.TEMPERATURA_AR_ADMISSAO, Pids.MAF, Pids.BORBOLETA, "0133", "0145", Pids.PRESSAO_BOOST)
         private val TERMOS_TRANSMISSAO = listOf("ATF", "DSG", "TCM", "ALAVANCA", "MARCHA", "4WD", "VSC")
 
         /**

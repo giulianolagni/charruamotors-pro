@@ -46,9 +46,17 @@ class TelemetriaCompartilhada(
     /** Fonte que alimentou o cronômetro no último instantâneo (null = sem velocidade), para o card. */
     val fonteCronometroAtiva: StateFlow<FonteVelocidade?> = _fonteCronometroAtiva.asStateFlow()
 
+    private val _motorDiesel = MutableStateFlow<Boolean?>(null)
+    /** O motor da sessão é diesel? Decide a escala do boost; null sem sessão (vale o cadastro). */
+    val motorDiesel: StateFlow<Boolean?> = _motorDiesel.asStateFlow()
+
+    fun definirMotorDiesel(diesel: Boolean?) {
+        _motorDiesel.value = diesel
+    }
+
     /** Painel do HUD, recalculado a cada instantâneo (só emite quando algum texto muda). */
-    val painel: Flow<PainelHud> = combine(_dados, _conectado, conversor, configHud) { dados, conectado, conv, config ->
-        FormatadorHud.montar(dados, conectado, config, conv)
+    val painel: Flow<PainelHud> = combine(_dados, _conectado, conversor, configHud, _motorDiesel) { dados, conectado, conv, config, diesel ->
+        FormatadorHud.montar(dados, conectado, config, conv, diesel == true)
     }
         .distinctUntilChanged()
 

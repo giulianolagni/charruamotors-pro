@@ -4,13 +4,16 @@ import com.charruamotors.CharruaMotorsApp
 import com.charruamotors.obd.ModoComunicacaoEcu
 import com.charruamotors.obd.log.ColunasCelular
 import com.charruamotors.obd.pid.DefinicaoPid
+import com.charruamotors.obd.pid.Pids
 
 /** Sensores que a conexão atual suporta (ECU, montadora e os calculados pelo app). */
 fun CharruaMotorsApp.definicoesDaSessao(): List<DefinicaoPid> {
     val suportados = sessaoObd.pidsSuportados.value
     // As colunas opcionais do log (posição e Força G) não são sensores destas telas.
     val doApp = sessaoObd.colunasDoAparelho(suportados).filterNot { it.comando in ColunasCelular.COMANDOS }
-    return (sessaoObd.definicoesSuportadas(suportados) + doApp).distinctBy { it.comando }
+    // O boost é só de tela (o `.csv` guarda o MAP bruto): entra aqui, não nas colunas do log.
+    val boost = listOfNotNull(DefinicaoPid.PRESSAO_BOOST.takeIf { Pids.PRESSAO_COLETOR in suportados })
+    return (sessaoObd.definicoesSuportadas(suportados) + doApp + boost).distinctBy { it.comando }
 }
 
 /**
