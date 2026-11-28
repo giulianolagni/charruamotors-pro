@@ -31,6 +31,7 @@ import com.charruamotors.obd.log.SessaoLog
 import com.charruamotors.obd.pid.CatalogoPids
 import com.charruamotors.obd.pid.Pids
 import com.charruamotors.domain.perfis.PerfilIdentificado
+import com.charruamotors.domain.perfis.SugestaoPerfil
 import com.charruamotors.obd.sessao.ConfigAutoConexao
 import com.charruamotors.obd.sessao.EscolhaScanner
 import com.charruamotors.obd.sessao.EstadoSessao
@@ -181,6 +182,13 @@ class ObdViewModel(
     fun manterPerfilAutomatico() = sessao.manterPerfilAutomatico()
 
     fun ignorarPerfilAutomatico() = sessao.ignorarPerfilAutomatico()
+
+    /** Perfil sugerido pelo VIN + protocolo, até o usuário usar ou adiar. */
+    val sugestaoPerfil: StateFlow<SugestaoPerfil?> = sessao.sugestaoPerfil
+
+    fun aceitarSugestaoPerfil() = sessao.aceitarSugestaoPerfil()
+
+    fun dispensarSugestaoPerfil() = sessao.dispensarSugestaoPerfil()
 
     private val logger = DataLogger()
     private val _estadoLog = MutableStateFlow(EstadoLog())

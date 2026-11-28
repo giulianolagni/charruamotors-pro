@@ -7,7 +7,6 @@ import com.charruamotors.CharruaMotorsApp
 import com.charruamotors.R
 import com.charruamotors.carros.CamadaPreferida
 import com.charruamotors.carros.PerfilCarro
-import com.charruamotors.domain.faixas.PresetVeiculo
 import com.charruamotors.domain.model.Veiculo
 import com.charruamotors.domain.perfis.CarregadorPerfis
 import com.charruamotors.obd.DispositivoObd
@@ -74,46 +73,21 @@ object PerfisCarroUi {
             activity.getString(R.string.perfil_tecnico_cambio, cambio),
             activity.getString(R.string.perfil_tecnico_camada, perfil.camada.titulo),
             activity.getString(R.string.perfil_tecnico_bluetooth, bluetooth),
+            activity.getString(R.string.perfil_tecnico_pids, perfil.pidsCustomizados.size),
         )
         MaterialAlertDialogBuilder(activity)
             .setTitle(activity.getString(R.string.perfil_tecnico_titulo, veiculo.descricao))
             .setItems(linhas) { _, i ->
                 when (i) {
-                    0 -> escolherFaixas(activity, veiculo, perfil)
+                    0 -> activity.startActivity(PerfisTecnicosActivity.intent(activity, veiculo.id))
                     1 -> escolherCambio(activity, veiculo, perfil)
                     2 -> escolherCamada(activity, veiculo, perfil)
-                    else -> escolherBluetooth(activity, veiculo, perfil)
+                    3 -> escolherBluetooth(activity, veiculo, perfil)
+                    else -> activity.startActivity(PidsCustomizadosActivity.intent(activity, veiculo.id))
                 }
             }
             .setNegativeButton(R.string.botao_fechar, null)
             .show()
-    }
-
-    private fun escolherFaixas(activity: AppCompatActivity, veiculo: Veiculo, perfil: PerfilCarro) {
-        val presets = PresetVeiculo.entries
-        val opcoes = listOf(
-            activity.getString(R.string.perfil_tecnico_auto, PerfilCarro(veiculo.id).resolverTitulo(veiculo, activity)),
-            activity.getString(R.string.perfil_tecnico_generico),
-        ) + presets.map { it.titulo }
-        val atual = when {
-            perfil.perfilFaixasId == null -> 0
-            perfil.obd2Generico -> 1
-            else -> presets.indexOfFirst { it.id == perfil.perfilFaixasId }.takeIf { it >= 0 }?.plus(2) ?: 0
-        }
-        escolher(activity, R.string.perfil_tecnico_faixas, opcoes, atual) { i ->
-            val id = when (i) {
-                0 -> null
-                1 -> PerfilCarro.OBD2_GENERICO
-                else -> presets[i - 2].id
-            }
-            // O OBD2 Genérico nunca usa a camada da montadora; sair dele volta ao automático.
-            val camada = when {
-                id == PerfilCarro.OBD2_GENERICO -> CamadaPreferida.OBD2
-                perfil.obd2Generico -> CamadaPreferida.AUTO
-                else -> perfil.camada
-            }
-            salvar(activity, veiculo) { it.copy(perfilFaixasId = id, camada = camada) }
-        }
     }
 
     private fun escolherCambio(activity: AppCompatActivity, veiculo: Veiculo, perfil: PerfilCarro) {
@@ -181,8 +155,4 @@ object PerfisCarroUi {
         // Reabre a lista para seguir ajustando.
         editarPerfilTecnico(activity, veiculo)
     }
-
-    /** Título do perfil reconhecido pelo cadastro (o que o "Automático" usaria). */
-    private fun PerfilCarro.resolverTitulo(veiculo: Veiculo, activity: AppCompatActivity): String =
-        resolver(veiculo).preset?.titulo ?: activity.getString(R.string.perfil_tecnico_generico)
 }

@@ -9,6 +9,7 @@ import com.charruamotors.direcao.painel.ClusterPainel
 import com.charruamotors.direcao.painel.CodecPainel
 import com.charruamotors.direcao.painel.SensorPainel
 import com.charruamotors.domain.alertas.ConfigAlertas
+import com.charruamotors.obd.pid.PidCustomizado
 import com.charruamotors.oficina.bateria.HistoricoBateria
 import com.charruamotors.oficina.bateria.OffsetAdaptador
 import com.charruamotors.oficina.sensores.PresetsGrafico
@@ -43,6 +44,8 @@ object CodecPerfilCarro {
     const val HISTORICO_BATERIA = "historico_bateria"
     const val PLANO_MANUTENCAO = "plano_manutencao"
     const val ODOMETRO = "odometro"
+    const val PIDS_CUSTOMIZADOS = "pids_customizados"
+    const val PERFIL_MANUAL = "perfil_manual"
 
     /** Bolinha do Cluster sem escolha (padrão/automático). */
     private const val BOLINHA_PADRAO = "-"
@@ -53,7 +56,7 @@ object CodecPerfilCarro {
         SCHEMA, CLUSTER, PERFIL_FAIXAS, PERFIL_CAMBIO, CAMADA, GATILHO_NOME, GATILHO_ENDERECO,
         FAVORITOS_GRAFICOS, RECORDE_060, RECORDE_0100, ALERTAS, PRESETS_GRAFICOS,
         CALIBRACAO_CONSUMO, HISTORICO_DESEMPENHO, LITROS_TANQUE, OFFSET_TENSAO, HISTORICO_BATERIA,
-        PLANO_MANUTENCAO, ODOMETRO,
+        PLANO_MANUTENCAO, ODOMETRO, PIDS_CUSTOMIZADOS, PERFIL_MANUAL,
     )
 
     /** Campos do perfil (sem o Painel); null = chave removida. */
@@ -77,6 +80,8 @@ object CodecPerfilCarro {
         HISTORICO_BATERIA to p.historicoBateria.codificar(),
         PLANO_MANUTENCAO to p.planoManutencao.codificar(),
         ODOMETRO to p.odometro?.codificar(),
+        PIDS_CUSTOMIZADOS to PidCustomizado.codificar(p.pidsCustomizados),
+        PERFIL_MANUAL to "true".takeIf { p.perfilManual },
     )
 
     /** Perfil completo (Painel + campos), pronto para o [com.charruamotors.sistema.preferencias.ArmazenamentoChaveValor.gravar]. */
@@ -106,6 +111,8 @@ object CodecPerfilCarro {
         historicoBateria = HistoricoBateria.decodificar(ler(HISTORICO_BATERIA)),
         planoManutencao = PlanoManutencao.decodificar(ler(PLANO_MANUTENCAO)),
         odometro = Odometro.decodificar(ler(ODOMETRO)),
+        pidsCustomizados = PidCustomizado.decodificar(ler(PIDS_CUSTOMIZADOS)),
+        perfilManual = ler(PERFIL_MANUAL) == "true",
     )
 
     /** Sempre [ClusterPainel.BOLINHAS] posições; nomes desconhecidos viram o padrão. */

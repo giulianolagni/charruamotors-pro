@@ -98,7 +98,8 @@ data class DefinicaoPid(
     val pidHex: String? get() = if (ehModo01) comando.substring(2) else null
 
     /** Rótulo técnico para a UI: `010C`, `ATRV` ou `7E1 · 2182` (cabeçalho · requisição). */
-    val rotuloComando: String get() = estendida?.let { "${it.cabecalho} · ${it.comando}" } ?: comando
+    val rotuloComando: String
+        get() = estendida?.let { if (it.cabecalho.isEmpty()) it.comando else "${it.cabecalho} · ${it.comando}" } ?: comando
 
     /** Converte os bytes de dados (ou o valor textual [x], em comandos AT) na unidade do sensor. */
     fun converter(dados: List<Int> = emptyList(), x: Double = 0.0): Double =

@@ -69,6 +69,9 @@ import com.charruamotors.obd.log.GravadorLogsSessao
 import com.charruamotors.obd.log.LogsSessaoSalvos
 import com.charruamotors.obd.pid.CatalogoPids
 import com.charruamotors.obd.pid.DefinicaoPid
+import com.charruamotors.obd.pid.PidCustomizado
+import com.charruamotors.domain.perfis.SugestaoPerfil
+import com.charruamotors.domain.perfis.SugestorPerfil
 import com.charruamotors.obd.pid.Pids
 import com.charruamotors.oficina.sensores.FocoSensores
 import com.charruamotors.oficina.sensores.HistoricoSessao
@@ -137,6 +140,10 @@ data class VeiculoSessao(
     val servicoPreferido: String? = null,
     /** v2.3.0: câmbio escolhido no perfil técnico do carro (vale sobre o do perfil exato). */
     private val cambioEscolhido: PerfilCambio? = null,
+    /** v2.13.0: perfil técnico escolhido pelo usuário: nada o troca nem sugere outro. */
+    val perfilManual: Boolean = false,
+    /** v2.13.0: PIDs extras deste carro. */
+    val pidsCustomizados: List<PidCustomizado> = emptyList(),
 ) {
     /** Câmbio do perfil exato (estima a marcha dos automáticos sem regra própria); null nos genéricos. */
     val cambio: PerfilCambio?
@@ -171,6 +178,8 @@ data class VeiculoSessao(
                 marcaMontadora = perfil.marcaMontadora(v.marca),
                 servicoPreferido = perfil.servicoPreferido,
                 cambioEscolhido = perfil.perfilCambioId?.let { perfil.cambio(resolucao) },
+                perfilManual = perfil.perfilManual,
+                pidsCustomizados = perfil.pidsCustomizados,
             )
         }
     }
@@ -310,7 +319,17 @@ class SessaoObd(
     private val posicaoGps: () -> PosicaoGps? = { null },
     /** v2.12.0: Força G atual (null = sem calibração ou sem leitura recente). */
     private val forcaG: () -> ForcaG? = { null },
+    /** v2.13.0: o usuário confirmou um perfil técnico (sugerido ou identificado) para `veiculoId`. */
+    private val aoConfirmarPerfil: (veiculoId: Long, perfilId: String) -> Unit = { _, _ -> },
 ) {
+    private val _sugestaoPerfil = MutableStateFlow<SugestaoPerfil?>(null)
+
+    /** Perfil sugerido pelo VIN + protocolo, à espera de [aceitarSugestaoPerfil] ou [dispensarSugestaoPerfil]. */
+    val sugestaoPerfil: StateFlow<SugestaoPerfil?> = _sugestaoPerfil.asStateFlow()
+
+    /** Definições dos PIDs customizados da sessão (as que valem são as presentes em [pidsSuportados]). */
+    @Volatile private var pidsCustomizados: List<DefinicaoPid> = emptyList()
+
     private val _modo = MutableStateFlow(modoInicial)
     val modo: StateFlow<ModoObd> = _modo.asStateFlow()
 
@@ -810,7 +829,8 @@ class SessaoObd(
     ): List<DefinicaoPid> {
         val espelhos = conexao.espelhos.associateBy { it.comando }
         val montadora = (perfil as? ResultadoPerfil.Ativo)?.pids.orEmpty()
-        return (catalogoPids.pids.map { espelhos[it.comando] ?: it } + montadora).filter { it.comando in suportados }
+        return (catalogoPids.pids.map { espelhos[it.comando] ?: it } + montadora + pidsCustomizados)
+            .filter { it.comando in suportados }
     }
 
     /**
@@ -864,6 +884,8 @@ class SessaoObd(
             _cambioAtivo.value = veiculo?.cambio
             estimadorCambio.reiniciar()
             calculadoraBoost.reiniciar()
+            pidsCustomizados = emptyList()
+            _sugestaoPerfil.value = null
             combustivelAtual = veiculo?.combustivel
             testeAceleracao.selecionar(testeAceleracao.estado.value.modalidade)
             testeBateria.novaSessao(if (veiculo != null) veiculoId else 0)
@@ -957,6 +979,15 @@ class SessaoObd(
             if (perfil is ResultadoPerfil.Ativo) {
                 _eventos.tryEmit(EventoSessao.Mensagem("Perfil ${perfil.fabricante} ativado: ${perfil.pids.size} PIDs da montadora"))
             }
+            val extras = veiculo?.pidsCustomizados.orEmpty()
+            if (extras.isNotEmpty()) {
+                // Antes de sondar: assim que o PID entrar em pidsSuportados, as telas já o conhecem.
+                pidsCustomizados = extras.map { it.definicao(null) }
+                withTimeoutOrNull(tempos.prazoPerfilMs) { cli.ativarPidsCustomizados(extras) }
+                    ?.let { ativos -> pidsCustomizados = ativos }
+                val ativos = pidsCustomizados.count { it.comando in cli.pidsSuportados.value }
+                g?.evento("PIDs customizados: $ativos de ${extras.size} ativos", relogio())
+            }
             if (g != null) {
                 val suportados = cli.pidsSuportados.value
                 val colunas = definicoesSuportadas(suportados, cli.infoConexao.value, perfil) + colunasDoAparelho(suportados)
@@ -1023,9 +1054,11 @@ class SessaoObd(
         _vinDecodificado.value = info
         val generico = cadastroGenerico(veiculo)
         val catalogo = CarregadorPerfis.catalogo
-        val porVds = if (generico) IdentificadorPerfil.porVds(catalogo, info) else null
+        // v2.13.0: com o perfil escolhido à mão, a sessão segue sondando (TCM), mas não troca nada.
+        val manual = veiculo?.perfilManual == true
+        val porVds = if (generico && !manual) IdentificadorPerfil.porVds(catalogo, info) else null
         if (porVds != null) aplicarPerfilAutomatico(porVds, g)
-        registrarVin(vin, veiculo, g, sugerir = porVds == null)
+        registrarVin(vin, veiculo, g, sugerir = porVds == null && !manual)
         _vinLido.value = true
 
         val impressao = withTimeoutOrNull(tempos.prazoIdentificacaoMs) {
@@ -1039,12 +1072,45 @@ class SessaoObd(
                 (impressao.tcmDetectado?.let { if (it) "detectado (${impressao.tcmCabecalho})" else "não detectado" } ?: "não sondado"),
             relogio(),
         )
-        if (porVds == null && generico) {
+        if (porVds == null && generico && !manual) {
             IdentificadorPerfil.porSondagem(catalogo, impressao, cli.pidsSuportados.value, mapPicoKpa)
                 ?.let { aplicarPerfilAutomatico(it, g) }
         }
         identificacaoConcluida = true
         acompanharMap(null, g)
+        if (veiculo != null && generico && !manual && info?.montadora != null && perfilAplicado == null) {
+            sugerirPerfil(cli, veiculo, info, g)
+        }
+    }
+
+    /** Sugestão (nunca aplicada sozinha) pelo WMI do VIN e o `ATDPN`, para o perfil genérico. */
+    private suspend fun sugerirPerfil(cli: ObdClient, veiculo: VeiculoSessao, vin: VinDecodificado, g: GravadorLogsSessao?) {
+        val protocolo = withTimeoutOrNull(tempos.prazoIdentificacaoMs) { cli.lerNumeroProtocolo() } ?: return
+        val sugestao = SugestorPerfil.sugerir(
+            CarregadorPerfis.catalogo,
+            veiculo.id,
+            atualId = veiculo.resolucao?.preset?.id,
+            atualGenerico = true,
+            vin = vin,
+            protocolo = protocolo,
+            modelo = veiculo.modelo,
+            combustivel = veiculo.combustivel,
+        ) ?: return
+        _sugestaoPerfil.value = sugestao
+        g?.evento("Perfil sugerido (aguardando confirmação): ${sugestao.preset.titulo} - ${sugestao.motivo}", relogio())
+    }
+
+    /** O usuário confirmou a sugestão: o perfil é gravado no carro e vale na próxima conexão. */
+    fun aceitarSugestaoPerfil() {
+        val sugestao = _sugestaoPerfil.value ?: return
+        _sugestaoPerfil.value = null
+        aoConfirmarPerfil(sugestao.veiculoId, sugestao.preset.id)
+        registrarEvento("Perfil sugerido confirmado pelo usuário: ${sugestao.preset.titulo}")
+        _eventos.tryEmit(EventoSessao.Mensagem("${sugestao.preset.titulo} salvo neste carro: vale na próxima conexão"))
+    }
+
+    fun dispensarSugestaoPerfil() {
+        _sugestaoPerfil.value = null
     }
 
     /**
@@ -1073,7 +1139,12 @@ class SessaoObd(
 
     /** O usuário aceitou o aviso: o perfil automático segue valendo até o fim da sessão. */
     fun manterPerfilAutomatico() {
-        _perfilAutomatico.value?.let { registrarEvento("Perfil automático mantido pelo usuário: ${it.preset.titulo}") }
+        _perfilAutomatico.value?.let {
+            registrarEvento("Perfil automático mantido pelo usuário: ${it.preset.titulo}")
+            // Confirmado: um perfil exato passa a ser o deste carro (o genérico segue só nesta sessão).
+            val veiculoId = veiculoAtual?.id ?: 0L
+            if (veiculoId > 0 && !it.preset.generico) aoConfirmarPerfil(veiculoId, it.preset.id)
+        }
         _perfilAutomatico.value = null
     }
 
@@ -1181,6 +1252,8 @@ class SessaoObd(
         _vinLido.value = false
         estimadorPerfil = null
         _perfilAutomatico.value = null
+        _sugestaoPerfil.value = null
+        pidsCustomizados = emptyList()
         _impressaoEcu.value = null
         perfilAplicado = null
         veiculoAtual = null

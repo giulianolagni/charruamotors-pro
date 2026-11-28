@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- v2.13.0: Perfis Técnicos -->
+    <string name="perfis_titulo">Perfis Técnicos</string>
+    <string name="perfis_dica_titulo">Não achou o carro? Use um genérico</string>
+    <string name="perfis_dica">1. OBD-II / EOBD Básico: o padrão universal, funciona em qualquer protocolo.\n2. CAN 11-bit Gasolina/Flex (pós-2004): faixas e alertas de motor flex (aspirado ou turbo).\n3. CAN 11-bit Diesel (pós-2004): faixas e alertas de motor diesel.\nOs recursos que dependem de CAN só são usados quando o carro responde em CAN.</string>
+    <string name="perfis_busca">Buscar montadora, modelo ou motor</string>
+    <string name="perfis_selecionado">Selecionado: %1$s</string>
+
+    <!-- Sugestão pelo VIN + protocolo (aba Painel) -->
+    <string name="obd_perfil_sugerido">Perfil sugerido: %1$s (%2$s)</string>
+    <string name="obd_perfil_usar">Usar</string>
+    <string name="obd_perfil_agora_nao">Agora não</string>
+
+    <!-- PIDs customizados -->
+    <string name="perfil_tecnico_pids">PIDs customizados: %1$d</string>
+    <string name="pids_titulo">PIDs customizados</string>
+    <string name="pids_regras">Somente leitura (serviços 01, 21 e 22), fórmula com A, B, C, D, Signed(x), parênteses e + - * /. O cabeçalho só vale em CAN de 11 bits; em KWP/ISO9141 é ignorado. Nos modos 21/22 (Hilux SW4) os PIDs customizados ficam desligados. Alterações valem na próxima conexão. Confira cada valor no carro antes de confiar nele.</string>
+    <string name="pids_importar">Importar CSV (Torque) ou JSON</string>
+    <string name="pids_adicionar">Adicionar manualmente</string>
+    <string name="pids_compartilhar">Compartilhar JSON</string>
+    <string name="pids_remover_todos">Remover todos</string>
+    <string name="pids_remover_todos_pergunta">Remover os %1$d PIDs customizados de %2$s?</string>
+    <string name="pids_vazio">Nenhum PID customizado neste carro.</string>
+    <string name="pids_editar">Editar PID</string>
+    <string name="pids_novo">Novo PID</string>
+    <string name="pids_salvar">Salvar</string>
+    <string name="pids_remover">Remover</string>
+    <string name="pids_nome">Nome (Name)</string>
+    <string name="pids_nome_curto">Nome curto (ShortName)</string>
+    <string name="pids_modo">Modo + PID (ex.: 221940)</string>
+    <string name="pids_equacao">Equação (ex.: Signed(256*A+B)/10)</string>
+    <string name="pids_min">Mínimo (opcional)</string>
+    <string name="pids_max">Máximo (opcional)</string>
+    <string name="pids_unidade">Unidade</string>
+    <string name="pids_cabecalho">Cabeçalho (ex.: 7E0 ou vazio)</string>
+    <string name="pids_resultado_titulo">Importação</string>
+    <string name="pids_importados">%1$d PID(s) importado(s).</string>
+    <string name="pids_recusados">Recusados (%1$d):</string>
+    <string name="pids_erro_arquivo">Não foi possível ler o arquivo</string>
+    <string name="pids_erro_limite">Limite de %1$d PIDs por veículo atingido</string>
+    <string name="pids_erro_numero">Mínimo e máximo precisam ser números</string>
+</resources>

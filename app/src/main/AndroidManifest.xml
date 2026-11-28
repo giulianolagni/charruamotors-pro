@@ -111,6 +111,15 @@
             android:launchMode="singleTop"
             android:theme="@style/Theme.CharruaMotors.Cluster" />
 
+        <!-- v2.13.0: Perfis Técnicos e PIDs customizados do carro -->
+        <activity
+            android:name=".ui.carros.PerfisTecnicosActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize|stateHidden" />
+        <activity
+            android:name=".ui.carros.PidsCustomizadosActivity"
+            android:exported="false" />
+
         <!-- Ferramentas de Oficina (abertas pelo hub da aba OBD2) -->
         <activity
             android:name=".ui.oficina.bateria.TesteBateriaActivity"

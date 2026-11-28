@@ -14,6 +14,7 @@ import com.charruamotors.obd.pid.CatalogoPids
 import com.charruamotors.obd.pid.DefinicaoPid
 import com.charruamotors.obd.pid.ModoServico
 import com.charruamotors.obd.pid.PerfilFabricante
+import com.charruamotors.obd.pid.PidCustomizado
 import com.charruamotors.obd.pid.Pids
 import com.charruamotors.obd.pid.ProtocoloFisico
 import com.charruamotors.obd.pid.RequisicaoEstendida
@@ -542,6 +543,46 @@ class Elm327BluetoothClient(
         } catch (e: ObdException) {
             ResultadoPerfil.Indisponivel(perfil.nome, e.message ?: "falha de comunicação")
         }
+    }
+
+    override suspend fun lerNumeroProtocolo(): Int? = withContext(dispatcher) {
+        try {
+            exigirConectado()
+            ObdParser.parseProtocolo(enviar("ATDPN"))
+        } catch (e: ObdException) {
+            null
+        }
+    }
+
+    override suspend fun ativarPidsCustomizados(pids: List<PidCustomizado>): List<DefinicaoPid> = withContext(dispatcher) {
+        if (pids.isEmpty()) return@withContext emptyList()
+        // A sequência dos modos 21/22 (SW4) é fixa: nenhum comando a mais.
+        if (modoServico != null) {
+            registro.evento("PIDs customizados não ativados nos modos 21/22")
+            return@withContext emptyList()
+        }
+        val protocolo = lerNumeroProtocolo()
+        val ativos = mutableListOf<DefinicaoPid>()
+        try {
+            exigirConectado()
+            for ((requisicao, definicoes) in pids.map { it.definicao(protocolo) }.groupBy { it.estendida!! }) {
+                val bruto = try {
+                    enviar(requisicao.comando, timeoutComandoMs, cabecalhoDe(requisicao))
+                } catch (e: ObdTimeoutException) {
+                    continue
+                }
+                val respondidos = definicoes.filter { ObdParser.parsePid(bruto, it) is RespostaObd.Ok }
+                // Um a um: se o prazo da sessão estourar, os já sondados continuam valendo.
+                incluirEstendidos(respondidos)
+                ativos += respondidos
+            }
+        } catch (e: ObdException) {
+            registro.evento("PIDs customizados interrompidos: ${e.message}")
+        } finally {
+            withContext(NonCancellable) { runCatching { restaurarCabecalho(null) } }
+        }
+        registro.evento("PIDs customizados: ${ativos.size} de ${pids.size} responderam (protocolo ${protocolo ?: "ilegível"})")
+        ativos
     }
 
     /**
@@ -1811,7 +1852,7 @@ class Elm327BluetoothClient(
 
     /** Requisição de montadora com o sufixo `1` (`210C1`), salvo as multi-frame (`21D9`, `21AD`) e as que voltaram incompletas com ele. */
     private fun comandoDe(requisicao: RequisicaoEstendida): String =
-        if (usaSufixoRespostaUnica && !requisicao.multiFrame && requisicao !in requisicoesSemSufixo) {
+        if (usaSufixoRespostaUnica && !requisicao.multiFrame && !requisicao.customizada && requisicao !in requisicoesSemSufixo) {
             requisicao.comando + SUFIXO_RESPOSTA_UNICA
         } else {
             requisicao.comando
@@ -1819,6 +1860,8 @@ class Elm327BluetoothClient(
 
     /** Cabeçalho de uma requisição de montadora: no modo 21/22, o da sessão (null fora do CAN 11 bits), salvo o câmbio `7E1` já sondado. */
     private fun cabecalhoDe(requisicao: RequisicaoEstendida): String? {
+        // Customizada (só no OBD2 padrão): vazio = o cabeçalho funcional, sem `ATSH` próprio.
+        if (requisicao.customizada) return requisicao.cabecalho.ifEmpty { null }
         val modo = modoServico ?: return requisicao.cabecalho
         val visitaAoCambio = cambioAtivo && requisicao.cabecalho == CABECALHO_CAMBIO &&
             requisicao.servico == modo.servico && requisicao.identificador in IDS_CAMBIO_POLLING
@@ -2028,6 +2071,11 @@ class Elm327BluetoothClient(
             restaurarCabecalhoServico()
         } else if (filtroCambioPadrao && modoServico == null && cabecalhoAtivo == CABECALHO_CAMBIO) {
             // GM/Cruze: ao sair do bloco do TCM 7E1, volta ao funcional (ATSH 7DF) e ao ATCRA padrão.
+            restaurarCabecalho(null)
+        } else if (modoServico == null && cabecalhoAtivo != null &&
+            estendidas.values.any { it.estendida?.customizada == true && it.estendida.cabecalho == cabecalhoAtivo }
+        ) {
+            // Depois de um PID customizado em outro módulo, volta ao funcional e ao ATCRA padrão.
             restaurarCabecalho(null)
         }
         return coletor.ciclo()
